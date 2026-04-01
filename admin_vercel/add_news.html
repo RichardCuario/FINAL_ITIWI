@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add News - ITIWI</title>
+  <link rel="stylesheet" href="admin-theme.css">
+  <style>
+    .page-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .field-card {
+      padding: 18px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+    }
+
+    .field-card.full {
+      grid-column: 1 / -1;
+    }
+
+    .field-label {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .field-label small {
+      font-size: 12px;
+      line-height: 1.6;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    textarea {
+      min-height: 180px;
+      resize: vertical;
+    }
+
+    .upload-shell {
+      display: grid;
+      gap: 14px;
+    }
+
+    .upload-dropzone {
+      padding: 24px;
+      border-radius: 18px;
+      border: 1px dashed rgba(79, 70, 229, 0.32);
+      background: rgba(224, 231, 255, 0.35);
+      color: var(--text-soft);
+      text-align: center;
+    }
+
+    .upload-dropzone strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text);
+      font-size: 15px;
+    }
+
+    .upload-dropzone p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .preview-wrap {
+      display: none;
+      overflow: hidden;
+      border-radius: 20px;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      background: rgba(248, 250, 252, 0.9);
+    }
+
+    .preview-wrap.show {
+      display: block;
+    }
+
+    .preview-wrap img {
+      display: block;
+      width: 100%;
+      max-height: 260px;
+      object-fit: cover;
+    }
+
+    .status-box {
+      margin-bottom: 18px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      background: rgba(248, 250, 252, 0.8);
+      color: var(--text-soft);
+      font-size: 14px;
+    }
+
+    .status-box.error {
+      color: #b91c1c;
+      background: rgba(254, 242, 242, 0.96);
+      border-color: rgba(239, 68, 68, 0.2);
+    }
+
+    .status-box.success {
+      color: #047857;
+      background: rgba(236, 253, 245, 0.96);
+      border-color: rgba(16, 185, 129, 0.2);
+    }
+
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 22px;
+    }
+
+    .insight-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .insight-item {
+      padding: 18px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+    }
+
+    .insight-item strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .insight-item span {
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .success {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(15, 23, 42, 0.28);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 40;
+    }
+
+    .success-card {
+      width: min(100%, 420px);
+      padding: 30px;
+      border-radius: 26px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .success-icon {
+      width: 74px;
+      height: 74px;
+      margin: 0 auto 18px;
+      border-radius: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(79, 70, 229, 0.18));
+      color: var(--success);
+      font-size: 34px;
+      font-weight: 700;
+    }
+
+    .success-card h2 {
+      margin: 0 0 10px;
+      color: var(--text);
+      font-size: 24px;
+    }
+
+    .success-card p {
+      margin: 0;
+      color: var(--text-muted);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    @media (max-width: 1180px) {
+      .page-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .field-card.full {
+        grid-column: auto;
+      }
+
+      .form-actions .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="main">
+    <section class="page-hero">
+      <div class="page-hero-grid">
+        <div>
+          <div class="hero-kicker">Community Updates</div>
+          <h1 class="hero-title">Create a news post</h1>
+          <p class="hero-subtitle">Publish timely announcements and community stories with clear titles, complete descriptions, and optional visual coverage.</p>
+          <div class="hero-highlights">
+            <div class="hero-highlight">
+              <strong>Fast publishing</strong>
+              <span>Post updates in just a few steps</span>
+            </div>
+            <div class="hero-highlight">
+              <strong>Optional media</strong>
+              <span>Add an image when it strengthens the story</span>
+            </div>
+          </div>
+        </div>
+        <div class="hero-panel">
+          <span class="hero-panel-label">New article</span>
+          <h3>Keep residents informed</h3>
+          <p>Use concise, complete messaging so important community updates are easy to understand and ready for public viewing.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="page-layout">
+      <section class="form-card">
+        <div class="section-heading">
+          <div>
+            <h2>News content</h2>
+            <p>Fill in the fields below and publish the post when everything looks ready.</p>
+          </div>
+        </div>
+
+        <div id="formStatus" class="status-box">Complete the required fields to publish a news post.</div>
+
+        <form id="newsForm">
+          <div class="form-grid">
+            <div class="field-card">
+              <label class="field-label" for="title">
+                Title
+                <input id="title" name="title" placeholder="Enter a clear news title" maxlength="160" required>
+                <small>Use a short, informative headline that quickly explains the update.</small>
+              </label>
+            </div>
+
+            <div class="field-card">
+              <label class="field-label" for="imageInput">
+                Featured image
+                <div class="upload-shell">
+                  <div class="upload-dropzone">
+                    <strong>Select an image file</strong>
+                    <p>PNG, JPG, WEBP, or GIF accepted. Leave blank if the post does not need a photo.</p>
+                  </div>
+                  <input type="file" id="imageInput" accept="image/*">
+                  <div class="preview-wrap" id="previewWrap">
+                    <img id="previewImage" alt="Selected preview">
+                  </div>
+                </div>
+                <small>Images are uploaded to the existing Supabase storage bucket used by the project.</small>
+              </label>
+            </div>
+
+            <div class="field-card full">
+              <label class="field-label" for="description">
+                Description
+                <textarea id="description" name="description" placeholder="Write the full announcement or story details" required></textarea>
+                <small>Provide enough detail for residents to understand the update without needing extra context.</small>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-secondary" type="button" onclick="goBack()">Cancel</button>
+            <button class="btn btn-primary" type="submit" id="submitButton">Publish post</button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="section-card">
+        <div class="section-heading">
+          <div>
+            <h2>Publishing checklist</h2>
+            <p>Review these reminders before posting a public update.</p>
+          </div>
+        </div>
+
+        <div class="insight-list">
+          <div class="insight-item">
+            <strong>Write a useful headline</strong>
+            <span>Make the title direct and public-facing so readers know what the story is about immediately.</span>
+          </div>
+          <div class="insight-item">
+            <strong>Include complete details</strong>
+            <span>Use the description to add key dates, locations, and instructions when relevant.</span>
+          </div>
+          <div class="insight-item">
+            <strong>Upload only when needed</strong>
+            <span>An image can improve visibility, but the post should still make sense without one.</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="success" id="successModal">
+    <div class="success-card">
+      <div class="success-icon">✓</div>
+      <h2>Published successfully</h2>
+      <p>Your news post has been saved. Redirecting back to the newsroom list...</p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="auth.js"></script>
+  <script type="module">
+    const { client: supabase } = await window.adminAuth.initializeAdminPage();
+
+    const form = document.getElementById('newsForm');
+    const titleInput = document.getElementById('title');
+    const descriptionInput = document.getElementById('description');
+    const imageInput = document.getElementById('imageInput');
+    const previewWrap = document.getElementById('previewWrap');
+    const previewImage = document.getElementById('previewImage');
+    const formStatus = document.getElementById('formStatus');
+    const submitButton = document.getElementById('submitButton');
+    const successModal = document.getElementById('successModal');
+
+    function goBack() {
+      window.location.href = 'news.html';
+    }
+
+    function setStatus(message, type = '') {
+      formStatus.textContent = message;
+      formStatus.className = `status-box${type ? ` ${type}` : ''}`;
+    }
+
+    function previewSelectedImage() {
+      const file = imageInput.files[0];
+
+      if (!file) {
+        previewWrap.classList.remove('show');
+        previewImage.removeAttribute('src');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        previewImage.src = event.target?.result || '';
+        previewWrap.classList.add('show');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function uploadImage(file) {
+      const fileExtension = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
+      const safeName = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${fileExtension}`;
+      const bucket = supabase.storage.from('NEWS');
+      const uploadPath = safeName;
+
+      const { error: uploadError } = await bucket.upload(uploadPath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+      if (uploadError) {
+        throw new Error(`Image upload failed: ${uploadError.message}`);
+      }
+
+      const { data } = bucket.getPublicUrl(uploadPath);
+      return data.publicUrl;
+    }
+
+    async function sendNewsNotification({ newsId, title, description, imageUrl }) {
+      const response = await fetch('/api/send-news-notification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          newsId,
+          title,
+          description,
+          imageUrl
+        })
+      });
+
+      const responseText = await response.text();
+      let responseJson = null;
+
+      try {
+        responseJson = responseText ? JSON.parse(responseText) : null;
+      } catch (_) {
+        responseJson = null;
+      }
+
+      if (!response.ok) {
+        throw new Error(responseJson?.error || 'Notification send failed.');
+      }
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const title = titleInput.value.trim();
+      const description = descriptionInput.value.trim();
+      const file = imageInput.files[0];
+
+      if (!title) {
+        setStatus('Please enter a title before publishing.', 'error');
+        titleInput.focus();
+        return;
+      }
+
+      if (!description) {
+        setStatus('Please enter a description before publishing.', 'error');
+        descriptionInput.focus();
+        return;
+      }
+
+      submitButton.disabled = true;
+      setStatus('Publishing news post...');
+
+      try {
+        let imageUrl = '';
+
+        if (file) {
+          imageUrl = await uploadImage(file);
+        }
+
+        const { data, error } = await supabase.from('news').insert([
+          {
+            title,
+            description,
+            image_url: imageUrl
+          }
+        ]).select('id').single();
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        await sendNewsNotification({
+          newsId: data?.id ?? null,
+          title,
+          description,
+          imageUrl
+        });
+
+        setStatus('News post published successfully and notification sent.', 'success');
+        successModal.style.display = 'flex';
+        window.setTimeout(() => {
+          window.location.href = 'news.html';
+        }, 1400);
+      } catch (err) {
+        setStatus(err.message || 'Unable to publish the news post.', 'error');
+        submitButton.disabled = false;
+      }
+    });
+
+    imageInput.addEventListener('change', previewSelectedImage);
+
+    window.goBack = goBack;
+  </script>
+
+  <script src="sidebar.js"></script>
+</body>
+</html>

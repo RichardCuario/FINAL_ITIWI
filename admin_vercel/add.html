@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add Hotline</title>
+  <link rel="stylesheet" href="admin-theme.css">
+  <style>
+    .page-hero .hero-panel {
+      align-self: stretch;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 10px;
+      min-height: 100%;
+    }
+
+    .page-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.75fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .form-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .field-card {
+      padding: 18px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+    }
+
+    .field-card.full {
+      grid-column: 1 / -1;
+    }
+
+    .field-label {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .field-label small {
+      font-size: 12px;
+      line-height: 1.6;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    textarea {
+      min-height: 160px;
+      resize: vertical;
+    }
+
+    input[type="file"] {
+      padding: 12px;
+      background: rgba(248, 250, 252, 0.9);
+    }
+
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .tips-card {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .tips-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .tip-item {
+      padding: 18px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+    }
+
+    .tip-item strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .tip-item span {
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .form-message {
+      display: none;
+      margin-bottom: 18px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.6;
+      border: 1px solid transparent;
+    }
+
+    .form-message.show {
+      display: block;
+    }
+
+    .form-message.error {
+      color: #b91c1c;
+      background: rgba(239, 68, 68, 0.08);
+      border-color: rgba(239, 68, 68, 0.14);
+    }
+
+    .form-message.success {
+      color: #047857;
+      background: rgba(16, 185, 129, 0.1);
+      border-color: rgba(16, 185, 129, 0.16);
+    }
+
+    .logo-preview {
+      display: none;
+      align-items: center;
+      gap: 14px;
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(248, 250, 252, 0.9);
+      border: 1px dashed rgba(148, 163, 184, 0.24);
+    }
+
+    .logo-preview.show {
+      display: flex;
+    }
+
+    .logo-preview img {
+      width: 64px;
+      height: 64px;
+      object-fit: cover;
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: #ffffff;
+    }
+
+    .logo-preview-copy strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .logo-preview-copy span {
+      color: var(--text-muted);
+      font-size: 12px;
+      word-break: break-word;
+    }
+
+    .success {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(15, 23, 42, 0.28);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 40;
+    }
+
+    .success-card {
+      width: min(100%, 420px);
+      padding: 30px;
+      border-radius: 26px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .success-icon {
+      width: 74px;
+      height: 74px;
+      margin: 0 auto 18px;
+      border-radius: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(79, 70, 229, 0.18));
+      color: var(--success);
+      font-size: 34px;
+      font-weight: 700;
+    }
+
+    .success-card h2 {
+      margin: 0 0 10px;
+      color: var(--text);
+      font-size: 24px;
+    }
+
+    .success-card p {
+      margin: 0;
+      color: var(--text-muted);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    @media (max-width: 1180px) {
+      .page-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .field-card.full {
+        grid-column: auto;
+      }
+
+      .form-actions {
+        justify-content: stretch;
+      }
+
+      .form-actions .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="main">
+    <section class="page-hero">
+      <div class="page-hero-grid">
+        <div>
+          <div class="hero-kicker">Emergency Directory</div>
+          <h1 class="hero-title">Add a new hotline record</h1>
+          <p class="hero-subtitle">Create a clear, accurate emergency contact entry so residents can quickly find the right agency during urgent situations.</p>
+          <div class="hero-highlights">
+            <div class="hero-highlight">
+              <strong>Fast publishing</strong>
+              <span>Save hotline details instantly</span>
+            </div>
+            <div class="hero-highlight">
+              <strong>Better visibility</strong>
+              <span>Keep names and categories easy to scan</span>
+            </div>
+          </div>
+        </div>
+        <div class="hero-panel">
+          <span class="hero-panel-label">Admin workflow</span>
+          <h3>Before you publish</h3>
+          <p>Verify the hotline name, public contact number, category, and optional logo so the listing appears polished and trustworthy.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="page-layout">
+      <div class="form-shell">
+        <section class="form-card">
+          <div class="section-heading">
+            <div>
+              <h2>Hotline information</h2>
+              <p>Complete each field below before publishing the new hotline entry.</p>
+            </div>
+          </div>
+
+          <div id="formMessage" class="form-message"></div>
+
+          <form id="hotlineForm" novalidate>
+            <div class="form-grid">
+              <div class="field-card">
+                <label class="field-label" for="name">
+                  Name
+                  <input id="name" name="name" placeholder="e.g. Municipal Disaster Risk Reduction Office" maxlength="120" required>
+                  <small>Use the official agency or department name.</small>
+                </label>
+              </div>
+
+              <div class="field-card">
+                <label class="field-label" for="phone">
+                  Hotline
+                  <input id="phone" name="phone" placeholder="e.g. 0917-123-4567, (02) 8888-9999" maxlength="200" required>
+                  <small>Add one or more numbers separated by commas or line breaks.</small>
+                </label>
+              </div>
+
+              <div class="field-card full">
+                <label class="field-label" for="description">
+                  Description
+                  <textarea id="description" name="description" placeholder="Describe the hotline service, emergency scope, and response coverage." maxlength="1000" required></textarea>
+                  <small>Summarize the hotline purpose, scope, or emergency support coverage.</small>
+                </label>
+              </div>
+
+              <div class="field-card full">
+                <label class="field-label" for="category">
+                  Category
+                  <input id="category" name="category" placeholder="e.g. Rescue, Fire, Medical, Police" maxlength="80" required>
+                  <small>Examples: Rescue, Fire, Medical, Police, Disaster Response.</small>
+                </label>
+              </div>
+
+              <div class="field-card full">
+                <label class="field-label" for="logo">
+                  Logo
+                  <input type="file" id="logo" name="logo" accept="image/*">
+                  <small>Optional upload for branding and faster visual recognition.</small>
+                </label>
+
+                <div id="logoPreview" class="logo-preview">
+                  <img id="logoPreviewImage" alt="Selected logo preview">
+                  <div class="logo-preview-copy">
+                    <strong>Selected logo</strong>
+                    <span id="logoPreviewText"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <a class="btn btn-secondary" href="index.html">Cancel</a>
+              <button class="btn btn-primary" id="submitButton" type="submit">Publish</button>
+            </div>
+          </form>
+        </section>
+      </div>
+
+      <aside class="section-card tips-card">
+        <div class="section-heading">
+          <div>
+            <h2>Publishing tips</h2>
+            <p>Improve quality and reduce confusion during emergencies.</p>
+          </div>
+        </div>
+
+        <div class="tips-list">
+          <div class="tip-item">
+            <strong>Clear naming</strong>
+            <span>Use recognizable agency names so residents can identify the service immediately.</span>
+          </div>
+          <div class="tip-item">
+            <strong>Correct category</strong>
+            <span>Assign the right service type to keep the hotline directory organized and searchable.</span>
+          </div>
+          <div class="tip-item">
+            <strong>Verified phone number</strong>
+            <span>Double-check contact details before publishing to avoid failed calls during urgent moments.</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="success" id="success">
+    <div class="success-card">
+      <div class="success-icon">✓</div>
+      <h2>Published successfully</h2>
+      <p>Redirecting back to the hotline list...</p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="auth.js"></script>
+  <script type="module">
+    const { client: supabase } = await window.adminAuth.initializeAdminPage();
+
+    const form = document.getElementById('hotlineForm');
+    const submitButton = document.getElementById('submitButton');
+    const messageBox = document.getElementById('formMessage');
+    const successModal = document.getElementById('success');
+    const logoInput = document.getElementById('logo');
+    const logoPreview = document.getElementById('logoPreview');
+    const logoPreviewImage = document.getElementById('logoPreviewImage');
+    const logoPreviewText = document.getElementById('logoPreviewText');
+
+    let logoPreviewUrl = '';
+
+    function setMessage(message, type = 'error') {
+      if (!message) {
+        messageBox.textContent = '';
+        messageBox.className = 'form-message';
+        return;
+      }
+
+      messageBox.textContent = message;
+      messageBox.className = `form-message ${type} show`;
+    }
+
+    function normalizePhoneNumbers(value) {
+      return value
+        .split(/[\n,;/]+/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+
+    function validateForm(payload) {
+      if (!payload.name) {
+        return 'Please enter the hotline name.';
+      }
+
+      if (!payload.description) {
+        return 'Please provide a short description for this hotline.';
+      }
+
+      if (!payload.category) {
+        return 'Please enter a hotline category.';
+      }
+
+      if (!payload.phoneNumbers.length) {
+        return 'Please provide at least one hotline number.';
+      }
+
+      return '';
+    }
+
+    async function uploadLogo(file) {
+      if (!file) {
+        return null;
+      }
+
+      const sanitizedName = file.name.replace(/\s+/g, '_');
+      const fileName = `${Date.now()}_${sanitizedName}`;
+      const filePath = `public/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage.from('LOGO').upload(filePath, file, {
+        upsert: false
+      });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage.from('LOGO').getPublicUrl(filePath);
+      return data.publicUrl;
+    }
+
+    function revokeLogoPreviewUrl() {
+      if (logoPreviewUrl) {
+        URL.revokeObjectURL(logoPreviewUrl);
+        logoPreviewUrl = '';
+      }
+    }
+
+    function updateLogoPreview() {
+      const file = logoInput.files && logoInput.files[0];
+      revokeLogoPreviewUrl();
+
+      if (!file) {
+        logoPreview.classList.remove('show');
+        logoPreviewImage.removeAttribute('src');
+        logoPreviewText.textContent = '';
+        return;
+      }
+
+      logoPreviewUrl = URL.createObjectURL(file);
+      logoPreview.classList.add('show');
+      logoPreviewImage.src = logoPreviewUrl;
+      logoPreviewText.textContent = `${file.name} • ${Math.max(1, Math.round(file.size / 1024))} KB`;
+    }
+
+    logoInput.addEventListener('change', updateLogoPreview);
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      setMessage('');
+
+      const payload = {
+        name: document.getElementById('name').value.trim(),
+        description: document.getElementById('description').value.trim(),
+        category: document.getElementById('category').value.trim(),
+        phoneNumbers: normalizePhoneNumbers(document.getElementById('phone').value.trim())
+      };
+
+      const validationMessage = validateForm(payload);
+      if (validationMessage) {
+        setMessage(validationMessage, 'error');
+        return;
+      }
+
+      const file = logoInput.files && logoInput.files[0];
+      submitButton.disabled = true;
+      submitButton.textContent = 'Publishing...';
+
+      try {
+        const logoUrl = await uploadLogo(file);
+
+        const { error } = await supabase.from('hotlines').insert([
+          {
+            name: payload.name,
+            description: payload.description,
+            category: payload.category,
+            phone_numbers: payload.phoneNumbers,
+            logo_url: logoUrl
+          }
+        ]);
+
+        if (error) {
+          throw error;
+        }
+
+        setMessage('Hotline published successfully.', 'success');
+        successModal.style.display = 'flex';
+        revokeLogoPreviewUrl();
+        window.setTimeout(() => {
+          window.location.href = 'index.html';
+        }, 1400);
+      } catch (error) {
+        setMessage(error.message || 'Unable to publish hotline right now. Please try again.', 'error');
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Publish';
+      }
+    });
+
+    window.addEventListener('beforeunload', revokeLogoPreviewUrl);
+  </script>
+
+  <script src="sidebar.js"></script>
+</body>
+</html>

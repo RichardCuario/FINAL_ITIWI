@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit News - ITIWI</title>
+  <link rel="stylesheet" href="admin-theme.css">
+  <style>
+    .page-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .field-card {
+      padding: 18px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+    }
+
+    .field-card.full {
+      grid-column: 1 / -1;
+    }
+
+    .field-label {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .field-label small {
+      font-size: 12px;
+      line-height: 1.6;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    textarea {
+      min-height: 180px;
+      resize: vertical;
+    }
+
+    .upload-shell {
+      display: grid;
+      gap: 14px;
+    }
+
+    .upload-dropzone {
+      padding: 24px;
+      border-radius: 18px;
+      border: 1px dashed rgba(79, 70, 229, 0.32);
+      background: rgba(224, 231, 255, 0.35);
+      color: var(--text-soft);
+      text-align: center;
+    }
+
+    .upload-dropzone strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text);
+      font-size: 15px;
+    }
+
+    .upload-dropzone p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .preview-wrap {
+      display: none;
+      overflow: hidden;
+      border-radius: 20px;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      background: rgba(248, 250, 252, 0.9);
+    }
+
+    .preview-wrap.show {
+      display: block;
+    }
+
+    .preview-wrap img {
+      display: block;
+      width: 100%;
+      max-height: 260px;
+      object-fit: cover;
+    }
+
+    .status-box {
+      margin-bottom: 18px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      background: rgba(248, 250, 252, 0.8);
+      color: var(--text-soft);
+      font-size: 14px;
+    }
+
+    .status-box.error {
+      color: #b91c1c;
+      background: rgba(254, 242, 242, 0.96);
+      border-color: rgba(239, 68, 68, 0.2);
+    }
+
+    .status-box.success {
+      color: #047857;
+      background: rgba(236, 253, 245, 0.96);
+      border-color: rgba(16, 185, 129, 0.2);
+    }
+
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 22px;
+    }
+
+    .insight-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .insight-item {
+      padding: 18px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+    }
+
+    .insight-item strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .insight-item span {
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .current-image-label {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(79, 70, 229, 0.08);
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 700;
+      width: fit-content;
+    }
+
+    .success {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(15, 23, 42, 0.28);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 40;
+    }
+
+    .success-card {
+      width: min(100%, 420px);
+      padding: 30px;
+      border-radius: 26px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .success-icon {
+      width: 74px;
+      height: 74px;
+      margin: 0 auto 18px;
+      border-radius: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(79, 70, 229, 0.18));
+      color: var(--success);
+      font-size: 34px;
+      font-weight: 700;
+    }
+
+    .success-card h2 {
+      margin: 0 0 10px;
+      color: var(--text);
+      font-size: 24px;
+    }
+
+    .success-card p {
+      margin: 0;
+      color: var(--text-muted);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    @media (max-width: 1180px) {
+      .page-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .field-card.full {
+        grid-column: auto;
+      }
+
+      .form-actions .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="main">
+    <section class="page-hero">
+      <div class="page-hero-grid">
+        <div>
+          <div class="hero-kicker">Community Updates</div>
+          <h1 class="hero-title">Edit news post</h1>
+          <p class="hero-subtitle">Refine published content, adjust descriptions, and replace the featured image when needed so official announcements stay accurate and polished.</p>
+          <div class="hero-highlights">
+            <div class="hero-highlight">
+              <strong>Update safely</strong>
+              <span>Review the existing post before saving changes</span>
+            </div>
+            <div class="hero-highlight">
+              <strong>Replace media only if needed</strong>
+              <span>Keep the current image unless an update is necessary</span>
+            </div>
+          </div>
+        </div>
+        <div class="hero-panel">
+          <span class="hero-panel-label">Editing mode</span>
+          <h3>Maintain clear public messaging</h3>
+          <p>Use this form to keep community updates current, complete, and visually consistent for the public feed.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="page-layout">
+      <section class="form-card">
+        <div class="section-heading">
+          <div>
+            <h2>News details</h2>
+            <p>Edit the existing fields below and save your changes when everything looks correct.</p>
+          </div>
+        </div>
+
+        <div id="formStatus" class="status-box">Loading news record...</div>
+
+        <form id="newsForm">
+          <div class="form-grid">
+            <div class="field-card">
+              <label class="field-label" for="title">
+                Title
+                <input id="title" name="title" placeholder="Enter a clear news title" maxlength="160" required>
+                <small>Use a short, informative headline that quickly explains the update.</small>
+              </label>
+            </div>
+
+            <div class="field-card">
+              <label class="field-label" for="imageInput">
+                Replace featured image
+                <div class="upload-shell">
+                  <div class="upload-dropzone">
+                    <strong>Select a new image file</strong>
+                    <p>Leave this blank if the existing image is still correct for the post.</p>
+                  </div>
+                  <input type="file" id="imageInput" accept="image/*">
+                  <span class="current-image-label" id="currentImageLabel">Current image preview</span>
+                  <div class="preview-wrap" id="previewWrap">
+                    <img id="previewImage" alt="News image preview">
+                  </div>
+                </div>
+                <small>A new upload will replace the current image URL stored for this record.</small>
+              </label>
+            </div>
+
+            <div class="field-card full">
+              <label class="field-label" for="description">
+                Description
+                <textarea id="description" name="description" placeholder="Write the full announcement or story details" required></textarea>
+                <small>Provide enough detail for residents to understand the update without needing extra context.</small>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-secondary" type="button" onclick="goBack()">Cancel</button>
+            <button class="btn btn-primary" type="submit" id="submitButton">Save changes</button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="section-card">
+        <div class="section-heading">
+          <div>
+            <h2>Editing checklist</h2>
+            <p>Use these reminders before saving the updated news post.</p>
+          </div>
+        </div>
+
+        <div class="insight-list">
+          <div class="insight-item">
+            <strong>Confirm the headline</strong>
+            <span>Make sure the title still reflects the current situation and remains easy to scan.</span>
+          </div>
+          <div class="insight-item">
+            <strong>Review details for accuracy</strong>
+            <span>Double-check names, dates, locations, and instructions so the public sees correct information.</span>
+          </div>
+          <div class="insight-item">
+            <strong>Keep visuals relevant</strong>
+            <span>Replace the image only if the story changed or the previous media is no longer appropriate.</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="success" id="successModal">
+    <div class="success-card">
+      <div class="success-icon">✓</div>
+      <h2>Updated successfully</h2>
+      <p>Your changes have been saved. Redirecting back to the newsroom list...</p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="auth.js"></script>
+  <script type="module">
+    const { client: supabase } = await window.adminAuth.initializeAdminPage();
+
+    const id = new URLSearchParams(window.location.search).get('id');
+    const form = document.getElementById('newsForm');
+    const titleInput = document.getElementById('title');
+    const descriptionInput = document.getElementById('description');
+    const imageInput = document.getElementById('imageInput');
+    const previewWrap = document.getElementById('previewWrap');
+    const previewImage = document.getElementById('previewImage');
+    const currentImageLabel = document.getElementById('currentImageLabel');
+    const formStatus = document.getElementById('formStatus');
+    const submitButton = document.getElementById('submitButton');
+    const successModal = document.getElementById('successModal');
+
+    let existingImageUrl = '';
+
+    function goBack() {
+      window.location.href = 'news.html';
+    }
+
+    function setStatus(message, type = '') {
+      formStatus.textContent = message;
+      formStatus.className = `status-box${type ? ` ${type}` : ''}`;
+    }
+
+    function showPreview(url) {
+      if (!url) {
+        previewWrap.classList.remove('show');
+        previewImage.removeAttribute('src');
+        return;
+      }
+
+      previewImage.src = url;
+      previewWrap.classList.add('show');
+    }
+
+    function previewSelectedImage() {
+      const file = imageInput.files[0];
+
+      if (!file) {
+        showPreview(existingImageUrl);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        showPreview(event.target?.result || '');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function uploadImage(file) {
+      const fileExtension = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
+      const safeName = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${fileExtension}`;
+      const bucket = supabase.storage.from('NEWS');
+      const uploadPath = safeName;
+
+      const { error: uploadError } = await bucket.upload(uploadPath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+      if (uploadError) {
+        throw new Error(`Image upload failed: ${uploadError.message}`);
+      }
+
+      const { data } = bucket.getPublicUrl(uploadPath);
+      return data.publicUrl;
+    }
+
+    async function loadRecord() {
+      if (!id) {
+        setStatus('Missing news id. Please return to the news list and try again.', 'error');
+        submitButton.disabled = true;
+        return;
+      }
+
+      const { data, error } = await supabase.from('news').select('*').eq('id', id).single();
+
+      if (error || !data) {
+        setStatus(`Unable to load the news record${error ? `: ${error.message}` : '.'}`, 'error');
+        submitButton.disabled = true;
+        return;
+      }
+
+      titleInput.value = data.title || '';
+      descriptionInput.value = data.description || '';
+      existingImageUrl = data.image_url || '';
+
+      if (existingImageUrl) {
+        currentImageLabel.textContent = 'Current image preview';
+        showPreview(existingImageUrl);
+      } else {
+        currentImageLabel.textContent = 'No current image on this record';
+        previewWrap.classList.remove('show');
+        previewImage.removeAttribute('src');
+      }
+
+      setStatus('Record loaded. You can now update the post.');
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      if (!id) {
+        setStatus('Missing news id. Please return to the news list and try again.', 'error');
+        return;
+      }
+
+      const title = titleInput.value.trim();
+      const description = descriptionInput.value.trim();
+      const file = imageInput.files[0];
+
+      if (!title) {
+        setStatus('Please enter a title before saving.', 'error');
+        titleInput.focus();
+        return;
+      }
+
+      if (!description) {
+        setStatus('Please enter a description before saving.', 'error');
+        descriptionInput.focus();
+        return;
+      }
+
+      submitButton.disabled = true;
+      setStatus('Saving changes...');
+
+      try {
+        let imageUrl = existingImageUrl;
+
+        if (file) {
+          imageUrl = await uploadImage(file);
+        }
+
+        const payload = {
+          title,
+          description,
+          image_url: imageUrl || ''
+        };
+
+        const { error } = await supabase.from('news').update(payload).eq('id', id);
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        setStatus('News post updated successfully.', 'success');
+        successModal.style.display = 'flex';
+        window.setTimeout(() => {
+          window.location.href = 'news.html';
+        }, 1400);
+      } catch (err) {
+        setStatus(err.message || 'Unable to update the news post.', 'error');
+        submitButton.disabled = false;
+      }
+    });
+
+    imageInput.addEventListener('change', previewSelectedImage);
+
+    window.goBack = goBack;
+
+    loadRecord();
+  </script>
+
+  <script src="sidebar.js"></script>
+</body>
+</html>

@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Add Barangay</title>
+  <link rel="stylesheet" href="admin-theme.css">
+  <style>
+    .page-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.78fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .form-stack {
+      display: grid;
+      gap: 24px;
+    }
+
+    .form-grid,
+    .officials-grid,
+    .kagawad-grid,
+    .coordinates-grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .form-grid,
+    .officials-grid,
+    .coordinates-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .kagawad-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .field-card,
+    .upload-panel,
+    .info-panel {
+      padding: 18px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+    }
+
+    .field-card.full {
+      grid-column: 1 / -1;
+    }
+
+    .field-label,
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .field-group label {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .helper-text {
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .section-block {
+      display: grid;
+      gap: 18px;
+    }
+
+    textarea {
+      min-height: 140px;
+      resize: vertical;
+    }
+
+    .upload-input {
+      padding: 12px;
+      border: 1px dashed rgba(99, 102, 241, 0.28);
+      border-radius: 16px;
+      background: rgba(248, 250, 252, 0.9);
+    }
+
+    .preview-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .preview-image,
+    .preview-placeholder {
+      width: 96px;
+      height: 96px;
+      border-radius: 24px;
+    }
+
+    .preview-image {
+      object-fit: cover;
+      display: none;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .preview-placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+      border: 1px dashed rgba(148, 163, 184, 0.32);
+      background: rgba(248, 250, 252, 0.92);
+    }
+
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .error {
+      margin-top: 16px;
+      color: var(--danger);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .checklist {
+      display: grid;
+      gap: 14px;
+    }
+
+    .checklist-item {
+      padding: 18px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+    }
+
+    .checklist-item strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .checklist-item span {
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .success {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(15, 23, 42, 0.28);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 40;
+    }
+
+    .success-card {
+      width: min(100%, 430px);
+      padding: 30px;
+      border-radius: 26px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .success-icon {
+      width: 74px;
+      height: 74px;
+      margin: 0 auto 18px;
+      border-radius: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(79, 70, 229, 0.18));
+      color: var(--success);
+      font-size: 34px;
+      font-weight: 700;
+    }
+
+    .success-card h2 {
+      margin: 0 0 10px;
+      color: var(--text);
+      font-size: 24px;
+    }
+
+    .success-card p {
+      margin: 0;
+      color: var(--text-muted);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    @media (max-width: 1180px) {
+      .page-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .form-grid,
+      .officials-grid,
+      .kagawad-grid,
+      .coordinates-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .field-card.full {
+        grid-column: auto;
+      }
+
+      .form-actions .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="main">
+  <section class="page-hero">
+    <div class="page-hero-grid">
+      <div>
+        <div class="hero-kicker">Barangay Directory</div>
+        <h1 class="hero-title">Create a new barangay profile</h1>
+        <p class="hero-subtitle">Add complete barangay information, officials, map coordinates, and media assets so the directory stays informative and ready for public viewing.</p>
+        <div class="hero-highlights">
+          <div class="hero-highlight">
+            <strong>Structured details</strong>
+            <span>Store officials, coordinates, and descriptive content</span>
+          </div>
+          <div class="hero-highlight">
+            <strong>Rich media</strong>
+            <span>Upload both logo and header imagery</span>
+          </div>
+        </div>
+      </div>
+      <div class="hero-panel">
+        <span class="hero-panel-label">Publishing mode</span>
+        <h3>Prepare a complete barangay entry</h3>
+        <p>Make sure all required officials are included and coordinates are valid before publishing to the barangay list.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="page-layout">
+    <div class="form-stack">
+      <section class="form-card">
+        <div class="section-heading">
+          <div>
+            <h2>Basic information</h2>
+            <p>Start with the barangay identity, overview, and geographic description.</p>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="field-card full">
+            <label class="field-label" for="name">
+              Barangay name
+              <input id="name" placeholder="Barangay Name">
+            </label>
+          </div>
+
+          <div class="field-card full">
+            <label class="field-label" for="description">
+              Description
+              <textarea id="description" placeholder="Description"></textarea>
+            </label>
+          </div>
+
+          <div class="field-card full">
+            <label class="field-label" for="geo">
+              Geographic data
+              <textarea id="geo" placeholder="Geographic Data"></textarea>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-card">
+        <div class="section-heading">
+          <div>
+            <h2>Barangay officials</h2>
+            <p>Required officials: 1 Punong Barangay, 7 Barangay Kagawad, 1 SK Chairman, 1 Barangay Secretary, and 1 Barangay Treasurer.</p>
+          </div>
+        </div>
+
+        <div class="section-block">
+          <div class="officials-grid">
+            <div class="field-card">
+              <div class="field-group">
+                <label for="punong_barangay">Punong Barangay</label>
+                <input id="punong_barangay" placeholder="Enter Punong Barangay name">
+              </div>
+            </div>
+
+            <div class="field-card">
+              <div class="field-group">
+                <label for="sk_chairman">SK Chairman</label>
+                <input id="sk_chairman" placeholder="Enter SK Chairman name">
+              </div>
+            </div>
+
+            <div class="field-card">
+              <div class="field-group">
+                <label for="barangay_secretary">Barangay Secretary</label>
+                <input id="barangay_secretary" placeholder="Enter Barangay Secretary name">
+              </div>
+            </div>
+
+            <div class="field-card">
+              <div class="field-group">
+                <label for="barangay_treasurer">Barangay Treasurer</label>
+                <input id="barangay_treasurer" placeholder="Enter Barangay Treasurer name">
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="section-heading" style="margin-bottom: 14px;">
+              <div>
+                <h2 style="font-size: 18px;">Barangay Kagawad</h2>
+                <p>Add all seven kagawad names to complete the record.</p>
+              </div>
+            </div>
+
+            <div class="kagawad-grid">
+              <div class="field-card"><div class="field-group"><label for="kagawad_1">Kagawad 1</label><input id="kagawad_1" placeholder="Enter Kagawad 1 name"></div></div>
+              <div class="field-card"><div class="field-group"><label for="kagawad_2">Kagawad 2</label><input id="kagawad_2" placeholder="Enter Kagawad 2 name"></div></div>
+              <div class="field-card"><div class="field-group"><label for="kagawad_3">Kagawad 3</label><input id="kagawad_3" placeholder="Enter Kagawad 3 name"></div></div>
+              <div class="field-card"><div class="field-group"><label for="kagawad_4">Kagawad 4</label><input id="kagawad_4" placeholder="Enter Kagawad 4 name"></div></div>
+              <div class="field-card"><div class="field-group"><label for="kagawad_5">Kagawad 5</label><input id="kagawad_5" placeholder="Enter Kagawad 5 name"></div></div>
+              <div class="field-card"><div class="field-group"><label for="kagawad_6">Kagawad 6</label><input id="kagawad_6" placeholder="Enter Kagawad 6 name"></div></div>
+              <div class="field-card"><div class="field-group"><label for="kagawad_7">Kagawad 7</label><input id="kagawad_7" placeholder="Enter Kagawad 7 name"></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-card">
+        <div class="section-heading">
+          <div>
+            <h2>Map coordinates</h2>
+            <p>Enter the exact latitude and longitude of the barangay hall or center point used by the app preview.</p>
+          </div>
+        </div>
+
+        <div class="coordinates-grid">
+          <div class="field-card">
+            <div class="field-group">
+              <label for="latitude">Latitude</label>
+              <input id="latitude" type="number" step="any" placeholder="e.g. 13.458921">
+            </div>
+          </div>
+          <div class="field-card">
+            <div class="field-group">
+              <label for="longitude">Longitude</label>
+              <input id="longitude" type="number" step="any" placeholder="e.g. 123.680214">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-card">
+        <div class="section-heading">
+          <div>
+            <h2>Media uploads</h2>
+            <p>Upload visual assets for the barangay seal and cover image.</p>
+          </div>
+        </div>
+
+        <div class="form-stack">
+          <div class="upload-panel">
+            <div class="field-group">
+              <label class="field-label" for="logoFile">Barangay Seal / Logo</label>
+              <input class="upload-input" id="logoFile" type="file" accept="image/*">
+            </div>
+            <div class="preview-wrapper" style="margin-top: 14px;">
+              <img id="logoPreview" class="preview-image" alt="Barangay logo preview">
+              <div id="logoPlaceholder" class="preview-placeholder">No logo selected</div>
+            </div>
+            <div class="helper-text" style="margin-top: 14px;">
+              Upload a barangay seal or logo. The file will be stored in the <strong>BARANGAY_LOGO</strong> bucket and saved to <strong>logo_url</strong>.
+            </div>
+          </div>
+
+          <div class="upload-panel">
+            <div class="field-group">
+              <label class="field-label" for="barangayImageFile">Barangay Cover Image</label>
+              <input class="upload-input" id="barangayImageFile" type="file" accept="image/*">
+            </div>
+            <div class="preview-wrapper" style="margin-top: 14px;">
+              <img id="barangayImagePreview" class="preview-image" alt="Barangay cover image preview">
+              <div id="barangayImagePlaceholder" class="preview-placeholder">No cover image selected</div>
+            </div>
+            <div class="helper-text" style="margin-top: 14px;">
+              Upload the image shown in the app header. The file will be stored in the <strong>BARANGAY_IMG</strong> bucket and saved to <strong>barangay_img</strong>.
+            </div>
+          </div>
+        </div>
+
+        <div class="error" id="errorMessage"></div>
+
+        <div class="form-actions" style="margin-top: 20px;">
+          <button class="btn btn-secondary" onclick="window.location.href='barangay.html'">Cancel</button>
+          <button class="btn btn-primary" id="publishButton" onclick="save()">Publish</button>
+        </div>
+      </section>
+    </div>
+
+    <aside class="section-card">
+      <div class="section-heading">
+        <div>
+          <h2>Entry checklist</h2>
+          <p>Review this checklist before publishing the barangay profile.</p>
+        </div>
+      </div>
+
+      <div class="checklist">
+        <div class="checklist-item">
+          <strong>Officials completed</strong>
+          <span>All required officers should be filled in, including seven kagawad names.</span>
+        </div>
+        <div class="checklist-item">
+          <strong>Coordinates validated</strong>
+          <span>Use accurate latitude and longitude so the map preview points to the correct location.</span>
+        </div>
+        <div class="checklist-item">
+          <strong>Media ready</strong>
+          <span>Upload clean and recognizable images to improve presentation in the admin panel and app.</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="success" id="success">
+  <div class="success-card">
+    <div class="success-icon">✓</div>
+    <h2>Published successfully</h2>
+    <p>Redirecting back to the barangay list...</p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
+<script type="module">
+const { client: supabase } = await window.adminAuth.initializeAdminPage()
+
+const logoBucketName = 'BARANGAY_LOGO'
+const barangayImageBucketName = 'BARANGAY_IMG'
+const logoInput = document.getElementById('logoFile')
+const logoPreview = document.getElementById('logoPreview')
+const logoPlaceholder = document.getElementById('logoPlaceholder')
+const barangayImageInput = document.getElementById('barangayImageFile')
+const barangayImagePreview = document.getElementById('barangayImagePreview')
+const barangayImagePlaceholder = document.getElementById('barangayImagePlaceholder')
+const errorMessage = document.getElementById('errorMessage')
+const publishButton = document.getElementById('publishButton')
+
+function bindImagePreview(input, preview, placeholder) {
+  input.addEventListener('change', () => {
+    const file = input.files?.[0]
+
+    if (!file) {
+      preview.style.display = 'none'
+      preview.removeAttribute('src')
+      placeholder.style.display = 'flex'
+      return
+    }
+
+    const objectUrl = URL.createObjectURL(file)
+    preview.src = objectUrl
+    preview.style.display = 'block'
+    placeholder.style.display = 'none'
+  })
+}
+
+bindImagePreview(logoInput, logoPreview, logoPlaceholder)
+bindImagePreview(
+  barangayImageInput,
+  barangayImagePreview,
+  barangayImagePlaceholder
+)
+
+function slugify(value) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function getOfficialsPayload() {
+  return {
+    punong_barangay: document.getElementById('punong_barangay').value.trim(),
+    barangay_kagawad: [
+      document.getElementById('kagawad_1').value.trim(),
+      document.getElementById('kagawad_2').value.trim(),
+      document.getElementById('kagawad_3').value.trim(),
+      document.getElementById('kagawad_4').value.trim(),
+      document.getElementById('kagawad_5').value.trim(),
+      document.getElementById('kagawad_6').value.trim(),
+      document.getElementById('kagawad_7').value.trim()
+    ],
+    sk_chairman: document.getElementById('sk_chairman').value.trim(),
+    barangay_secretary: document.getElementById('barangay_secretary').value.trim(),
+    barangay_treasurer: document.getElementById('barangay_treasurer').value.trim()
+  }
+}
+
+function isOfficialsPayloadComplete(officials) {
+  return officials.punong_barangay &&
+    officials.barangay_kagawad.length === 7 &&
+    officials.barangay_kagawad.every(name => name) &&
+    officials.sk_chairman &&
+    officials.barangay_secretary &&
+    officials.barangay_treasurer
+}
+
+async function uploadImage(file, barangayName, bucketName) {
+  if (!file) return ''
+
+  const extension = file.name.includes('.') ? file.name.split('.').pop() : 'png'
+  const safeName = slugify(barangayName || 'barangay')
+  const filePath = `${safeName}/${Date.now()}-${crypto.randomUUID()}.${extension}`
+
+  const { error: uploadError } = await supabase.storage
+    .from(bucketName)
+    .upload(filePath, file, { upsert: false })
+
+  if (uploadError) {
+    throw uploadError
+  }
+
+  const { data } = supabase.storage.from(bucketName).getPublicUrl(filePath)
+  return data.publicUrl
+}
+
+async function save() {
+  const name = document.getElementById('name').value.trim()
+  const description = document.getElementById('description').value.trim()
+  const geo = document.getElementById('geo').value.trim()
+  const latitudeValue = document.getElementById('latitude').value.trim()
+  const longitudeValue = document.getElementById('longitude').value.trim()
+  const latitude = Number(latitudeValue)
+  const longitude = Number(longitudeValue)
+  const officialsPayload = getOfficialsPayload()
+  const logoFile = logoInput.files?.[0] || null
+  const barangayImageFile = barangayImageInput.files?.[0] || null
+
+  if (!name || !description || !geo || !isOfficialsPayloadComplete(officialsPayload)) {
+    errorMessage.textContent = 'Please complete all required fields: 1 Punong Barangay, 7 Barangay Kagawad, 1 SK Chairman, 1 Barangay Secretary, and 1 Barangay Treasurer.'
+    return
+  }
+
+  if (
+    !latitudeValue ||
+    !longitudeValue ||
+    Number.isNaN(latitude) ||
+    Number.isNaN(longitude)
+  ) {
+    errorMessage.textContent = 'Please enter valid latitude and longitude coordinates.'
+    return
+  }
+
+  errorMessage.textContent = ''
+  publishButton.disabled = true
+  publishButton.textContent = 'Publishing...'
+
+  try {
+    const logo_url = await uploadImage(logoFile, name, logoBucketName)
+    const barangay_img = await uploadImage(
+      barangayImageFile,
+      name,
+      barangayImageBucketName
+    )
+    const officials = JSON.stringify(officialsPayload)
+
+    const { error } = await supabase.from('barangays').insert([{
+      name,
+      description,
+      geographic_data: geo,
+      officials,
+      logo_url,
+      barangay_img,
+      latitude,
+      longitude
+    }])
+
+    if (error) {
+      throw error
+    }
+
+    document.getElementById('success').style.display = 'flex'
+    setTimeout(() => window.location = 'barangay.html', 1500)
+  } catch (error) {
+    errorMessage.textContent = error.message || 'Failed to save barangay.'
+    publishButton.disabled = false
+    publishButton.textContent = 'Publish'
+  }
+}
+
+window.save = save
+</script>
+
+<script src="sidebar.js"></script>
+
+</body>
+</html>

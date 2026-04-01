@@ -1,0 +1,688 @@
+<![CDATA[<!DOCTYPE html>
+<html>
+<head>
+  <title>Edit Barangay</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI';
+      display: flex;
+      background: #f5f7fb;
+      width: 100%;
+      height: 100vh;
+    }
+
+    .sidebar {
+      width: 220px;
+      background: white;
+      padding: 20px;
+      border-right: 1px solid #eee;
+      position: fixed;
+      height: 100vh;
+      overflow-y: auto;
+      left: 0;
+      top: 0;
+    }
+
+    .sidebar .logo {
+      margin-bottom: 20px;
+    }
+
+    .sidebar .logo h2 {
+      margin: 0 0 30px 0;
+      color: #2f5fa5;
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .sidebar p {
+      color: #888;
+      margin: 0;
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 0;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: background-color 0.2s;
+      text-decoration: none !important;
+      color: inherit;
+      gap: 12px;
+      font-size: 14px;
+    }
+
+    .menu-item:hover {
+      background-color: #f0f2f5;
+    }
+
+    .menu-item span {
+      font-size: 18px;
+    }
+
+    .menu-item p {
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .menu-item.active {
+      color: #2f5fa5;
+      font-weight: bold;
+      background-color: #e8f0fe;
+    }
+
+    .main {
+      flex: 1;
+      padding: 30px 40px;
+      margin-left: 260px;
+      overflow-y: auto;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .btn {
+      background: #2f5fa5;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 20px;
+      border: none;
+      cursor: pointer;
+      margin-left: 10px;
+      transition: opacity 0.2s;
+    }
+
+    .btn:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
+
+    .btn-delete {
+      background: #e74c3c;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 30px;
+    }
+
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 15px;
+    }
+
+    input, textarea {
+      width: 100%;
+      border: none;
+      border-bottom: 1px solid #ccc;
+      padding: 10px;
+      font-family: inherit;
+      font-size: 14px;
+      background: transparent;
+      outline: none;
+    }
+
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    .full {
+      grid-column: span 2;
+    }
+
+    .officials-card {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #2f5fa5;
+      margin-bottom: 4px;
+    }
+
+    .officials-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px 20px;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .field-group label {
+      font-size: 13px;
+      color: #5f6f86;
+      font-weight: 600;
+    }
+
+    .kagawad-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px 20px;
+    }
+
+    .upload-card {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .coordinates-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px 20px;
+    }
+
+    .upload-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #2f5fa5;
+    }
+
+    .upload-input {
+      border: 1px dashed #b9c5d8;
+      border-radius: 12px;
+      padding: 14px;
+      background: #f8fbff;
+    }
+
+    .preview-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .preview-image {
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      border: 1px solid #d8dfeb;
+      object-fit: cover;
+      background: #eef3fb;
+      display: none;
+    }
+
+    .preview-placeholder {
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      border: 1px dashed #c8d2e2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #7c8ca5;
+      font-size: 12px;
+      text-align: center;
+      padding: 10px;
+      background: #f8fbff;
+    }
+
+    .helper-text {
+      font-size: 13px;
+      color: #6f7f96;
+      line-height: 1.5;
+    }
+
+    .success {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 40px;
+      border-radius: 15px;
+      display: none;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+    }
+
+    .error {
+      color: #e74c3c;
+      margin-top: 18px;
+      font-size: 14px;
+    }
+
+    @media (max-width: 900px) {
+      .grid,
+      .officials-grid,
+      .kagawad-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .full {
+        grid-column: span 1;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="main">
+
+  <div class="header">
+    <h2>Edit Barangay</h2>
+    <div>
+      <button class="btn btn-delete" onclick="removeData()">Delete</button>
+      <button class="btn" id="updateButton" onclick="save()">Update</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card"><input id="name" placeholder="Barangay Name"></div>
+    <div class="card full officials-card">
+      <div class="section-title">Barangay Officials</div>
+      <div class="helper-text">
+        Required officials: 1 Punong Barangay, 7 Barangay Kagawad,
+        1 SK Chairman, 1 Barangay Secretary, and 1 Barangay Treasurer.
+      </div>
+
+      <div class="officials-grid">
+        <div class="field-group">
+          <label for="punong_barangay">Punong Barangay</label>
+          <input id="punong_barangay" placeholder="Enter Punong Barangay name">
+        </div>
+
+        <div class="field-group">
+          <label for="sk_chairman">SK Chairman</label>
+          <input id="sk_chairman" placeholder="Enter SK Chairman name">
+        </div>
+
+        <div class="field-group">
+          <label for="barangay_secretary">Barangay Secretary</label>
+          <input id="barangay_secretary" placeholder="Enter Barangay Secretary name">
+        </div>
+
+        <div class="field-group">
+          <label for="barangay_treasurer">Barangay Treasurer</label>
+          <input id="barangay_treasurer" placeholder="Enter Barangay Treasurer name">
+        </div>
+      </div>
+
+      <div class="section-title">Barangay Kagawad</div>
+      <div class="kagawad-grid">
+        <div class="field-group">
+          <label for="kagawad_1">Kagawad 1</label>
+          <input id="kagawad_1" placeholder="Enter Kagawad 1 name">
+        </div>
+        <div class="field-group">
+          <label for="kagawad_2">Kagawad 2</label>
+          <input id="kagawad_2" placeholder="Enter Kagawad 2 name">
+        </div>
+        <div class="field-group">
+          <label for="kagawad_3">Kagawad 3</label>
+          <input id="kagawad_3" placeholder="Enter Kagawad 3 name">
+        </div>
+        <div class="field-group">
+          <label for="kagawad_4">Kagawad 4</label>
+          <input id="kagawad_4" placeholder="Enter Kagawad 4 name">
+        </div>
+        <div class="field-group">
+          <label for="kagawad_5">Kagawad 5</label>
+          <input id="kagawad_5" placeholder="Enter Kagawad 5 name">
+        </div>
+        <div class="field-group">
+          <label for="kagawad_6">Kagawad 6</label>
+          <input id="kagawad_6" placeholder="Enter Kagawad 6 name">
+        </div>
+        <div class="field-group">
+          <label for="kagawad_7">Kagawad 7</label>
+          <input id="kagawad_7" placeholder="Enter Kagawad 7 name">
+        </div>
+      </div>
+    </div>
+    <div class="card full"><textarea id="description" placeholder="Description"></textarea></div>
+    <div class="card full"><textarea id="geo" placeholder="Geographic Data"></textarea></div>
+
+    <div class="card full officials-card">
+      <div class="section-title">Barangay Map Coordinates</div>
+      <div class="helper-text">
+        Enter the exact latitude and longitude of the barangay hall or center point.
+        These coordinates will be used in the app to display a Google Maps-style preview.
+      </div>
+      <div class="coordinates-grid">
+        <div class="field-group">
+          <label for="latitude">Latitude</label>
+          <input id="latitude" type="number" step="any" placeholder="e.g. 13.458921">
+        </div>
+        <div class="field-group">
+          <label for="longitude">Longitude</label>
+          <input id="longitude" type="number" step="any" placeholder="e.g. 123.680214">
+        </div>
+      </div>
+    </div>
+
+    <div class="card full upload-card">
+      <div class="upload-label">Barangay Seal / Logo</div>
+      <input class="upload-input" id="logoFile" type="file" accept="image/*">
+      <div class="preview-wrapper">
+        <img id="logoPreview" class="preview-image" alt="Barangay logo preview">
+        <div id="logoPlaceholder" class="preview-placeholder">No logo selected</div>
+      </div>
+      <div class="helper-text">
+        Upload a new barangay seal/logo only if you want to replace the current one. The file
+        will be stored in your Supabase bucket <strong>BARANGAY_LOGO</strong> and the public URL
+        will be saved to the <strong>logo_url</strong> column.
+      </div>
+    </div>
+
+    <div class="card full upload-card">
+      <div class="upload-label">Barangay Cover Image</div>
+      <input class="upload-input" id="barangayImageFile" type="file" accept="image/*">
+      <div class="preview-wrapper">
+        <img id="barangayImagePreview" class="preview-image" alt="Barangay cover image preview">
+        <div id="barangayImagePlaceholder" class="preview-placeholder">No cover image selected</div>
+      </div>
+      <div class="helper-text">
+        Upload a new barangay header image for the app only if you want to replace the current
+        one. The file will be stored in your Supabase bucket <strong>BARANGAY_IMG</strong> and
+        the public URL will be saved to the <strong>barangay_img</strong> column.
+      </div>
+    </div>
+  </div>
+
+  <div class="error" id="errorMessage"></div>
+
+</div>
+
+<div class="success" id="success">
+  <h2>✔ Updated successfully!</h2>
+</div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
+const supabase = createClient(
+  'https://jbhlbukxankrtcwhqoll.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpiaGxidWt4YW5rcnRjd2hxb2xsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NzAxODgsImV4cCI6MjA5MDA0NjE4OH0.DebtVdw7bF5nRaXQg8Ta2SsO2Qv42QnGSzoS8hT2vJc'
+)
+
+const logoBucketName = 'BARANGAY_LOGO'
+const barangayImageBucketName = 'BARANGAY_IMG'
+const id = new URLSearchParams(window.location.search).get("id")
+const logoInput = document.getElementById('logoFile')
+const logoPreview = document.getElementById('logoPreview')
+const logoPlaceholder = document.getElementById('logoPlaceholder')
+const barangayImageInput = document.getElementById('barangayImageFile')
+const barangayImagePreview = document.getElementById('barangayImagePreview')
+const barangayImagePlaceholder = document.getElementById('barangayImagePlaceholder')
+const errorMessage = document.getElementById('errorMessage')
+const updateButton = document.getElementById('updateButton')
+
+function bindImagePreview(input, preview, placeholder) {
+  input.addEventListener('change', () => {
+    const file = input.files?.[0]
+
+    if (!file) {
+      preview.style.display = 'none'
+      preview.removeAttribute('src')
+      placeholder.style.display = 'flex'
+      return
+    }
+
+    const objectUrl = URL.createObjectURL(file)
+    preview.src = objectUrl
+    preview.style.display = 'block'
+    placeholder.style.display = 'none'
+  })
+}
+
+bindImagePreview(logoInput, logoPreview, logoPlaceholder)
+bindImagePreview(
+  barangayImageInput,
+  barangayImagePreview,
+  barangayImagePlaceholder
+)
+
+function slugify(value) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+async function uploadImage(file, barangayName, bucketName) {
+  if (!file) return ''
+
+  const extension = file.name.includes('.') ? file.name.split('.').pop() : 'png'
+  const safeName = slugify(barangayName || 'barangay')
+  const filePath = `${safeName}/${Date.now()}-${crypto.randomUUID()}.${extension}`
+
+  const { error: uploadError } = await supabase.storage
+    .from(bucketName)
+    .upload(filePath, file, { upsert: false })
+
+  if (uploadError) {
+    throw uploadError
+  }
+
+  const { data } = supabase.storage.from(bucketName).getPublicUrl(filePath)
+  return data.publicUrl
+}
+
+function setPreviewImage(preview, placeholder, url) {
+  if (!url) {
+    preview.style.display = 'none'
+    preview.removeAttribute('src')
+    placeholder.style.display = 'flex'
+    return
+  }
+
+  preview.src = url
+  preview.style.display = 'block'
+  placeholder.style.display = 'none'
+}
+
+function getOfficialsPayload() {
+  return {
+    punong_barangay: document.getElementById('punong_barangay').value.trim(),
+    barangay_kagawad: [
+      document.getElementById('kagawad_1').value.trim(),
+      document.getElementById('kagawad_2').value.trim(),
+      document.getElementById('kagawad_3').value.trim(),
+      document.getElementById('kagawad_4').value.trim(),
+      document.getElementById('kagawad_5').value.trim(),
+      document.getElementById('kagawad_6').value.trim(),
+      document.getElementById('kagawad_7').value.trim()
+    ],
+    sk_chairman: document.getElementById('sk_chairman').value.trim(),
+    barangay_secretary: document.getElementById('barangay_secretary').value.trim(),
+    barangay_treasurer: document.getElementById('barangay_treasurer').value.trim()
+  }
+}
+
+function isStructuredOfficials(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+
+  return 'punong_barangay' in value ||
+    'barangay_kagawad' in value ||
+    'sk_chairman' in value ||
+    'barangay_secretary' in value ||
+    'barangay_treasurer' in value
+}
+
+function parseOfficials(value) {
+  if (!value) return null
+
+  if (typeof value === 'object') {
+    return isStructuredOfficials(value) ? value : null
+  }
+
+  if (typeof value !== 'string') return null
+
+  try {
+    const parsed = JSON.parse(value)
+    return isStructuredOfficials(parsed) ? parsed : null
+  } catch (error) {
+    return null
+  }
+}
+
+function fillOfficialsFields(officials) {
+  if (!officials) return
+
+  document.getElementById('punong_barangay').value = officials.punong_barangay || ''
+  document.getElementById('sk_chairman').value = officials.sk_chairman || ''
+  document.getElementById('barangay_secretary').value = officials.barangay_secretary || ''
+  document.getElementById('barangay_treasurer').value = officials.barangay_treasurer || ''
+
+  const kagawads = Array.isArray(officials.barangay_kagawad) ? officials.barangay_kagawad : []
+
+  for (let i = 0; i < 7; i++) {
+    document.getElementById(`kagawad_${i + 1}`).value = kagawads[i] || ''
+  }
+}
+
+function isOfficialsPayloadComplete(officials) {
+  return officials.punong_barangay &&
+    officials.barangay_kagawad.length === 7 &&
+    officials.barangay_kagawad.every(name => name) &&
+    officials.sk_chairman &&
+    officials.barangay_secretary &&
+    officials.barangay_treasurer
+}
+
+async function load() {
+  if (!id) {
+    errorMessage.textContent = 'Missing barangay id.'
+    return
+  }
+
+  const { data, error } = await supabase.from('barangays').select('*').eq('id', id).single()
+
+  if (error) {
+    errorMessage.textContent = error.message
+    return
+  }
+
+  document.getElementById('name').value = data.name || ''
+  document.getElementById('description').value = data.description || ''
+  document.getElementById('geo').value = data.geographic_data || ''
+  document.getElementById('latitude').value = data.latitude ?? ''
+  document.getElementById('longitude').value = data.longitude ?? ''
+  setPreviewImage(logoPreview, logoPlaceholder, data.logo_url || '')
+  setPreviewImage(
+    barangayImagePreview,
+    barangayImagePlaceholder,
+    data.barangay_img || ''
+  )
+
+  const parsedOfficials = parseOfficials(data.officials)
+  fillOfficialsFields(parsedOfficials)
+}
+
+async function save() {
+  const name = document.getElementById('name').value.trim()
+  const description = document.getElementById('description').value.trim()
+  const geo = document.getElementById('geo').value.trim()
+  const latitudeValue = document.getElementById('latitude').value.trim()
+  const longitudeValue = document.getElementById('longitude').value.trim()
+  const latitude = Number(latitudeValue)
+  const longitude = Number(longitudeValue)
+  const officialsPayload = getOfficialsPayload()
+  const logoFile = logoInput.files?.[0] || null
+  const barangayImageFile = barangayImageInput.files?.[0] || null
+
+  if (!name || !description || !geo || !isOfficialsPayloadComplete(officialsPayload)) {
+    errorMessage.textContent = 'Please complete all required fields: 1 Punong Barangay, 7 Barangay Kagawad, 1 SK Chairman, 1 Barangay Secretary, and 1 Barangay Treasurer.'
+    return
+  }
+
+  if (
+    !latitudeValue ||
+    !longitudeValue ||
+    Number.isNaN(latitude) ||
+    Number.isNaN(longitude)
+  ) {
+    errorMessage.textContent = 'Please enter valid latitude and longitude coordinates.'
+    return
+  }
+
+  errorMessage.textContent = ''
+  updateButton.disabled = true
+  updateButton.textContent = 'Updating...'
+
+  try {
+    const payload = {
+      name,
+      description,
+      geographic_data: geo,
+      officials: JSON.stringify(officialsPayload),
+      latitude,
+      longitude
+    }
+
+    if (logoFile) {
+      payload.logo_url = await uploadImage(logoFile, name, logoBucketName)
+    }
+
+    if (barangayImageFile) {
+      payload.barangay_img = await uploadImage(
+        barangayImageFile,
+        name,
+        barangayImageBucketName
+      )
+    }
+
+    const { error } = await supabase.from('barangays').update(payload).eq('id', id)
+
+    if (error) {
+      throw error
+    }
+
+    document.getElementById('success').style.display = 'block'
+    setTimeout(() => window.location = 'barangay.html', 1500)
+  } catch (error) {
+    errorMessage.textContent = error.message || 'Failed to update barangay.'
+    updateButton.disabled = false
+    updateButton.textContent = 'Update'
+  }
+}
+
+async function removeData() {
+  if (!confirm('Are you sure you want to delete this barangay?')) return
+
+  const { error } = await supabase.from('barangays').delete().eq('id', id)
+
+  if (error) {
+    errorMessage.textContent = error.message
+    return
+  }
+
+  window.location = 'barangay.html'
+}
+
+window.save = save
+window.removeData = removeData
+
+load()
+</script>
+
+<script src="sidebar.js"></script>
+
+</body>
+</html>]]>
