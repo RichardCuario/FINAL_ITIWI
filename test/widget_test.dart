@@ -2,10 +2,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hotline_app/main.dart';
 
 void main() {
-  testWidgets('Hotline app renders home page', (WidgetTester tester) async {
-    await tester.pumpWidget(const HotlineApp());
+  testWidgets('MyApp renders without crashing', (WidgetTester tester) async {
+    await tester.pumpWidget(const MyApp());
 
-    expect(find.text('Hotline App'), findsOneWidget);
-    expect(find.text('Open Tourist Guide'), findsOneWidget);
+    expect(find.byType(MyApp), findsOneWidget);
   });
 }

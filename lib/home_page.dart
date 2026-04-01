@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'barangay_page.dart';
 import 'hotline.dart';
 import 'news_page.dart';
+import 'online_service_page.dart';
 import 'profile_page.dart';
 import 'report_page.dart';
 import 'shared_widgets.dart';
 import 'tourist_guide_page.dart';
+import 'transparency_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -24,6 +28,36 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
+  final PageController _promoPageController = PageController();
+  Timer? _promoTimer;
+  int _currentPromoPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _startPromoAutoScroll();
+  }
+
+  @override
+  void dispose() {
+    _promoTimer?.cancel();
+    _promoPageController.dispose();
+    super.dispose();
+  }
+
+  void _startPromoAutoScroll() {
+    _promoTimer?.cancel();
+    _promoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!_promoPageController.hasClients) return;
+
+      final nextPage = (_currentPromoPage + 1) % 3;
+      _promoPageController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
 
   void _openPage(Widget page) {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
@@ -66,12 +100,21 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    const backgroundColor = Color(0xFF08142A);
-    const accentColor = Color(0xFF9FD0FF);
-    const iconBackground = Color(0xFF1A2A47);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final backgroundColor =
+        isDark ? const Color(0xFF08142A) : const Color(0xFFEAEAEA);
+    final sectionTextColor = isDark ? Colors.white : Colors.black;
+    final accentColor =
+        isDark ? const Color(0xFF9FD0FF) : const Color(0xFF2196F3);
+    final iconBackground =
+        isDark ? const Color(0xFF1A2A47) : const Color(0xFFE5E5E5);
+    final iconColor = accentColor;
 
     return Scaffold(
       backgroundColor: backgroundColor,
+      resizeToAvoidBottomInset: false,
       drawer: AdminSidebar(
         userName: 'Admin User',
         userEmail: 'admin@example.com',
@@ -79,229 +122,252 @@ class _HomePageState extends State<HomePage> {
         onNavigationChanged: _handleDrawerNavigation,
       ),
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Stack(
-                      children: [
-                        SizedBox(
-                          height: 300,
-                          width: double.infinity,
-                          child: Image.asset(
-                            'assets/municipal_hall.jpg',
-                            fit: BoxFit.cover,
-                          ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Stack(
+                    children: [
+                      SizedBox(
+                        height: 255,
+                        width: double.infinity,
+                        child: Image.asset(
+                          'assets/municipal_hall.jpg',
+                          fit: BoxFit.cover,
                         ),
-                        Container(
-                          height: 300,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.black.withValues(alpha: 0.40),
-                                const Color(0xFF0A3D73).withValues(alpha: 0.32),
-                                const Color(0xFF2196F3).withValues(alpha: 0.42),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Builder(
-                                    builder: (buttonContext) => _TopActionButton(
-                                      icon: Icons.menu_rounded,
-                                      onTap: () {
-                                        Scaffold.of(buttonContext).openDrawer();
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  const Expanded(
-                                    child: _SearchPill(
-                                      hintText: 'Search Business Permit',
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  const _TopActionButton(
-                                    icon: Icons.notifications_none_rounded,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 88),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  const Expanded(
-                                    child: Text(
-                                      'Basta Tiwinon\nOragon!',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 33,
-                                        fontWeight: FontWeight.w800,
-                                        height: 1.08,
-                                      ),
-                                    ),
-                                  ),
-                                  Container(
-                                    width: 104,
-                                    height: 104,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Colors.white.withValues(alpha: 0.75),
-                                        width: 2.4,
-                                      ),
-                                      image: const DecorationImage(
-                                        image: AssetImage('assets/logo.png'),
-                                        fit: BoxFit.cover,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.18),
-                                          blurRadius: 14,
-                                          offset: const Offset(0, 6),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
+                      ),
+                      Container(
+                        height: 255,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withValues(alpha: 0.40),
+                              const Color(0xFF0A3D73).withValues(alpha: 0.32),
+                              const Color(0xFF2196F3).withValues(alpha: 0.42),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                    Transform.translate(
-                      offset: const Offset(0, -2),
-                      child: Container(
-                        width: double.infinity,
-                        decoration: const BoxDecoration(
-                          color: backgroundColor,
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(26),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Builder(
+                                  builder: (buttonContext) => _TopActionButton(
+                                    icon: Icons.menu_rounded,
+                                    onTap: () {
+                                      Scaffold.of(buttonContext).openDrawer();
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: _SearchPill(
+                                    hintText: 'Search Business Permit',
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const _TopActionButton(
+                                  icon: Icons.notifications_none_rounded,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 56),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                const Expanded(
+                                  child: Text(
+                                    'Basta Tiwinhon\nOragon!',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 27,
+                                      fontWeight: FontWeight.w800,
+                                      height: 1.08,
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  width: 96,
+                                  height: 96,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.1),
+                                      width: 2.4,
+                                    ),
+                                    image: const DecorationImage(
+                                      image: AssetImage('assets/logo.png'),
+                                      fit: BoxFit.cover,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.18),
+                                        blurRadius: 14,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'What would you like to do?',
+                          style: TextStyle(
+                            color: sectionTextColor,
+                            fontSize: 23,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        const SizedBox(height: 14),
+                        GridView.count(
+                          crossAxisCount: 3,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 0.92,
+                          children: [
+                            _HomeShortcut(
+                              icon: Icons.account_balance_rounded,
+                              label: 'Barangay',
+                              iconBackground: iconBackground,
+                              iconColor: iconColor,
+                              onTap: () => _openPage(const BarangayPage()),
+                            ),
+                            _HomeShortcut(
+                              icon: Icons.location_on_rounded,
+                              label: 'Tourist Guide',
+                              iconBackground: iconBackground,
+                              iconColor: iconColor,
+                              onTap: () => _openPage(const TouristGuidePage()),
+                            ),
+                            _HomeShortcut(
+                              icon: Icons.warning_amber_rounded,
+                              label: 'Emergency',
+                              iconBackground: iconBackground,
+                              iconColor: iconColor,
+                              onTap: () => _openPage(const HotlinePage()),
+                            ),
+                            _HomeShortcut(
+                              icon: Icons.description_rounded,
+                              label: 'Transparency',
+                              iconBackground: iconBackground,
+                              iconColor: iconColor,
+                              onTap: () => _openPage(const TransparencyPage()),
+                            ),
+                            _HomeShortcut(
+                              icon: Icons.report_problem_rounded,
+                              label: 'Report',
+                              iconBackground: iconBackground,
+                              iconColor: iconColor,
+                              onTap: () => _openPage(const ReportPage()),
+                            ),
+                            _HomeShortcut(
+                              icon: Icons.language_rounded,
+                              label: 'Online Service',
+                              iconBackground: iconBackground,
+                              iconColor: iconColor,
+                              onTap: () => _openPage(const OnlineServicePage()),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: 120,
+                          child: PageView(
+                            controller: _promoPageController,
+                            onPageChanged: (index) {
+                              setState(() {
+                                _currentPromoPage = index;
+                              });
+                            },
                             children: [
-                              const Text(
-                                'What would you like to do?',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 26),
-                              GridView.count(
-                                crossAxisCount: 3,
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                crossAxisSpacing: 18,
-                                mainAxisSpacing: 24,
-                                childAspectRatio: 0.80,
-                                children: [
-                                  _HomeShortcut(
-                                    icon: Icons.account_balance_rounded,
-                                    label: 'Barangay',
-                                    iconBackground: iconBackground,
-                                    iconColor: accentColor,
-                                    onTap: () => _openPage(const BarangayPage()),
-                                  ),
-                                  _HomeShortcut(
-                                    icon: Icons.location_on_rounded,
-                                    label: 'Tourist Guide',
-                                    iconBackground: iconBackground,
-                                    iconColor: accentColor,
-                                    onTap: () => _openPage(const TouristGuidePage()),
-                                  ),
-                                  _HomeShortcut(
-                                    icon: Icons.warning_amber_rounded,
-                                    label: 'Emergency',
-                                    iconBackground: iconBackground,
-                                    iconColor: accentColor,
-                                    onTap: () => _openPage(const HotlinePage()),
-                                  ),
-                                  _HomeShortcut(
-                                    icon: Icons.description_rounded,
-                                    label: 'Transparency',
-                                    iconBackground: iconBackground,
-                                    iconColor: accentColor,
-                                    onTap: () => _showComingSoon('Transparency'),
-                                  ),
-                                  _HomeShortcut(
-                                    icon: Icons.report_problem_rounded,
-                                    label: 'Report',
-                                    iconBackground: iconBackground,
-                                    iconColor: accentColor,
-                                    onTap: () => _openPage(const ReportPage()),
-                                  ),
-                                  _HomeShortcut(
-                                    icon: Icons.language_rounded,
-                                    label: 'Online Service',
-                                    iconBackground: iconBackground,
-                                    iconColor: accentColor,
-                                    onTap: () => _showComingSoon('Online Service'),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 28),
                               _DestinationPromoCard(
+                                title: "What's Your Next\nDestination?",
+                                description:
+                                    "Whether it's a weekend trip or a month-long escape, make it unforgettable.",
+                                imagePath: 'assets/card.jpg',
+                                onTap: () => _openPage(const TouristGuidePage()),
+                              ),
+                              _DestinationPromoCard(
+                                title: 'Discover Tiwi\nHighlights',
+                                description:
+                                    'Find scenic spots, hot springs, and beautiful places waiting for your next visit.',
+                                imagePath: 'assets/municipal_hall.jpg',
+                                onTap: () => _openPage(const TouristGuidePage()),
+                              ),
+                              _DestinationPromoCard(
+                                title: 'Plan Your\nAdventure',
+                                description:
+                                    'Explore top attractions and local favorites with just a few taps.',
+                                imagePath: 'assets/bg.jpg',
                                 onTap: () => _openPage(const TouristGuidePage()),
                               ),
                             ],
                           ),
                         ),
-                      ),
+                        const SizedBox(height: 10),
+                        Center(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: List.generate(
+                              3,
+                              (index) => AnimatedContainer(
+                                duration: const Duration(milliseconds: 250),
+                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                width: _currentPromoPage == index ? 18 : 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: _currentPromoPage == index
+                                      ? accentColor
+                                      : accentColor.withValues(alpha: 0.25),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-            NavigationBar(
-              height: 74,
-              backgroundColor: const Color(0xFF071227),
-              indicatorColor: Colors.white.withValues(alpha: 0.10),
-              selectedIndex: _selectedIndex,
-              onDestinationSelected: _handleBottomNavigation,
-              labelTextStyle: WidgetStateProperty.resolveWith((states) {
-                final selected = states.contains(WidgetState.selected);
-                return TextStyle(
-                  color: selected ? Colors.white : Colors.white70,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  fontSize: 13,
-                );
-              }),
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.home_outlined, color: Colors.white70),
-                  selectedIcon: Icon(Icons.home_rounded, color: Colors.white),
-                  label: 'Home',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.info_outline_rounded, color: Colors.white70),
-                  selectedIcon: Icon(Icons.info_rounded, color: Colors.white),
-                  label: 'News',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.person_outline_rounded, color: Colors.white70),
-                  selectedIcon: Icon(Icons.person_rounded, color: Colors.white),
-                  label: 'Profile',
-                ),
-              ],
+            Container(
+              color: isDark ? const Color(0xFF111827) : Colors.white,
+              child: BottomNavigationBar(
+                currentIndex: _selectedIndex,
+                onTap: _handleBottomNavigation,
+                backgroundColor: isDark ? const Color(0xFF111827) : Colors.white,
+                selectedItemColor: colorScheme.primary,
+                unselectedItemColor: isDark ? Colors.white70 : Colors.grey.shade600,
+                type: BottomNavigationBarType.fixed,
+                elevation: 0,
+                items: const [
+                  BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+                  BottomNavigationBarItem(icon: Icon(Icons.info), label: 'News'),
+                  BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+                ],
+              ),
             ),
           ],
         ),
@@ -321,19 +387,22 @@ class _TopActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Material(
-      color: const Color(0xFF162B4B),
-      borderRadius: BorderRadius.circular(20),
+      color: isDark ? const Color(0xFF162B4B) : Colors.white,
+      elevation: isDark ? 0 : 0,
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
         child: SizedBox(
-          width: 62,
-          height: 62,
+          width: 46,
+          height: 46,
           child: Icon(
             icon,
-            color: const Color(0xFFB9DBFF),
-            size: 34,
+            color: isDark ? const Color(0xFFB9DBFF) : const Color(0xFF4F6F8F),
+            size: 24,
           ),
         ),
       ),
@@ -348,28 +417,30 @@ class _SearchPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
-      height: 62,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      height: 46,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFF162B4B),
-        borderRadius: BorderRadius.circular(31),
+        color: isDark ? const Color(0xFF162B4B) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.search_rounded,
-            color: Colors.white70,
-            size: 33,
+            color: isDark ? Colors.white70 : Colors.grey.shade500,
+            size: 22,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               hintText,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 18,
+              style: TextStyle(
+                color: isDark ? Colors.white70 : Colors.grey.shade600,
+                fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -403,8 +474,8 @@ class _HomeShortcut extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            width: 92,
-            height: 92,
+            width: 76,
+            height: 76,
             decoration: BoxDecoration(
               color: iconBackground,
               shape: BoxShape.circle,
@@ -412,16 +483,18 @@ class _HomeShortcut extends StatelessWidget {
             child: Icon(
               icon,
               color: iconColor,
-              size: 42,
+              size: 34,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           Text(
             label,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
+            style: TextStyle(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : Colors.black,
+              fontSize: 13,
               fontWeight: FontWeight.w500,
               height: 1.2,
             ),
@@ -433,24 +506,32 @@ class _HomeShortcut extends StatelessWidget {
 }
 
 class _DestinationPromoCard extends StatelessWidget {
-  const _DestinationPromoCard({required this.onTap});
+  const _DestinationPromoCard({
+    required this.title,
+    required this.description,
+    required this.imagePath,
+    required this.onTap,
+  });
 
+  final String title;
+  final String description;
+  final String imagePath;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 228,
+      height: 108,
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
-        image: const DecorationImage(
-          image: AssetImage('assets/card.jpg'),
+        image: DecorationImage(
+          image: AssetImage(imagePath),
           fit: BoxFit.cover,
         ),
       ),
       child: Container(
-        padding: const EdgeInsets.all(28),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(28),
           gradient: LinearGradient(
@@ -462,49 +543,62 @@ class _DestinationPromoCard extends StatelessWidget {
             ],
           ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            const SizedBox(
-              width: 220,
-              child: Text(
-                "What's Your Next\nDestination?",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  height: 1.05,
-                ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  SizedBox(
+                    width: 140,
+                    child: Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        height: 1.0,
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 160,
+                    child: Text(
+                      description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8.5,
+                        height: 1.2,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 14),
-            const SizedBox(
-              width: 280,
-              child: Text(
-                "Whether it's a weekend trip or a month-long escape, make it unforgettable.",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 13.5,
-                  height: 1.4,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            const Spacer(),
+            const SizedBox(width: 12),
             FilledButton(
               onPressed: onTap,
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF8EC5FF),
                 foregroundColor: Colors.white,
+                minimumSize: const Size(92, 32),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 14,
+                  horizontal: 12,
+                  vertical: 0,
                 ),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: const Text(
                 'Explore now!',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 10,
                   fontWeight: FontWeight.w700,
                 ),
               ),
