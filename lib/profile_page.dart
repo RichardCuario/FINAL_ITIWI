@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'faq_page.dart';
+
 class ProfilePage extends StatefulWidget {
   final bool isDarkMode;
   final ValueChanged<bool> onToggleDarkMode;
@@ -424,14 +426,23 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 2,
-        onTap: _handleBottomNavigation,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.info), label: 'News'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        ],
+      bottomNavigationBar: Container(
+        color: isDark ? const Color(0xFF111827) : Colors.white,
+        child: BottomNavigationBar(
+          currentIndex: 2,
+          onTap: _handleBottomNavigation,
+          backgroundColor: isDark ? const Color(0xFF111827) : Colors.white,
+          selectedItemColor: Theme.of(context).colorScheme.primary,
+          unselectedItemColor:
+              isDark ? Colors.white70 : Colors.grey.shade600,
+          type: BottomNavigationBarType.fixed,
+          elevation: 0,
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.info), label: 'News'),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          ],
+        ),
       ),
     );
   }
@@ -516,6 +527,17 @@ class _ProfilePageState extends State<ProfilePage> {
           title: 'Change Password',
           subtitle: 'Update and strengthen account security',
           onTap: _showChangePasswordDialog,
+        ),
+        const SizedBox(height: 14),
+        _ProfileOptionTile(
+          icon: Icons.help_center_outlined,
+          title: 'FAQs',
+          subtitle: 'View frequently asked questions and quick help',
+          onTap: () {
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const FaqPage()));
+          },
         ),
       ],
     );

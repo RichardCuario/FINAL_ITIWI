@@ -71,8 +71,49 @@ class AdminSidebar extends StatelessWidget {
     required this.onNavigationChanged,
   });
 
+  User? get _user => FirebaseAuth.instance.currentUser;
+
+  String get _resolvedUserName {
+    final displayName = _user?.displayName?.trim();
+    if (displayName != null && displayName.isNotEmpty) {
+      return displayName;
+    }
+
+    final email = _user?.email?.trim() ?? userEmail.trim();
+    if (email.isNotEmpty && email.contains('@')) {
+      return email.split('@').first;
+    }
+
+    final fallback = userName.trim();
+    if (fallback.isNotEmpty) {
+      return fallback;
+    }
+
+    return 'User';
+  }
+
+  String get _resolvedUserEmail {
+    final email = _user?.email?.trim();
+    if (email != null && email.isNotEmpty) {
+      return email;
+    }
+
+    final fallback = userEmail.trim();
+    if (fallback.isNotEmpty) {
+      return fallback;
+    }
+
+    return 'No email available';
+  }
+
+  String? get _resolvedPhotoUrl {
+    final value = _user?.photoURL?.trim();
+    if (value == null || value.isEmpty) return null;
+    return value;
+  }
+
   String get _initial {
-    final value = userName.trim();
+    final value = _resolvedUserName.trim();
     if (value.isEmpty) return 'U';
     return value.characters.first.toUpperCase();
   }
@@ -91,14 +132,15 @@ class AdminSidebar extends StatelessWidget {
         : const Color(0xFFF3F7FD);
 
     return Drawer(
+      width: 270,
       backgroundColor: drawerBackground,
       child: SafeArea(
         child: Column(
           children: [
             Container(
               width: double.infinity,
-              margin: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              padding: const EdgeInsets.all(18),
+              margin: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: isDark
@@ -119,27 +161,33 @@ class AdminSidebar extends StatelessWidget {
               child: Row(
                 children: [
                   CircleAvatar(
-                    radius: 32,
+                    radius: 26,
                     backgroundColor: isDark
                         ? const Color(0xFFDBEAFE)
                         : Colors.white,
-                    child: Text(
-                      _initial,
-                      style: TextStyle(
-                        color:
-                            isDark ? const Color(0xFF0F172A) : AppColors.primary,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    backgroundImage: _resolvedPhotoUrl != null
+                        ? NetworkImage(_resolvedPhotoUrl!)
+                        : null,
+                    child: _resolvedPhotoUrl == null
+                        ? Text(
+                            _initial,
+                            style: TextStyle(
+                              color: isDark
+                                  ? const Color(0xFF0F172A)
+                                  : AppColors.primary,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          )
+                        : null,
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          userName,
+                          _resolvedUserName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -150,7 +198,7 @@ class AdminSidebar extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          userEmail,
+                          _resolvedUserEmail,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(

@@ -84,121 +84,151 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   Widget build(BuildContext context) {
     final item = _items[_currentPage];
+    final mediaQuery = MediaQuery.of(context);
+    final screenHeight = mediaQuery.size.height;
+    final bottomInset = mediaQuery.padding.bottom;
+    final panelHeight = (screenHeight * 0.38).clamp(260.0, 360.0);
+    final horizontalPadding = screenHeight < 700 ? 22.0 : 28.0;
+    final titleFontSize = screenHeight < 700 ? 17.0 : 19.0;
+    final descriptionFontSize = screenHeight < 700 ? 12.0 : 13.0;
+    final verticalGap = screenHeight < 700 ? 14.0 : 18.0;
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          PageView.builder(
-            controller: _pageController,
-            itemCount: _items.length,
-            onPageChanged: (index) {
-              setState(() {
-                _currentPage = index;
-              });
-            },
-            itemBuilder: (context, index) {
-              return _buildImageSection(_items[index].imagePath);
-            },
-          ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Container(
-              height: 292,
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(28, 18, 28, 28),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(34)),
-              ),
-              child: Column(
-                children: [
-                  _buildIndicators(),
-                  const SizedBox(height: 22),
-                  Text(
-                    item.title,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF111111),
-                      height: 1.35,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Text(
-                    item.description,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF9E9E9E),
-                      height: 1.5,
-                    ),
-                  ),
-                  const Spacer(),
-                  if (item.secondaryLabel == null)
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: _goNext,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1F86D9),
-                          foregroundColor: Colors.white,
-                          elevation: 8,
-                          shadowColor: const Color(0x331F86D9),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(28),
-                          ),
-                        ),
-                        child: Text(item.primaryLabel),
-                      ),
-                    )
-                  else
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: 52,
-                            child: ElevatedButton(
-                              onPressed: _skipToLast,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFE8E8E8),
-                                foregroundColor: const Color(0xFF222222),
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(28),
-                                ),
-                              ),
-                              child: Text(item.secondaryLabel!),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: SizedBox(
-                            height: 52,
-                            child: ElevatedButton(
-                              onPressed: _goNext,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF1F86D9),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(28),
-                                ),
-                              ),
-                              child: Text(item.primaryLabel),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
+      body: SafeArea(
+        top: false,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: _items.length,
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentPage = index;
+                  });
+                },
+                itemBuilder: (context, index) {
+                  return _buildImageSection(_items[index].imagePath);
+                },
               ),
             ),
-          ),
-        ],
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                constraints: BoxConstraints(
+                  minHeight: 260,
+                  maxHeight: panelHeight + bottomInset,
+                ),
+                width: double.infinity,
+                padding: EdgeInsets.fromLTRB(
+                  horizontalPadding,
+                  18,
+                  horizontalPadding,
+                  24 + bottomInset,
+                ),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(34)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildIndicators(),
+                    SizedBox(height: verticalGap),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            Text(
+                              item.title,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: titleFontSize,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF111111),
+                                height: 1.35,
+                              ),
+                            ),
+                            SizedBox(height: verticalGap),
+                            Text(
+                              item.description,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: descriptionFontSize,
+                                color: const Color(0xFF9E9E9E),
+                                height: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (item.secondaryLabel == null)
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: _goNext,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1F86D9),
+                            foregroundColor: Colors.white,
+                            elevation: 8,
+                            shadowColor: const Color(0x331F86D9),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(28),
+                            ),
+                          ),
+                          child: Text(item.primaryLabel),
+                        ),
+                      )
+                    else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: SizedBox(
+                              height: 52,
+                              child: ElevatedButton(
+                                onPressed: _skipToLast,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFE8E8E8),
+                                  foregroundColor: const Color(0xFF222222),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(28),
+                                  ),
+                                ),
+                                child: Text(item.secondaryLabel!),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: SizedBox(
+                              height: 52,
+                              child: ElevatedButton(
+                                onPressed: _goNext,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF1F86D9),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(28),
+                                  ),
+                                ),
+                                child: Text(item.primaryLabel),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

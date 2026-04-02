@@ -44,6 +44,13 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Firebase / Google service configuration
+android/app/google-services.json
+build/app/google-services.json
+google-services.json
+*.jks
+*.keystore
+
 # Temp files
 temp/
 temp_supabase_*.json

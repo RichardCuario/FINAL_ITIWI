@@ -31,89 +31,154 @@ class _TouristGuidePageState extends State<TouristGuidePage> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final backgroundColor =
+        isDark ? theme.scaffoldBackgroundColor : const Color(0xFFEAEAEA);
+    final titleColor = isDark ? Colors.white : Colors.black;
+    final topGradient = isDark
+        ? const [
+            Color(0xFF0F172A),
+            Color(0xFF172554),
+            Color(0xFF111827),
+          ]
+        : const [
+            Color(0xFF1E88E5),
+            Color(0xFF90CAF9),
+            Color(0xFFEAEAEA),
+          ];
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tourist Guide'),
-      ),
-      body: RefreshIndicator(
-        onRefresh: _refreshPlaces,
-        child: FutureBuilder<List<Place>>(
-          future: _placesFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  SizedBox(height: 180),
-                  Center(child: CircularProgressIndicator()),
-                ],
-              );
-            }
-
-            final places = snapshot.data ?? const <Place>[];
-            if (places.isEmpty) {
-              return ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(20),
-                children: [
-                  AppSectionCard(
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.travel_explore_rounded,
-                          size: 52,
-                          color: colorScheme.primary,
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'No tourist spots available yet.',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Pull down to refresh after places and reviews are added in Supabase.',
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            }
-
-            return ListView.separated(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16),
-              itemCount: places.length,
-              separatorBuilder: (context, index) =>
-                  const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final place = places[index];
-                return _PlaceListCard(
-                  place: place,
-                  onTap: () async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => PlaceDetailPage(
-                          place: place,
-                          placeService: _placeService,
+      backgroundColor: backgroundColor,
+      body: Stack(
+        children: [
+          Container(
+            height: 210,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: topGradient,
+                stops: const [0.0, 0.58, 1.0],
+              ),
+            ),
+          ),
+          SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 14, 20, 0),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: Icon(
+                          Icons.arrow_back_rounded,
+                          color: isDark ? Colors.white : Colors.white,
                         ),
                       ),
-                    );
-                    if (mounted) {
-                      await _refreshPlaces();
-                    }
-                  },
-                );
-              },
-            );
-          },
-        ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Tourist Guide',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: titleColor == Colors.black
+                              ? Colors.white
+                              : titleColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: _refreshPlaces,
+                    child: FutureBuilder<List<Place>>(
+                      future: _placesFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState != ConnectionState.done) {
+                          return ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                            children: const [
+                              SizedBox(height: 180),
+                              Center(child: CircularProgressIndicator()),
+                            ],
+                          );
+                        }
+
+                        final places = snapshot.data ?? const <Place>[];
+                        if (places.isEmpty) {
+                          return ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                            children: [
+                              AppSectionCard(
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      Icons.travel_explore_rounded,
+                                      size: 52,
+                                      color: colorScheme.primary,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    const Text(
+                                      'No tourist spots available yet.',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    const Text(
+                                      'Pull down to refresh after places and reviews are added in Supabase.',
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+
+                        return ListView.separated(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                          itemCount: places.length,
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final place = places[index];
+                            return _PlaceListCard(
+                              place: place,
+                              onTap: () async {
+                                await Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => PlaceDetailPage(
+                                      place: place,
+                                      placeService: _placeService,
+                                    ),
+                                  ),
+                                );
+                                if (mounted) {
+                                  await _refreshPlaces();
+                                }
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
