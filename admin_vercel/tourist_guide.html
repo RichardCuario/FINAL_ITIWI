@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tourist Guide | Admin Panel</title>
+  <link rel="stylesheet" href="admin-theme.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="sidebar.js" defer></script>
+  <script src="auth.js" defer></script>
+  <style>
+    .tourist-guide-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .tourist-guide-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .tourist-guide-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .review-entry-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 18px 20px;
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(238, 242, 255, 0.96), rgba(224, 231, 255, 0.88));
+      border: 1px solid rgba(99, 102, 241, 0.14);
+    }
+
+    .review-entry-card strong {
+      display: block;
+      color: var(--text);
+      font-size: 16px;
+      margin-bottom: 6px;
+    }
+
+    .review-entry-card p {
+      margin: 0;
+      color: var(--text-soft);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .tourist-guide-title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tourist-guide-title-wrap h1 {
+      margin: 0;
+      color: var(--text);
+      font-size: clamp(32px, 4vw, 44px);
+      line-height: 1.05;
+    }
+
+    .tourist-guide-title-wrap p {
+      margin: 0;
+      color: var(--text-soft);
+      font-size: 17px;
+      line-height: 1.6;
+    }
+
+    .tourist-guide-table {
+      min-width: 960px;
+    }
+
+    .tourist-guide-name-cell {
+      min-width: 240px;
+    }
+
+    .tourist-guide-name-cell strong {
+      display: block;
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.45;
+      margin-bottom: 6px;
+    }
+
+    .tourist-guide-name-cell span,
+    .tourist-guide-description,
+    .tourist-guide-contact {
+      color: var(--text-soft);
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .tourist-guide-image {
+      width: 92px;
+      height: 72px;
+      border-radius: 18px;
+      overflow: hidden;
+      background: linear-gradient(135deg, rgba(79, 70, 229, 0.12), rgba(37, 99, 235, 0.18));
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .tourist-guide-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .tourist-guide-image-fallback {
+      color: var(--primary);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+    }
+
+    .tourist-guide-contact {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 180px;
+    }
+
+    .tourist-guide-contact a {
+      color: var(--primary-alt);
+      word-break: break-word;
+    }
+
+    .empty-state-cell {
+      text-align: center;
+    }
+
+    @media (max-width: 840px) {
+      .tourist-guide-header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .tourist-guide-actions,
+      .tourist-guide-header .btn {
+        width: 100%;
+      }
+
+      .review-entry-card {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+  </style>
+</head>
+<body class="admin-shell">
+  <div class="admin-background">
+    <div class="bg-gradient bg-gradient-1"></div>
+    <div class="bg-gradient bg-gradient-2"></div>
+    <div class="bg-pattern"></div>
+  </div>
+
+  <div id="sidebar-container"></div>
+
+  <main class="main">
+    <section class="content-card tourist-guide-shell">
+      <div class="tourist-guide-header">
+        <div class="tourist-guide-title-wrap">
+          <h1>Tourist Guide</h1>
+          <p>Manage data with ease</p>
+        </div>
+
+        <div class="tourist-guide-actions">
+          <a class="btn btn-secondary" href="place_reviews.html">Place reviews</a>
+          <a class="btn btn-primary" href="edit_place.html">Add new</a>
+        </div>
+      </div>
+
+      <div class="review-entry-card">
+        <div>
+          <strong>Review moderation</strong>
+          <p>Approve or reject destination reviews from the tourist guide module.</p>
+        </div>
+        <a class="btn btn-secondary" href="place_reviews.html">Open place reviews</a>
+      </div>
+
+      <p class="status-message" id="statusMessage" role="status" aria-live="polite"></p>
+
+      <div class="table-wrapper">
+        <table class="data-table tourist-guide-table">
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Description</th>
+              <th scope="col">Contact info</th>
+              <th scope="col">Image</th>
+              <th scope="col" class="actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="touristGuideTableBody">
+            <tr>
+              <td colspan="5" class="empty-state-cell">Loading tourist guide records...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    const { client: supabase } = await window.adminAuth.initializeAdminPage();
+
+    const statusMessage = document.getElementById('statusMessage');
+    const touristGuideTableBody = document.getElementById('touristGuideTableBody');
+
+    let placeRecords = [];
+
+    function showStatus(message, tone = 'info') {
+      statusMessage.textContent = message || '';
+      statusMessage.dataset.state = tone;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '\u0026amp;')
+        .replace(/</g, '\u0026lt;')
+        .replace(/>/g, '\u0026gt;')
+        .replace(/"/g, '\u0026quot;')
+        .replace(/'/g, '\u0026#39;');
+    }
+
+    function getInitials(value) {
+      const words = String(value || '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2);
+
+      if (!words.length) return 'TG';
+
+      return words.map((word) => word.charAt(0).toUpperCase()).join('');
+    }
+
+    function buildContactCell(record) {
+      const parts = [];
+
+      if (record.phone) {
+        parts.push(`<span>${escapeHtml(record.phone)}</span>`);
+      }
+
+      if (record.website_url) {
+        parts.push(
+          `<a href="${escapeHtml(record.website_url)}" target="_blank" rel="noopener noreferrer">Visit website</a>`
+        );
+      }
+
+      if (!parts.length) {
+        parts.push('<span>No contact info</span>');
+      }
+
+      return `<div class="tourist-guide-contact">${parts.join('')}</div>`;
+    }
+
+    function renderTable(records) {
+      if (!records.length) {
+        touristGuideTableBody.innerHTML = `
+          <tr>
+            <td colspan="5" class="empty-state-cell">No tourist guide records available yet.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      touristGuideTableBody.innerHTML = records
+        .map((record) => {
+          const imageMarkup = record.image_url
+            ? `<img src="${escapeHtml(record.image_url)}" alt="${escapeHtml(record.name || 'Tourist destination image')}" loading="lazy" />`
+            : `<div class="tourist-guide-image-fallback">${escapeHtml(getInitials(record.name))}</div>`;
+
+          return `
+            <tr>
+              <td>
+                <div class="tourist-guide-name-cell">
+                  <strong>${escapeHtml(record.name || 'Untitled destination')}</strong>
+                  <span>${escapeHtml(record.category || 'Tourist destination')}</span>
+                </div>
+              </td>
+              <td>
+                <div class="tourist-guide-description">${escapeHtml(record.description || 'No description provided')}</div>
+              </td>
+              <td>${buildContactCell(record)}</td>
+              <td>
+                <div class="tourist-guide-image">
+                  ${imageMarkup}
+                </div>
+              </td>
+              <td class="actions-col">
+                <div class="table-actions">
+                  <a class="btn btn-secondary btn-small" href="edit_place.html?id=${encodeURIComponent(record.id)}">Edit</a>
+                  <button class="btn btn-danger btn-small delete-btn" type="button" data-id="${escapeHtml(record.id)}">
+                    Delete
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `;
+        })
+        .join('');
+    }
+
+    async function loadPlaces() {
+      showStatus('Loading tourist guide data...', 'info');
+
+      try {
+        const { data, error } = await supabase
+          .from('places')
+          .select('id, name, category, description, phone, website_url, image_url, created_at')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          throw error;
+        }
+
+        placeRecords = data || [];
+        renderTable(placeRecords);
+
+        if (placeRecords.length) {
+          showStatus(`Loaded ${placeRecords.length} tourist guide record(s).`, 'success');
+        } else {
+          showStatus('No tourist guide records available yet.', 'info');
+        }
+      } catch (error) {
+        console.error('Failed to load tourist guide records:', error);
+        placeRecords = [];
+        renderTable([]);
+        showStatus(error.message || 'Unable to load tourist guide records.', 'error');
+      }
+    }
+
+    async function handleDelete(placeId) {
+      const selectedPlace = placeRecords.find((record) => String(record.id) === String(placeId));
+      const placeLabel = selectedPlace?.name || 'this tourist guide entry';
+
+      const confirmed = window.confirm(`Delete ${placeLabel}? This action cannot be undone.`);
+      if (!confirmed) return;
+
+      showStatus(`Deleting ${placeLabel}...`, 'info');
+
+      try {
+        const { error } = await supabase.from('places').delete().eq('id', placeId);
+
+        if (error) {
+          throw error;
+        }
+
+        showStatus(`${placeLabel} deleted successfully.`, 'success');
+        await loadPlaces();
+      } catch (error) {
+        console.error('Failed to delete tourist guide record:', error);
+        showStatus(error.message || 'Unable to delete the tourist guide record.', 'error');
+      }
+    }
+
+    touristGuideTableBody.addEventListener('click', async (event) => {
+      const deleteButton = event.target.closest('.delete-btn');
+      if (!deleteButton) return;
+
+      const { id } = deleteButton.dataset;
+      if (!id) return;
+
+      deleteButton.disabled = true;
+      try {
+        await handleDelete(id);
+      } finally {
+        deleteButton.disabled = false;
+      }
+    });
+
+    loadPlaces();
+  </script>
+</body>
+</html>

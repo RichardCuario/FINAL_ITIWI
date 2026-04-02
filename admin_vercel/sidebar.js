@@ -31,6 +31,11 @@ async function createSidebar() {
         <span>&#127970;</span>
         <p>Barangay</p>
       </a>
+
+      <a class="menu-item" href="tourist_guide.html" style="text-decoration: none; color: inherit;">
+        <span>&#128506;</span>
+        <p>Tourist Guide</p>
+      </a>
     </div>
 
     <div class="menu" style="margin-top: auto; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.08);">
@@ -59,7 +64,8 @@ async function createSidebar() {
         (href === 'news.html' && (currentPage === 'news.html' || currentPage === 'add_news.html' || currentPage === 'news_new.html' || currentPage === 'edit_news.html')) ||
         (href === 'reports.html' && currentPage === 'reports.html') ||
         (href === 'index.html' && (currentPage === 'add.html' || currentPage === 'edit.html')) ||
-        (href === 'barangay.html' && (currentPage === 'barangay.html' || currentPage === 'add_barangay.html' || currentPage === 'edit_barangay.html'))) {
+        (href === 'barangay.html' && (currentPage === 'barangay.html' || currentPage === 'add_barangay.html' || currentPage === 'edit_barangay.html')) ||
+        (href === 'tourist_guide.html' && (currentPage === 'tourist_guide.html' || currentPage === 'places.html' || currentPage === 'edit_place.html'))) {
       item.classList.add('active');
     }
   });

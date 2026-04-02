@@ -24,7 +24,12 @@ class Place {
       id: (map['id'] ?? '').toString(),
       name: (map['name'] ?? map['title'] ?? 'Unknown place').toString(),
       description: (map['description'] ?? '').toString(),
-      location: (map['location'] ?? map['barangay'] ?? '').toString(),
+      location: (map['location'] ??
+              map['short_location'] ??
+              map['full_address'] ??
+              map['barangay'] ??
+              '')
+          .toString(),
       imageUrl: (map['image_url'] ?? map['imageUrl'] ?? '').toString(),
       category: (map['category'] ?? '').toString(),
       averageRating: _toDouble(

@@ -12,76 +12,58 @@
       gap: 24px;
     }
 
-    .stats-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
     .toolbar-card {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(220px, 240px) auto;
       gap: 18px;
-      align-items: center;
+      align-items: end;
     }
 
-    .search-box {
-      position: relative;
-    }
-
-    .search-box::before {
-      content: '⌕';
-      position: absolute;
-      left: 16px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 18px;
-      color: #94a3b8;
-      pointer-events: none;
-    }
-
-    .search-box input {
-      padding-left: 46px;
-    }
-
+    .filter-group,
     .toolbar-actions,
     .table-actions,
-    .reviewer-block,
+    .review-meta,
     .rating-block,
-    .review-text-block,
-    .notes-block,
     .action-stack {
       display: flex;
-      gap: 10px;
+      align-items: center;
+      gap: 12px;
       flex-wrap: wrap;
+    }
+
+    .filter-group {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .filter-group label {
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
     }
 
     .toolbar-actions,
     .table-actions {
-      align-items: center;
       justify-content: flex-end;
     }
 
-    .status-message {
+    .table-status {
+      margin-bottom: 18px;
       padding: 14px 16px;
-      border-radius: 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      background: rgba(248, 250, 252, 0.75);
+      color: var(--text-soft);
       font-size: 14px;
-      font-weight: 600;
-      display: none;
     }
 
-    .status-message.is-visible {
-      display: block;
-    }
-
-    .status-message.is-error {
+    .table-status.error {
       color: #b91c1c;
       background: rgba(254, 242, 242, 0.92);
-      border: 1px solid rgba(248, 113, 113, 0.22);
-    }
-
-    .status-message.is-info {
-      color: #1d4ed8;
-      background: rgba(239, 246, 255, 0.92);
-      border: 1px solid rgba(96, 165, 250, 0.25);
+      border-color: rgba(239, 68, 68, 0.18);
     }
 
     .table-scroll {
@@ -96,56 +78,42 @@
     }
 
     table {
-      min-width: 1320px;
+      min-width: 1280px;
     }
 
     tbody tr:hover td {
       background: rgba(248, 250, 252, 0.92);
     }
 
-    .place-block,
-    .reviewer-block,
-    .rating-block,
-    .review-text-block,
-    .notes-block {
+    .place-name {
+      display: flex;
       flex-direction: column;
-      align-items: flex-start;
+      gap: 6px;
+      min-width: 220px;
     }
 
-    .place-block strong,
-    .reviewer-block strong {
+    .place-name strong,
+    .reviewer-name {
       color: var(--text);
       font-size: 15px;
       font-weight: 700;
+      line-height: 1.4;
     }
 
-    .place-meta,
-    .reviewer-meta,
-    .date-meta,
-    .notes-meta {
-      color: var(--text-muted);
-      font-size: 12px;
-      line-height: 1.5;
-    }
-
-    .stars {
-      color: #f59e0b;
-      letter-spacing: 0.08em;
-      font-size: 14px;
-    }
-
-    .rating-value {
-      color: var(--text);
-      font-weight: 700;
-      font-size: 14px;
-    }
-
-    .review-snippet,
-    .notes-snippet {
-      max-width: 280px;
+    .meta-text,
+    .review-text,
+    .notes-text {
       color: var(--text-soft);
-      line-height: 1.6;
       font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .review-text {
+      max-width: 320px;
+    }
+
+    .notes-text {
+      max-width: 260px;
     }
 
     .status-chip {
@@ -174,14 +142,71 @@
       color: #b91c1c;
     }
 
+    .rating-block {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    .rating-stars {
+      color: #f59e0b;
+      letter-spacing: 0.08em;
+      font-size: 14px;
+    }
+
+    .rating-value {
+      color: var(--text);
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .admin-notes-input {
+      width: 100%;
+      min-width: 220px;
+      min-height: 88px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(148, 163, 184, 0.24);
+      background: rgba(255, 255, 255, 0.96);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.5;
+      resize: vertical;
+      outline: none;
+    }
+
+    .admin-notes-input:focus {
+      border-color: rgba(79, 70, 229, 0.35);
+      box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.08);
+    }
+
+    .action-stack {
+      align-items: stretch;
+      flex-direction: column;
+      min-width: 180px;
+    }
+
+    .action-stack .meta-text {
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
     .btn-approve,
-    .btn-reject,
-    .btn-reset {
+    .btn-reject {
+      min-width: 100px;
       padding: 10px 14px;
       border-radius: 12px;
+      border: 0;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 800;
       color: #ffffff;
+      cursor: pointer;
     }
 
     .btn-approve {
@@ -194,26 +219,47 @@
       box-shadow: 0 14px 22px rgba(239, 68, 68, 0.18);
     }
 
-    .btn-reset {
-      background: linear-gradient(135deg, #f59e0b, #d97706);
-      box-shadow: 0 14px 22px rgba(245, 158, 11, 0.2);
+    .btn-approve:disabled,
+    .btn-reject:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      box-shadow: none;
     }
 
-    .empty {
+    .approved-label,
+    .rejected-label {
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .approved-label {
+      color: #047857;
+    }
+
+    .rejected-label {
+      color: #b91c1c;
+    }
+
+    .empty-state {
       text-align: center;
       padding: 60px 24px !important;
-      color: var(--text-muted);
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(248, 250, 252, 0.92));
     }
 
-    .empty strong {
+    .empty-state strong {
       display: block;
       margin-bottom: 8px;
       font-size: 18px;
       color: var(--text);
     }
 
-    @media (max-width: 1100px) {
+    .empty-state p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    @media (max-width: 960px) {
       .toolbar-card {
         grid-template-columns: 1fr;
       }
@@ -221,12 +267,6 @@
       .toolbar-actions,
       .table-actions {
         justify-content: flex-start;
-      }
-    }
-
-    @media (max-width: 768px) {
-      .stats-grid {
-        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -238,8 +278,8 @@
         <div class="page-hero-grid">
           <div>
             <div class="hero-kicker">Review Moderation</div>
-            <h1 class="hero-title">Place ratings and reviews</h1>
-            <p class="hero-subtitle">Review incoming user feedback for tourism, religious, and popular destinations. Approve trusted feedback, reject inappropriate submissions, or return reviews to the pending moderation queue.</p>
+            <h1 class="hero-title">Place reviews</h1>
+            <p class="hero-subtitle">Moderate submitted place feedback, review star ratings and comments, and keep public destination reviews accurate, useful, and appropriate.</p>
 
             <div class="hero-highlights">
               <div class="hero-highlight">
@@ -248,7 +288,7 @@
               </div>
               <div class="hero-highlight">
                 <strong id="pendingReviewsCount">0</strong>
-                <span>Pending moderation</span>
+                <span>Pending reviews</span>
               </div>
               <div class="hero-highlight">
                 <strong id="approvedReviewsCount">0</strong>
@@ -259,8 +299,8 @@
 
           <div class="hero-panel">
             <div class="hero-panel-label">Moderation workflow</div>
-            <strong>Keep place reviews useful and trustworthy.</strong>
-            <p>Use the moderation actions below to move each review between pending, approved, and rejected states directly from the admin table.</p>
+            <strong>Approve trusted feedback and remove unsuitable submissions.</strong>
+            <p>Pending reviews can be approved or rejected directly from the moderation table. You can also store internal admin notes for each review.</p>
             <div class="toolbar-actions" style="margin-top: 18px;">
               <button class="btn btn-secondary" type="button" onclick="loadReviews(true)">Refresh reviews</button>
             </div>
@@ -268,42 +308,17 @@
         </div>
       </section>
 
-      <section class="stats-grid">
-        <article class="stat-card">
-          <div class="stat-card-header">
-            <span class="stat-card-label">Pending</span>
-            <span class="stat-card-icon">⏳</span>
-          </div>
-          <div class="stat-value" id="summaryPendingCount">0</div>
-          <div class="stat-meta">Reviews waiting for moderation</div>
-        </article>
-
-        <article class="stat-card">
-          <div class="stat-card-header">
-            <span class="stat-card-label">Approved</span>
-            <span class="stat-card-icon">✓</span>
-          </div>
-          <div class="stat-value" id="summaryApprovedCount">0</div>
-          <div class="stat-meta">Visible public reviews</div>
-        </article>
-
-        <article class="stat-card">
-          <div class="stat-card-header">
-            <span class="stat-card-label">Rejected</span>
-            <span class="stat-card-icon">✕</span>
-          </div>
-          <div class="stat-value" id="summaryRejectedCount">0</div>
-          <div class="stat-meta">Reviews filtered from display</div>
-        </article>
-      </section>
-
       <section class="content-card toolbar-card">
-        <div class="search-box">
-          <input id="searchInput" type="text" placeholder="Search by place, reviewer, review text, or admin notes">
+        <div class="section-heading" style="margin-bottom: 0;">
+          <div>
+            <h2>Moderation queue</h2>
+            <p>Filter place reviews by status and review the full moderation context before taking action.</p>
+          </div>
         </div>
 
-        <div>
-          <select id="statusFilter" aria-label="Filter by review status">
+        <div class="filter-group">
+          <label for="statusFilter">Review status</label>
+          <select id="statusFilter" aria-label="Filter reviews by status">
             <option value="all">All statuses</option>
             <option value="pending">Pending</option>
             <option value="approved">Approved</option>
@@ -312,23 +327,23 @@
         </div>
 
         <div class="toolbar-actions">
-          <button class="btn btn-secondary" type="button" onclick="resetFilters()">Clear filters</button>
+          <button class="btn btn-secondary" type="button" onclick="resetFilters()">Clear filter</button>
         </div>
       </section>
-
-      <div id="statusMessage" class="status-message"></div>
 
       <section class="data-table-card">
         <div class="section-heading">
           <div>
-            <h2>Moderation queue</h2>
-            <p>Review place feedback, inspect the rating, and update its moderation status with one click.</p>
+            <h2>Submitted reviews</h2>
+            <p>Each row includes the place, reviewer details, rating, review text, status, notes, and moderation actions.</p>
           </div>
 
           <div class="table-actions">
             <button class="btn btn-secondary" type="button" onclick="loadReviews(true)">Refresh list</button>
           </div>
         </div>
+
+        <div id="tableStatus" class="table-status">Loading place reviews...</div>
 
         <div class="table-scroll">
           <div class="table-shell">
@@ -339,17 +354,17 @@
                   <th>Reviewer</th>
                   <th>Rating</th>
                   <th>Review</th>
-                  <th>Submitted</th>
                   <th>Status</th>
+                  <th>Submitted</th>
                   <th>Admin Notes</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="tableBody">
                 <tr>
-                  <td colspan="8" class="empty">
+                  <td colspan="8" class="empty-state">
                     <strong>Loading reviews</strong>
-                    Please wait while place feedback is being fetched.
+                    <p>Please wait while place feedback is being fetched.</p>
                   </td>
                 </tr>
               </tbody>
@@ -363,20 +378,17 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="auth.js"></script>
   <script type="module">
-    const { client: supabase } = await window.adminAuth.initializeAdminPage();
+    await window.adminAuth.initializeAdminPage();
 
     const tableBody = document.getElementById('tableBody');
-    const searchInput = document.getElementById('searchInput');
+    const tableStatus = document.getElementById('tableStatus');
     const statusFilter = document.getElementById('statusFilter');
-    const statusMessage = document.getElementById('statusMessage');
     const totalReviewsCount = document.getElementById('totalReviewsCount');
     const pendingReviewsCount = document.getElementById('pendingReviewsCount');
     const approvedReviewsCount = document.getElementById('approvedReviewsCount');
-    const summaryPendingCount = document.getElementById('summaryPendingCount');
-    const summaryApprovedCount = document.getElementById('summaryApprovedCount');
-    const summaryRejectedCount = document.getElementById('summaryRejectedCount');
 
     let allReviews = [];
+    let activeStatusFilter = 'all';
     let isLoading = false;
 
     function escapeHtml(value) {
@@ -385,18 +397,18 @@
       return div.innerHTML;
     }
 
+    function escapeAttribute(value) {
+      return escapeHtml(value);
+    }
+
     function escapeJsString(value) {
       return String(value ?? '')
         .replaceAll('\\', '\\\\')
         .replaceAll("'", "\\'");
     }
 
-    function normalizeText(value) {
-      return String(value ?? '').trim();
-    }
-
     function normalizeStatus(value) {
-      const normalized = normalizeText(value).toLowerCase();
+      const normalized = String(value ?? '').trim().toLowerCase();
 
       if (normalized === 'approved' || normalized === 'rejected' || normalized === 'pending') {
         return normalized;
@@ -405,23 +417,19 @@
       return 'pending';
     }
 
-    function showStatus(message, type) {
-      if (!message) {
-        statusMessage.className = 'status-message';
-        statusMessage.textContent = '';
-        return;
-      }
-
-      statusMessage.className = 'status-message is-visible ' + (type === 'error' ? 'is-error' : 'is-info');
-      statusMessage.textContent = message;
+    function formatStatusLabel(status) {
+      const normalized = normalizeStatus(status);
+      return normalized.charAt(0).toUpperCase() + normalized.slice(1);
     }
 
-    function formatCreatedAt(value) {
-      if (!value) return 'No date available';
+    function formatDate(value) {
+      if (!value) {
+        return 'Unknown date';
+      }
 
       const date = new Date(value);
       if (Number.isNaN(date.getTime())) {
-        return 'No date available';
+        return 'Unknown date';
       }
 
       return date.toLocaleString(undefined, {
@@ -433,212 +441,225 @@
       });
     }
 
-    function truncateText(value, length) {
-      const text = normalizeText(value);
-
-      if (!text) {
-        return '';
-      }
-
-      if (text.length <= length) {
-        return text;
-      }
-
-      return text.slice(0, length).trimEnd() + '...';
-    }
-
     function getStars(rating) {
-      const safeRating = Math.max(0, Math.min(5, Number(rating) || 0));
+      const safeRating = Math.max(0, Math.min(5, Math.round(Number(rating) || 0)));
       return '★'.repeat(safeRating) + '☆'.repeat(5 - safeRating);
     }
 
     function countByStatus(items, targetStatus) {
-      return items.filter((item) => item.status === targetStatus).length;
+      return items.filter((item) => normalizeStatus(item.status) === targetStatus).length;
     }
 
-    function updateSummary(allItems, visibleItems) {
-      totalReviewsCount.textContent = String(allItems.length);
-      pendingReviewsCount.textContent = String(countByStatus(allItems, 'pending'));
-      approvedReviewsCount.textContent = String(countByStatus(allItems, 'approved'));
-      summaryPendingCount.textContent = String(countByStatus(allItems, 'pending'));
-      summaryApprovedCount.textContent = String(countByStatus(allItems, 'approved'));
-      summaryRejectedCount.textContent = String(countByStatus(allItems, 'rejected'));
-
-      if (allItems.length === 0) {
-        showStatus('No place reviews found yet. User ratings will appear here once submitted.', 'info');
-        return;
-      }
-
-      if (visibleItems.length !== allItems.length) {
-        showStatus('Showing ' + visibleItems.length + ' of ' + allItems.length + ' review' + (allItems.length === 1 ? '' : 's') + '.', 'info');
-        return;
-      }
-
-      showStatus('', 'info');
+    function updateSummary(items) {
+      totalReviewsCount.textContent = String(items.length);
+      pendingReviewsCount.textContent = String(countByStatus(items, 'pending'));
+      approvedReviewsCount.textContent = String(countByStatus(items, 'approved'));
     }
 
-    function buildSearchText(item) {
-      return [
-        normalizeText(item.place_name),
-        normalizeText(item.reviewer_name),
-        normalizeText(item.review_text),
-        normalizeText(item.admin_notes),
-        normalizeText(item.status),
-        String(item.rating || '')
-      ].join(' ').toLowerCase();
-    }
-
-    function renderTable(items, emptyTitle, emptyText) {
-      if (items.length === 0) {
+    function renderTable(items) {
+      if (!items.length) {
         tableBody.innerHTML = `
           <tr>
-            <td colspan="8" class="empty">
-              <strong>${escapeHtml(emptyTitle)}</strong>
-              ${escapeHtml(emptyText)}
+            <td colspan="8" class="empty-state">
+              <strong>No reviews found</strong>
+              <p>Try changing the status filter or check back later for new submissions.</p>
             </td>
           </tr>
         `;
         return;
       }
 
-      tableBody.innerHTML = items.map((item) => `
-        <tr>
-          <td>
-            <div class="place-block">
-              <strong>${escapeHtml(item.place_name || 'Unknown place')}</strong>
-              <div class="place-meta">Review ID: ${escapeHtml(item.id)}</div>
-            </div>
-          </td>
-          <td>
-            <div class="reviewer-block">
-              <strong>${escapeHtml(item.reviewer_name || 'Anonymous reviewer')}</strong>
-              <div class="reviewer-meta">${escapeHtml(item.user_id || 'No linked profile')}</div>
-            </div>
-          </td>
-          <td>
-            <div class="rating-block">
-              <span class="stars">${escapeHtml(getStars(item.rating))}</span>
-              <span class="rating-value">${escapeHtml(String(Number(item.rating) || 0))}/5</span>
-            </div>
-          </td>
-          <td>
-            <div class="review-text-block">
-              <div class="review-snippet">${escapeHtml(truncateText(item.review_text || 'No review text provided.', 180) || 'No review text provided.')}</div>
-            </div>
-          </td>
-          <td>
-            <div class="date-meta">
-              ${escapeHtml(formatCreatedAt(item.created_at))}
-            </div>
-          </td>
-          <td>
-            <span class="status-chip ${escapeHtml(item.status)}">${escapeHtml(item.status)}</span>
-          </td>
-          <td>
-            <div class="notes-block">
-              <div class="notes-snippet">${escapeHtml(truncateText(item.admin_notes || 'No admin notes yet.', 120) || 'No admin notes yet.')}</div>
-              <div class="notes-meta">Updated ${escapeHtml(formatCreatedAt(item.updated_at))}</div>
-            </div>
-          </td>
-          <td>
-            <div class="action-stack">
-              <button class="btn-approve" type="button" onclick="updateReviewStatus('${escapeJsString(item.id)}', 'approved')">Approve</button>
-              <button class="btn-reject" type="button" onclick="updateReviewStatus('${escapeJsString(item.id)}', 'rejected')">Reject</button>
-              <button class="btn-reset" type="button" onclick="updateReviewStatus('${escapeJsString(item.id)}', 'pending')">Reset</button>
-            </div>
-          </td>
-        </tr>
-      `).join('');
+      tableBody.innerHTML = items.map((item) => {
+        const status = normalizeStatus(item.status);
+        const savedNotes = String(item.admin_notes ?? '');
+
+        return `
+          <tr>
+            <td>
+              <div class="place-name">
+                <strong>${escapeHtml(item.place_name || 'Unknown place')}</strong>
+                <span class="meta-text">Place ID: ${escapeHtml(item.place_id || 'N/A')}</span>
+              </div>
+            </td>
+            <td>
+              <div class="place-name">
+                <strong class="reviewer-name">${escapeHtml(item.reviewer_name || 'Anonymous reviewer')}</strong>
+                <span class="meta-text">${escapeHtml(item.user_id || 'No linked user')}</span>
+              </div>
+            </td>
+            <td>
+              <div class="rating-block">
+                <span class="rating-stars">${escapeHtml(getStars(item.rating))}</span>
+                <span class="rating-value">${escapeHtml(String(Number(item.rating) || 0))}/5</span>
+              </div>
+            </td>
+            <td>
+              <div class="review-text">${escapeHtml(item.review_text || 'No review text provided.')}</div>
+            </td>
+            <td>
+              <span class="status-chip ${escapeHtml(status)}">${escapeHtml(formatStatusLabel(status))}</span>
+            </td>
+            <td>
+              <div class="review-meta">
+                <span class="meta-text">${escapeHtml(formatDate(item.created_at))}</span>
+              </div>
+            </td>
+            <td>
+              <textarea id="notes-${escapeAttribute(item.id)}" class="admin-notes-input" placeholder="Add internal admin notes">${escapeHtml(savedNotes)}</textarea>
+            </td>
+            <td>
+              <div class="action-stack">
+                <div class="action-buttons">
+                  <button class="btn-approve" type="button" onclick="updateReviewStatus('${escapeJsString(item.id)}', 'approved')">Approve</button>
+                  <button class="btn-reject" type="button" onclick="updateReviewStatus('${escapeJsString(item.id)}', 'rejected')">Reject</button>
+                </div>
+                ${status === 'approved'
+                  ? '<span class="approved-label">Current status: approved</span>'
+                  : status === 'rejected'
+                    ? '<span class="rejected-label">Current status: rejected</span>'
+                    : '<span class="meta-text">Current status: pending review</span>'}
+                <span class="meta-text">Buttons also save the admin notes for this review.</span>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
     }
 
     function applyFilters() {
-      const query = searchInput.value.toLowerCase().trim();
-      const selectedStatus = statusFilter.value;
-
       const filtered = allReviews.filter((item) => {
-        const matchesSearch = !query || item._searchText.includes(query);
-        const matchesStatus = selectedStatus === 'all' || item.status === selectedStatus;
-        return matchesSearch && matchesStatus;
+        return activeStatusFilter === 'all' || normalizeStatus(item.status) === activeStatusFilter;
       });
 
-      updateSummary(allReviews, filtered);
-      renderTable(filtered, 'No reviews found', 'Try adjusting the search query or moderation status filter.');
+      renderTable(filtered);
+
+      tableStatus.textContent = filtered.length
+        ? `Showing ${filtered.length} review${filtered.length === 1 ? '' : 's'}${activeStatusFilter !== 'all' ? ` with status ${activeStatusFilter}` : ''}.`
+        : 'No matching reviews found.';
+      tableStatus.className = 'table-status';
     }
 
-    function resetFilters() {
-      searchInput.value = '';
-      statusFilter.value = 'all';
-      applyFilters();
-    }
+    async function updateReviewStatus(reviewId, nextStatus) {
+      const notesField = document.getElementById(`notes-${reviewId}`);
+      const adminNotes = String(notesField?.value || '').trim();
 
-    async function updateReviewStatus(id, nextStatus) {
-      if (!id) return;
+      tableStatus.textContent = `Updating review to ${formatStatusLabel(nextStatus)}...`;
+      tableStatus.className = 'table-status';
 
-      const statusLabel = nextStatus.charAt(0).toUpperCase() + nextStatus.slice(1);
-      showStatus('Updating review status to ' + statusLabel + '...', 'info');
+      const actionButtons = Array.from(
+        document.querySelectorAll(`button[onclick*="updateReviewStatus('${reviewId}'"]`)
+      );
+      actionButtons.forEach((button) => {
+        button.disabled = true;
+      });
 
-      const { error } = await supabase
-        .from('place_reviews')
-        .update({ status: nextStatus })
-        .eq('id', id);
+      try {
+        const response = await fetch('/api/manage-place-reviews', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            reviewId,
+            status: nextStatus,
+            adminNotes
+          })
+        });
 
-      if (error) {
-        showStatus(error.message || 'Failed to update review status.', 'error');
-        return;
+        const result = await response.json().catch(() => null);
+
+        if (!response.ok || !result?.success) {
+          const message = result?.error || 'Unable to update review status.';
+          tableStatus.textContent = message;
+          tableStatus.className = 'table-status error';
+          return;
+        }
+
+        tableStatus.textContent = `Review updated to ${formatStatusLabel(nextStatus)}.`;
+        tableStatus.className = 'table-status';
+        await loadReviews(false);
+      } catch (error) {
+        tableStatus.textContent = `Unable to update review: ${error instanceof Error ? error.message : String(error)}`;
+        tableStatus.className = 'table-status error';
+      } finally {
+        actionButtons.forEach((button) => {
+          button.disabled = false;
+        });
       }
-
-      showStatus('Review updated to ' + statusLabel + '.', 'info');
-      await loadReviews(false);
     }
 
     async function loadReviews(showLoading = false) {
-      if (isLoading) return;
+      if (isLoading) {
+        return;
+      }
+
       isLoading = true;
 
       if (showLoading) {
-        showStatus('Loading place reviews...', 'info');
+        tableStatus.textContent = 'Loading place reviews...';
+        tableStatus.className = 'table-status';
       }
 
       tableBody.innerHTML = `
         <tr>
-          <td colspan="8" class="empty">
+          <td colspan="8" class="empty-state">
             <strong>Loading reviews</strong>
-            Please wait while place feedback is being fetched.
+            <p>Please wait while place feedback is being fetched.</p>
           </td>
         </tr>
       `;
 
-      const { data, error } = await supabase
-        .from('place_reviews')
-        .select('id, place_id, user_id, reviewer_name, rating, review_text, status, admin_notes, created_at, updated_at, places(name)')
-        .order('created_at', { ascending: false });
+      try {
+        const query = activeStatusFilter !== 'all'
+          ? `?status=${encodeURIComponent(activeStatusFilter)}`
+          : '';
+        const response = await fetch(`/api/manage-place-reviews${query}`, {
+          method: 'GET'
+        });
 
-      isLoading = false;
+        const result = await response.json().catch(() => null);
 
-      if (error) {
+        if (!response.ok || !result?.success) {
+          const message = result?.error || 'Unable to load place reviews.';
+          allReviews = [];
+          updateSummary([]);
+          renderTable([]);
+          tableStatus.textContent = message;
+          tableStatus.className = 'table-status error';
+          isLoading = false;
+          return;
+        }
+
+        allReviews = Array.isArray(result.reviews)
+          ? result.reviews.map((item) => ({
+              ...item,
+              status: normalizeStatus(item.status)
+            }))
+          : [];
+
+        updateSummary(allReviews);
+        applyFilters();
+      } catch (error) {
         allReviews = [];
-        updateSummary([], []);
-        renderTable([], 'Unable to load reviews', 'Please refresh the page and try again.');
-        showStatus(error.message || 'Failed to load place reviews.', 'error');
-        return;
+        updateSummary([]);
+        renderTable([]);
+        tableStatus.textContent = `Unable to load place reviews: ${error instanceof Error ? error.message : String(error)}`;
+        tableStatus.className = 'table-status error';
+      } finally {
+        isLoading = false;
       }
-
-      allReviews = (data || []).map((item) => ({
-        ...item,
-        place_name: item.places?.name || 'Unknown place',
-        status: normalizeStatus(item.status),
-        _searchText: buildSearchText({
-          ...item,
-          place_name: item.places?.name || 'Unknown place',
-          status: normalizeStatus(item.status)
-        })
-      }));
-
-      applyFilters();
     }
 
-    searchInput.addEventListener('input', applyFilters);
-    statusFilter.addEventListener('change', applyFilters);
+    function resetFilters() {
+      statusFilter.value = 'all';
+      activeStatusFilter = 'all';
+      loadReviews(true);
+    }
+
+    statusFilter.addEventListener('change', () => {
+      activeStatusFilter = statusFilter.value;
+      loadReviews(true);
+    });
 
     window.loadReviews = loadReviews;
     window.updateReviewStatus = updateReviewStatus;

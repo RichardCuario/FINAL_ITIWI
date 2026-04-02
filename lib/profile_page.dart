@@ -575,7 +575,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
             Switch(
-              value: widget.isDarkMode,
+              value: isDark,
               onChanged: widget.onToggleDarkMode,
               activeThumbColor: Colors.blue,
             ),

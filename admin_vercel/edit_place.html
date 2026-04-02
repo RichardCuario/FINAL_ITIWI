@@ -414,11 +414,13 @@
             </div>
 
             <div class="field-card full">
-              <label class="field-label" for="imageUrl">
-                Image URL
-                <input id="imageUrl" name="imageUrl" type="url" placeholder="https://example.com/place-image.jpg">
-                <small>Paste a direct image URL that can be displayed in the admin panel and public app.</small>
+              <label class="field-label" for="imageFile">
+                Place image
+                <input id="imageFile" name="imageFile" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+                <small>Upload an image file directly. Supported types: JPG, PNG, WEBP, GIF.</small>
               </label>
+              <input id="imageUrl" name="imageUrl" type="hidden">
+              <div id="imageUploadStatus" class="status-box info" style="margin-top: 14px;">No image uploaded yet.</div>
             </div>
 
             <div class="field-card">
@@ -552,6 +554,8 @@
     const imageUrlInput = document.getElementById('imageUrl');
     const imagePreview = document.getElementById('imagePreview');
     const recordMeta = document.getElementById('recordMeta');
+    const imageFileInput = document.getElementById('imageFile');
+    const imageUploadStatus = document.getElementById('imageUploadStatus');
 
     let existingRecord = null;
     const isEditMode = Boolean(placeId);
@@ -586,6 +590,11 @@
     function setStatus(message, type = 'info') {
       formStatus.textContent = message;
       formStatus.className = `status-box ${type}`;
+    }
+
+    function setImageUploadStatus(message, type = 'info') {
+      imageUploadStatus.textContent = message;
+      imageUploadStatus.className = `status-box ${type}`;
     }
 
     function escapeHtml(value) {
@@ -658,11 +667,6 @@
         return 'Please provide at least a short location or a full address.';
       }
 
-      const imageUrlError = validateUrl(payload.image_url, 'image URL');
-      if (imageUrlError) {
-        return imageUrlError;
-      }
-
       const websiteUrlError = validateUrl(payload.website_url, 'website URL');
       if (websiteUrlError) {
         return websiteUrlError;
@@ -679,6 +683,10 @@
       return '';
     }
 
+    function buildLocationValue(shortLocation, fullAddress) {
+      return shortLocation || fullAddress || null;
+    }
+
     function readFormPayload() {
       const latitudeResult = parseCoordinate(document.getElementById('latitude').value, 'latitude');
       if (latitudeResult.error) {
@@ -690,11 +698,15 @@
         return { payload: null, error: longitudeResult.error };
       }
 
+      const shortLocation = normalizeOptionalText(document.getElementById('shortLocation').value);
+      const fullAddress = normalizeOptionalText(document.getElementById('fullAddress').value);
+
       const payload = {
         name: document.getElementById('name').value.trim(),
         category: document.getElementById('category').value.trim(),
-        short_location: normalizeOptionalText(document.getElementById('shortLocation').value),
-        full_address: normalizeOptionalText(document.getElementById('fullAddress').value),
+        location: buildLocationValue(shortLocation, fullAddress),
+        short_location: shortLocation,
+        full_address: fullAddress,
         description: normalizeOptionalText(document.getElementById('description').value),
         image_url: normalizeOptionalText(document.getElementById('imageUrl').value),
         phone: normalizeOptionalText(document.getElementById('phone').value),
@@ -715,7 +727,7 @@
     function fillForm(record) {
       document.getElementById('name').value = record.name || '';
       document.getElementById('category').value = record.category || '';
-      document.getElementById('shortLocation').value = record.short_location || '';
+      document.getElementById('shortLocation').value = record.short_location || record.location || '';
       document.getElementById('fullAddress').value = record.full_address || '';
       document.getElementById('description').value = record.description || '';
       document.getElementById('imageUrl').value = record.image_url || '';
@@ -726,6 +738,7 @@
       document.getElementById('distanceLabel').value = record.distance_label || '';
       document.getElementById('isFeatured').checked = Boolean(record.is_featured);
       document.getElementById('isPublished').checked = record.is_published !== false;
+      setImageUploadStatus(record.image_url ? 'Existing image loaded for this place.' : 'No image uploaded yet.', record.image_url ? 'success' : 'info');
       updateImagePreview();
       updateRecordMeta(record);
     }
@@ -784,6 +797,7 @@
             id,
             name,
             category,
+            location,
             short_location,
             full_address,
             description,
@@ -822,67 +836,77 @@
       }
     }
 
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = () => {
+          const result = String(reader.result || '');
+          const base64Data = result.includes(',') ? result.split(',')[1] : '';
+          resolve(base64Data);
+        };
+
+        reader.onerror = () => reject(new Error('Unable to read the selected image file.'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function uploadSelectedImageIfNeeded() {
+      const file = imageFileInput.files?.[0];
+
+      if (!file) {
+        return imageUrlInput.value.trim() || null;
+      }
+
+      if (!file.type.startsWith('image/')) {
+        throw new Error('Please select a valid image file.');
+      }
+
+      setImageUploadStatus(`Uploading ${file.name}...`, 'info');
+
+      const base64Data = await fileToBase64(file);
+      const response = await fetch('/api/upload-place-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          fileName: file.name,
+          mimeType: file.type,
+          base64Data
+        })
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(result?.details?.message || result?.error || 'Unable to upload the selected image.');
+      }
+
+      const publicUrl = String(result?.publicUrl || '').trim();
+      imageUrlInput.value = publicUrl;
+      setImageUploadStatus(`Image uploaded successfully: ${file.name}`, 'success');
+      updateImagePreview();
+
+      return publicUrl || null;
+    }
+
     async function savePlace(payload) {
-      if (isEditMode) {
-        const { data, error } = await supabase
-          .from('places')
-          .update(payload)
-          .eq('id', placeId)
-          .select(`
-            id,
-            name,
-            category,
-            short_location,
-            full_address,
-            description,
-            image_url,
-            phone,
-            website_url,
-            latitude,
-            longitude,
-            distance_label,
-            is_featured,
-            is_published,
-            created_at,
-            updated_at
-          `)
-          .single();
+      const response = await fetch('/api/manage-place', {
+        method: isEditMode ? 'PATCH' : 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(isEditMode ? { placeId, payload } : { payload })
+      });
 
-        if (error) {
-          throw error;
-        }
+      const result = await response.json().catch(() => null);
 
-        return data;
+      if (!response.ok) {
+        throw new Error(result?.details?.message || result?.error || 'Unable to save this place right now.');
       }
 
-      const { data, error } = await supabase
-        .from('places')
-        .insert([payload])
-        .select(`
-          id,
-          name,
-          category,
-          short_location,
-          full_address,
-          description,
-          image_url,
-          phone,
-          website_url,
-          latitude,
-          longitude,
-          distance_label,
-          is_featured,
-          is_published,
-          created_at,
-          updated_at
-        `)
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      return data;
+      return result?.place || null;
     }
 
     async function handleDelete() {
@@ -900,13 +924,18 @@
       setStatus(`Deleting ${existingRecord.name || 'place'}...`, 'info');
 
       try {
-        const { error } = await supabase
-          .from('places')
-          .delete()
-          .eq('id', existingRecord.id);
+        const response = await fetch('/api/manage-place', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ placeId: existingRecord.id })
+        });
 
-        if (error) {
-          throw error;
+        const result = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(result?.details?.message || result?.error || 'Unable to delete this place right now.');
         }
 
         successTitle.textContent = 'Deleted successfully';
@@ -933,12 +962,14 @@
       }
 
       submitButton.disabled = true;
+      imageFileInput.disabled = true;
       if (deleteButton.style.display !== 'none') {
         deleteButton.disabled = true;
       }
       setStatus(isEditMode ? 'Saving place changes...' : 'Creating place record...', 'info');
 
       try {
+        payload.image_url = await uploadSelectedImageIfNeeded();
         const savedRecord = await savePlace(payload);
         existingRecord = savedRecord;
         fillForm(savedRecord);
@@ -955,10 +986,25 @@
         console.error('Failed to save place:', saveError);
         setStatus(saveError.message || 'Unable to save this place right now.', 'error');
         submitButton.disabled = false;
+        imageFileInput.disabled = false;
         if (deleteButton.style.display !== 'none') {
           deleteButton.disabled = false;
         }
       }
+    });
+
+    imageFileInput.addEventListener('change', async () => {
+      const file = imageFileInput.files?.[0];
+
+      if (!file) {
+        setImageUploadStatus(imageUrlInput.value ? 'Existing image will be kept unless you upload a new one.' : 'No image uploaded yet.', 'info');
+        updateImagePreview();
+        return;
+      }
+
+      setImageUploadStatus(`Selected image: ${file.name}`, 'info');
+      const previewUrl = URL.createObjectURL(file);
+      imagePreview.innerHTML = `<img src="${escapeHtml(previewUrl)}" alt="Place preview image">`;
     });
 
     imageUrlInput.addEventListener('input', updateImagePreview);
