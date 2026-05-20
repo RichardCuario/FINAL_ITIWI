@@ -5,46 +5,60 @@ class FaqPage extends StatelessWidget {
 
   static const List<_FaqItem> _faqItems = [
     _FaqItem(
-      question: 'How do I submit a report?',
+      question: 'How do I send a report or concern?',
       answer:
-          'Open the Report section from the app, fill in the required details, add supporting information if needed, and submit your concern.',
+          'Open the Report page, enter the details of your concern, add a clear description and photo if available, then tap submit. Make sure the information is accurate so the report can be reviewed properly.',
       icon: Icons.report_problem_rounded,
       iconColor: Color(0xFFF26A45),
     ),
     _FaqItem(
-      question: 'Where can I find emergency hotline numbers?',
+      question: 'Can I track the report I submitted?',
       answer:
-          'Go to the Hotline page to view the list of available emergency contact numbers for your municipality and related offices.',
-      icon: Icons.call_rounded,
+          'Yes. If report tracking is enabled for your account, you can check your submitted reports in the app and see updates once the municipality reviews them.',
+      icon: Icons.assignment_rounded,
       iconColor: Color(0xFF1E88E5),
     ),
     _FaqItem(
-      question: 'How can I read the latest municipal news?',
+      question: 'Where can I find emergency hotline numbers?',
       answer:
-          'Open the News section to browse announcements, updates, and public information posted in the app.',
-      icon: Icons.campaign_rounded,
+          'Go to the Hotline page to view important contact numbers such as police, fire, rescue, and other municipal emergency services.',
+      icon: Icons.call_rounded,
       iconColor: Color(0xFF6F46D9),
     ),
     _FaqItem(
-      question: 'Can I access online services in the app?',
+      question: 'Where can I read the latest announcements or news?',
       answer:
-          'Yes. Visit the Online Services page to see available digital services and quick links provided by the municipality.',
-      icon: Icons.public_rounded,
+          'Open the News section to read the latest municipal announcements, public advisories, event updates, and other official posts.',
+      icon: Icons.campaign_rounded,
       iconColor: Color(0xFF00A889),
     ),
     _FaqItem(
-      question: 'Do I need an account to use all features?',
+      question: 'What online services can I access in the app?',
       answer:
-          'Some features may work without signing in, but account-based features such as personalized access or report tracking may require login.',
-      icon: Icons.person_rounded,
+          'Visit the Online Services page to find available digital services, request links, forms, and other service options provided by the municipality.',
+      icon: Icons.public_rounded,
       iconColor: Color(0xFFF3C746),
     ),
     _FaqItem(
-      question: 'How do I know if information in the app is official?',
+      question: 'Do I need to create an account first?',
       answer:
-          'The content shown in the app is intended to come from your municipal administration and authorized app management channels.',
-      icon: Icons.verified_rounded,
+          'Some parts of the app may be available without signing in, but features like personalized access, report history, or service requests may require an account.',
+      icon: Icons.person_rounded,
       iconColor: Color(0xFF4CAF50),
+    ),
+    _FaqItem(
+      question: 'Is the information in the app official and updated?',
+      answer:
+          'The app is designed to show information coming from the municipal government or authorized administrators. Updates depend on the latest content posted by the app managers.',
+      icon: Icons.verified_rounded,
+      iconColor: Color(0xFF26A69A),
+    ),
+    _FaqItem(
+      question: 'What should I do if something is missing or not working in the app?',
+      answer:
+          'If a page does not load, information looks incomplete, or a feature is not working, try reopening the app or checking your internet connection. You may also contact your municipality for assistance.',
+      icon: Icons.help_outline_rounded,
+      iconColor: Color(0xFFEF6C00),
     ),
   ];
 
@@ -174,7 +188,7 @@ class _FaqIntroCard extends StatelessWidget {
           const SizedBox(width: 16),
           Expanded(
             child: Text(
-              'Find quick answers about reporting concerns, accessing services, reading news, and using important features in the app.',
+              'Find quick answers about submitting reports, checking hotlines, viewing announcements, using online services, and other common app concerns.',
               style: TextStyle(
                 color: isDark ? Colors.white70 : const Color(0xFF4B5563),
                 fontSize: 15,

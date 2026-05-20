@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Edit News - ITIWI</title>
+  
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="admin-theme.css">
   <style>
     .page-layout {
@@ -220,6 +221,16 @@
       .page-layout {
         grid-template-columns: 1fr;
       }
+
+      .hero-panel {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 960px) {
+      .page-hero-grid {
+        gap: 16px;
+      }
     }
 
     @media (max-width: 720px) {
@@ -231,8 +242,34 @@
         grid-column: auto;
       }
 
+      .form-actions {
+        justify-content: stretch;
+      }
+
       .form-actions .btn {
         width: 100%;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .form-card,
+      .section-card {
+        padding: 16px;
+      }
+
+      .field-card,
+      .upload-dropzone {
+        padding: 16px;
+      }
+
+      .current-image-label {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+      }
+
+      .success-card {
+        padding: 24px 20px;
       }
     }
   </style>
@@ -524,3 +561,4 @@
   <script src="sidebar.js"></script>
 </body>
 </html>
+

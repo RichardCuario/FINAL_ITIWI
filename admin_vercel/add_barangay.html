@@ -1,9 +1,27 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Add Barangay</title>
+  
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="admin-theme.css">
   <style>
+    .page-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .directory-body {
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(15, 23, 42, 0.06);
+      border-radius: 32px;
+      box-shadow: 0 28px 60px rgba(15, 23, 42, 0.08);
+    }
+
     .page-layout {
       display: grid;
       grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.78fr);
@@ -38,9 +56,9 @@
     .upload-panel,
     .info-panel {
       padding: 18px;
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.72);
-      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 20px;
+      background: #ffffff;
+      border: 1px solid rgba(148, 163, 184, 0.14);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
     }
 
@@ -141,9 +159,10 @@
 
     .checklist-item {
       padding: 18px;
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.72);
-      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 20px;
+      background: #ffffff;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
     }
 
     .checklist-item strong {
@@ -209,13 +228,91 @@
       font-size: 14px;
     }
 
+    .analytics-filter {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: 14px;
+      background: #ffffff;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      color: #4b5563;
+      font-weight: 600;
+      box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
+    }
+
+    .section-card-soft,
+    .section-card,
+    .form-card {
+      background: #ffffff;
+      border-radius: 22px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.04);
+      padding: 22px;
+    }
+
+    .content-card.toolbar-card {
+      background: #ffffff;
+      border-radius: 22px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.04);
+      padding: 22px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .page-hero {
+      padding: 0;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+    }
+
+    .page-hero-grid {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .hero-title {
+      margin: 0;
+      font-size: 48px;
+      line-height: 1;
+      letter-spacing: -0.05em;
+      color: #111827;
+    }
+
+    .hero-subtitle {
+      margin-top: 12px;
+      max-width: 760px;
+      color: #6b7280;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
     @media (max-width: 1180px) {
       .page-layout {
         grid-template-columns: 1fr;
       }
     }
 
+    @media (max-width: 960px) {
+      .content-card.toolbar-card,
+      .page-hero-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .preview-wrapper {
+        align-items: flex-start;
+      }
+    }
+
     @media (max-width: 760px) {
+      .content-card.toolbar-card,
       .form-grid,
       .officials-grid,
       .kagawad-grid,
@@ -230,6 +327,49 @@
       .form-actions .btn {
         width: 100%;
       }
+
+      .directory-body {
+        padding: 18px;
+      }
+
+      .hero-title {
+        font-size: 38px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .directory-body,
+      .section-card,
+      .form-card,
+      .content-card.toolbar-card {
+        padding: 16px;
+      }
+
+      .hero-title {
+        font-size: 32px;
+      }
+
+      .hero-subtitle {
+        font-size: 14px;
+      }
+
+      .field-card,
+      .upload-panel,
+      .info-panel,
+      .checklist-item {
+        padding: 16px;
+      }
+
+      .preview-image,
+      .preview-placeholder {
+        width: 80px;
+        height: 80px;
+        border-radius: 18px;
+      }
+
+      .success-card {
+        padding: 24px 20px;
+      }
     }
   </style>
 </head>
@@ -237,219 +377,218 @@
 <body>
 
 <div class="main">
-  <section class="page-hero">
-    <div class="page-hero-grid">
-      <div>
-        <div class="hero-kicker">Barangay Directory</div>
-        <h1 class="hero-title">Create a new barangay profile</h1>
-        <p class="hero-subtitle">Add complete barangay information, officials, map coordinates, and media assets so the directory stays informative and ready for public viewing.</p>
-        <div class="hero-highlights">
-          <div class="hero-highlight">
-            <strong>Structured details</strong>
-            <span>Store officials, coordinates, and descriptive content</span>
-          </div>
-          <div class="hero-highlight">
-            <strong>Rich media</strong>
-            <span>Upload both logo and header imagery</span>
-          </div>
-        </div>
-      </div>
-      <div class="hero-panel">
-        <span class="hero-panel-label">Publishing mode</span>
-        <h3>Prepare a complete barangay entry</h3>
-        <p>Make sure all required officials are included and coordinates are valid before publishing to the barangay list.</p>
-      </div>
-    </div>
-  </section>
-
-  <div class="page-layout">
-    <div class="form-stack">
-      <section class="form-card">
-        <div class="section-heading">
+  <div class="page-stack">
+    <div class="directory-body">
+      <section class="page-hero">
+        <div class="page-hero-grid">
           <div>
-            <h2>Basic information</h2>
-            <p>Start with the barangay identity, overview, and geographic description.</p>
+            <h1 class="hero-title">Create a new barangay profile</h1>
+            <p class="hero-subtitle">Add complete barangay information, officials, map coordinates, and media assets using the same clean design language as the News and Announcements page.</p>
           </div>
-        </div>
-
-        <div class="form-grid">
-          <div class="field-card full">
-            <label class="field-label" for="name">
-              Barangay name
-              <input id="name" placeholder="Barangay Name">
-            </label>
-          </div>
-
-          <div class="field-card full">
-            <label class="field-label" for="description">
-              Description
-              <textarea id="description" placeholder="Description"></textarea>
-            </label>
-          </div>
-
-          <div class="field-card full">
-            <label class="field-label" for="geo">
-              Geographic data
-              <textarea id="geo" placeholder="Geographic Data"></textarea>
-            </label>
-          </div>
+          <div class="analytics-filter">🏘️ Barangay directory</div>
         </div>
       </section>
 
-      <section class="section-card">
-        <div class="section-heading">
+      <section class="content-card toolbar-card">
+        <div class="section-heading" style="margin-bottom: 0;">
           <div>
-            <h2>Barangay officials</h2>
-            <p>Required officials: 1 Punong Barangay, 7 Barangay Kagawad, 1 SK Chairman, 1 Barangay Secretary, and 1 Barangay Treasurer.</p>
+            <h2>Profile creation</h2>
+            <p>Prepare a complete barangay entry with validated officials, coordinates, and supporting media assets.</p>
           </div>
         </div>
-
-        <div class="section-block">
-          <div class="officials-grid">
-            <div class="field-card">
-              <div class="field-group">
-                <label for="punong_barangay">Punong Barangay</label>
-                <input id="punong_barangay" placeholder="Enter Punong Barangay name">
-              </div>
-            </div>
-
-            <div class="field-card">
-              <div class="field-group">
-                <label for="sk_chairman">SK Chairman</label>
-                <input id="sk_chairman" placeholder="Enter SK Chairman name">
-              </div>
-            </div>
-
-            <div class="field-card">
-              <div class="field-group">
-                <label for="barangay_secretary">Barangay Secretary</label>
-                <input id="barangay_secretary" placeholder="Enter Barangay Secretary name">
-              </div>
-            </div>
-
-            <div class="field-card">
-              <div class="field-group">
-                <label for="barangay_treasurer">Barangay Treasurer</label>
-                <input id="barangay_treasurer" placeholder="Enter Barangay Treasurer name">
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <div class="section-heading" style="margin-bottom: 14px;">
-              <div>
-                <h2 style="font-size: 18px;">Barangay Kagawad</h2>
-                <p>Add all seven kagawad names to complete the record.</p>
-              </div>
-            </div>
-
-            <div class="kagawad-grid">
-              <div class="field-card"><div class="field-group"><label for="kagawad_1">Kagawad 1</label><input id="kagawad_1" placeholder="Enter Kagawad 1 name"></div></div>
-              <div class="field-card"><div class="field-group"><label for="kagawad_2">Kagawad 2</label><input id="kagawad_2" placeholder="Enter Kagawad 2 name"></div></div>
-              <div class="field-card"><div class="field-group"><label for="kagawad_3">Kagawad 3</label><input id="kagawad_3" placeholder="Enter Kagawad 3 name"></div></div>
-              <div class="field-card"><div class="field-group"><label for="kagawad_4">Kagawad 4</label><input id="kagawad_4" placeholder="Enter Kagawad 4 name"></div></div>
-              <div class="field-card"><div class="field-group"><label for="kagawad_5">Kagawad 5</label><input id="kagawad_5" placeholder="Enter Kagawad 5 name"></div></div>
-              <div class="field-card"><div class="field-group"><label for="kagawad_6">Kagawad 6</label><input id="kagawad_6" placeholder="Enter Kagawad 6 name"></div></div>
-              <div class="field-card"><div class="field-group"><label for="kagawad_7">Kagawad 7</label><input id="kagawad_7" placeholder="Enter Kagawad 7 name"></div></div>
-            </div>
-          </div>
-        </div>
+        <div class="analytics-filter">Publishing mode</div>
       </section>
 
-      <section class="section-card">
-        <div class="section-heading">
-          <div>
-            <h2>Map coordinates</h2>
-            <p>Enter the exact latitude and longitude of the barangay hall or center point used by the app preview.</p>
-          </div>
-        </div>
-
-        <div class="coordinates-grid">
-          <div class="field-card">
-            <div class="field-group">
-              <label for="latitude">Latitude</label>
-              <input id="latitude" type="number" step="any" placeholder="e.g. 13.458921">
-            </div>
-          </div>
-          <div class="field-card">
-            <div class="field-group">
-              <label for="longitude">Longitude</label>
-              <input id="longitude" type="number" step="any" placeholder="e.g. 123.680214">
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section-card">
-        <div class="section-heading">
-          <div>
-            <h2>Media uploads</h2>
-            <p>Upload visual assets for the barangay seal and cover image.</p>
-          </div>
-        </div>
-
+      <div class="page-layout">
         <div class="form-stack">
-          <div class="upload-panel">
-            <div class="field-group">
-              <label class="field-label" for="logoFile">Barangay Seal / Logo</label>
-              <input class="upload-input" id="logoFile" type="file" accept="image/*">
+          <section class="form-card">
+            <div class="section-heading">
+              <div>
+                <h2>Basic information</h2>
+                <p>Start with the barangay identity, overview, and geographic description.</p>
+              </div>
             </div>
-            <div class="preview-wrapper" style="margin-top: 14px;">
-              <img id="logoPreview" class="preview-image" alt="Barangay logo preview">
-              <div id="logoPlaceholder" class="preview-placeholder">No logo selected</div>
+
+            <div class="form-grid">
+              <div class="field-card full">
+                <label class="field-label" for="name">
+                  Barangay name
+                  <input id="name" placeholder="Barangay Name">
+                </label>
+              </div>
+
+              <div class="field-card full">
+                <label class="field-label" for="description">
+                  Description
+                  <textarea id="description" placeholder="Description"></textarea>
+                </label>
+              </div>
+
+              <div class="field-card full">
+                <label class="field-label" for="geo">
+                  Geographic data
+                  <textarea id="geo" placeholder="Geographic Data"></textarea>
+                </label>
+              </div>
             </div>
-            <div class="helper-text" style="margin-top: 14px;">
-              Upload a barangay seal or logo. The file will be stored in the <strong>BARANGAY_LOGO</strong> bucket and saved to <strong>logo_url</strong>.
+          </section>
+
+          <section class="section-card">
+            <div class="section-heading">
+              <div>
+                <h2>Barangay officials</h2>
+                <p>Required officials: 1 Punong Barangay, 7 Barangay Kagawad, 1 SK Chairman, 1 Barangay Secretary, and 1 Barangay Treasurer.</p>
+              </div>
+            </div>
+
+            <div class="section-block">
+              <div class="officials-grid">
+                <div class="field-card">
+                  <div class="field-group">
+                    <label for="punong_barangay">Punong Barangay</label>
+                    <input id="punong_barangay" placeholder="Enter Punong Barangay name">
+                  </div>
+                </div>
+
+                <div class="field-card">
+                  <div class="field-group">
+                    <label for="sk_chairman">SK Chairman</label>
+                    <input id="sk_chairman" placeholder="Enter SK Chairman name">
+                  </div>
+                </div>
+
+                <div class="field-card">
+                  <div class="field-group">
+                    <label for="barangay_secretary">Barangay Secretary</label>
+                    <input id="barangay_secretary" placeholder="Enter Barangay Secretary name">
+                  </div>
+                </div>
+
+                <div class="field-card">
+                  <div class="field-group">
+                    <label for="barangay_treasurer">Barangay Treasurer</label>
+                    <input id="barangay_treasurer" placeholder="Enter Barangay Treasurer name">
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div class="section-heading" style="margin-bottom: 14px;">
+                  <div>
+                    <h2 style="font-size: 18px;">Barangay Kagawad</h2>
+                    <p>Add all seven kagawad names to complete the record.</p>
+                  </div>
+                </div>
+
+                <div class="kagawad-grid">
+                  <div class="field-card"><div class="field-group"><label for="kagawad_1">Kagawad 1</label><input id="kagawad_1" placeholder="Enter Kagawad 1 name"></div></div>
+                  <div class="field-card"><div class="field-group"><label for="kagawad_2">Kagawad 2</label><input id="kagawad_2" placeholder="Enter Kagawad 2 name"></div></div>
+                  <div class="field-card"><div class="field-group"><label for="kagawad_3">Kagawad 3</label><input id="kagawad_3" placeholder="Enter Kagawad 3 name"></div></div>
+                  <div class="field-card"><div class="field-group"><label for="kagawad_4">Kagawad 4</label><input id="kagawad_4" placeholder="Enter Kagawad 4 name"></div></div>
+                  <div class="field-card"><div class="field-group"><label for="kagawad_5">Kagawad 5</label><input id="kagawad_5" placeholder="Enter Kagawad 5 name"></div></div>
+                  <div class="field-card"><div class="field-group"><label for="kagawad_6">Kagawad 6</label><input id="kagawad_6" placeholder="Enter Kagawad 6 name"></div></div>
+                  <div class="field-card"><div class="field-group"><label for="kagawad_7">Kagawad 7</label><input id="kagawad_7" placeholder="Enter Kagawad 7 name"></div></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section-card">
+            <div class="section-heading">
+              <div>
+                <h2>Map coordinates</h2>
+                <p>Enter the exact latitude and longitude of the barangay hall or center point used by the app preview.</p>
+              </div>
+            </div>
+
+            <div class="coordinates-grid">
+              <div class="field-card">
+                <div class="field-group">
+                  <label for="latitude">Latitude</label>
+                  <input id="latitude" type="number" step="any" placeholder="e.g. 13.458921">
+                </div>
+              </div>
+              <div class="field-card">
+                <div class="field-group">
+                  <label for="longitude">Longitude</label>
+                  <input id="longitude" type="number" step="any" placeholder="e.g. 123.680214">
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section-card">
+            <div class="section-heading">
+              <div>
+                <h2>Media uploads</h2>
+                <p>Upload visual assets for the barangay seal and cover image.</p>
+              </div>
+            </div>
+
+            <div class="form-stack">
+              <div class="upload-panel">
+                <div class="field-group">
+                  <label class="field-label" for="logoFile">Barangay Seal / Logo</label>
+                  <input class="upload-input" id="logoFile" type="file" accept="image/*">
+                </div>
+                <div class="preview-wrapper" style="margin-top: 14px;">
+                  <img id="logoPreview" class="preview-image" alt="Barangay logo preview">
+                  <div id="logoPlaceholder" class="preview-placeholder">No logo selected</div>
+                </div>
+                <div class="helper-text" style="margin-top: 14px;">
+                  Upload a barangay seal or logo. The file will be stored in the <strong>BARANGAY_LOGO</strong> bucket and saved to <strong>logo_url</strong>.
+                </div>
+              </div>
+
+              <div class="upload-panel">
+                <div class="field-group">
+                  <label class="field-label" for="barangayImageFile">Barangay Cover Image</label>
+                  <input class="upload-input" id="barangayImageFile" type="file" accept="image/*">
+                </div>
+                <div class="preview-wrapper" style="margin-top: 14px;">
+                  <img id="barangayImagePreview" class="preview-image" alt="Barangay cover image preview">
+                  <div id="barangayImagePlaceholder" class="preview-placeholder">No cover image selected</div>
+                </div>
+                <div class="helper-text" style="margin-top: 14px;">
+                  Upload the image shown in the app header. The file will be stored in the <strong>BARANGAY_IMG</strong> bucket and saved to <strong>barangay_img</strong>.
+                </div>
+              </div>
+            </div>
+
+            <div class="error" id="errorMessage"></div>
+
+            <div class="form-actions" style="margin-top: 20px;">
+              <button class="btn btn-secondary" onclick="window.location.href='barangay.html'">Cancel</button>
+              <button class="btn btn-primary" id="publishButton" onclick="save()">Publish</button>
+            </div>
+          </section>
+        </div>
+
+        <aside class="section-card">
+          <div class="section-heading">
+            <div>
+              <h2>Entry checklist</h2>
+              <p>Review this checklist before publishing the barangay profile.</p>
             </div>
           </div>
 
-          <div class="upload-panel">
-            <div class="field-group">
-              <label class="field-label" for="barangayImageFile">Barangay Cover Image</label>
-              <input class="upload-input" id="barangayImageFile" type="file" accept="image/*">
+          <div class="checklist">
+            <div class="checklist-item">
+              <strong>Officials completed</strong>
+              <span>All required officers should be filled in, including seven kagawad names.</span>
             </div>
-            <div class="preview-wrapper" style="margin-top: 14px;">
-              <img id="barangayImagePreview" class="preview-image" alt="Barangay cover image preview">
-              <div id="barangayImagePlaceholder" class="preview-placeholder">No cover image selected</div>
+            <div class="checklist-item">
+              <strong>Coordinates validated</strong>
+              <span>Use accurate latitude and longitude so the map preview points to the correct location.</span>
             </div>
-            <div class="helper-text" style="margin-top: 14px;">
-              Upload the image shown in the app header. The file will be stored in the <strong>BARANGAY_IMG</strong> bucket and saved to <strong>barangay_img</strong>.
+            <div class="checklist-item">
+              <strong>Media ready</strong>
+              <span>Upload clean and recognizable images to improve presentation in the admin panel and app.</span>
             </div>
           </div>
-        </div>
-
-        <div class="error" id="errorMessage"></div>
-
-        <div class="form-actions" style="margin-top: 20px;">
-          <button class="btn btn-secondary" onclick="window.location.href='barangay.html'">Cancel</button>
-          <button class="btn btn-primary" id="publishButton" onclick="save()">Publish</button>
-        </div>
-      </section>
+        </aside>
+      </div>
     </div>
-
-    <aside class="section-card">
-      <div class="section-heading">
-        <div>
-          <h2>Entry checklist</h2>
-          <p>Review this checklist before publishing the barangay profile.</p>
-        </div>
-      </div>
-
-      <div class="checklist">
-        <div class="checklist-item">
-          <strong>Officials completed</strong>
-          <span>All required officers should be filled in, including seven kagawad names.</span>
-        </div>
-        <div class="checklist-item">
-          <strong>Coordinates validated</strong>
-          <span>Use accurate latitude and longitude so the map preview points to the correct location.</span>
-        </div>
-        <div class="checklist-item">
-          <strong>Media ready</strong>
-          <span>Upload clean and recognizable images to improve presentation in the admin panel and app.</span>
-        </div>
-      </div>
-    </aside>
   </div>
 </div>
 
@@ -627,3 +766,5 @@ window.save = save
 
 </body>
 </html>
+
+

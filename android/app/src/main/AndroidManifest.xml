@@ -14,6 +14,9 @@
         <meta-data
             android:name="com.facebook.sdk.AutoInitEnabled"
             android:value="true" />
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyAwIFxg5MZv0cBpP-EIRz15ek0iESdxNa4" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -66,9 +69,6 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <meta-data
-            android:name="com.onesignal.NotificationOpened.DEFAULT"
-            android:value="DISABLE" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

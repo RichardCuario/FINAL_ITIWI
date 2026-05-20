@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'shared_widgets.dart';
 import 'admin_widgets.dart';
+import 'app_rate_limiter.dart';
+import 'shared_widgets.dart';
 
 class AddNewsPage extends StatefulWidget {
+  const AddNewsPage({super.key});
+
   @override
   _AddNewsPageState createState() => _AddNewsPageState();
 }
@@ -20,6 +23,27 @@ class _AddNewsPageState extends State<AddNewsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill all fields')),
       );
+      return;
+    }
+
+    const actionKey = 'news_create';
+    final rateLimitResult = await AppRateLimiter.checkAndLock(
+      actionKey: actionKey,
+      cooldown: const Duration(seconds: 20),
+      message: 'Please wait 20 seconds before publishing another article.',
+    );
+
+    if (!rateLimitResult.allowed) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              rateLimitResult.message ??
+                  'Please wait before publishing again.',
+            ),
+          ),
+        );
+      }
       return;
     }
 
@@ -81,6 +105,7 @@ class _AddNewsPageState extends State<AddNewsPage> {
         );
       }
     } finally {
+      await AppRateLimiter.release(actionKey);
       if (mounted) {
         setState(() => isLoading = false);
       }

@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Places Management | Admin Panel</title>
+  
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="admin-theme.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="sidebar.js" defer></script>
@@ -297,6 +298,8 @@
     let placesRecords = [];
     let filteredPlacesRecords = [];
     let reviewStatsByPlaceId = new Map();
+    let placesChannel = null;
+    let refreshDebounceTimer = null;
 
     function showStatus(message, tone = 'info') {
       statusMessage.textContent = message || '';
@@ -304,12 +307,9 @@
     }
 
     function escapeHtml(value) {
-      return String(value ?? '')
-        .replace(/&/g, '&')
-        .replace(/</g, '<')
-        .replace(/>/g, '>')
-        .replace(/"/g, '"')
-        .replace(/'/g, ''');
+      const div = document.createElement('div');
+      div.textContent = String(value ?? '');
+      return div.innerHTML;
     }
 
     function formatDateTime(value) {
@@ -577,8 +577,55 @@
       );
     }
 
-    async function loadPlaces() {
-      showStatus('Loading places...', 'info');
+    function schedulePlacesRefresh(reason = 'updated') {
+      if (refreshDebounceTimer) {
+        window.clearTimeout(refreshDebounceTimer);
+      }
+
+      refreshDebounceTimer = window.setTimeout(() => {
+        loadPlaces({ silent: false, statusMessage: `Places ${reason}. Refreshing list...` });
+      }, 350);
+    }
+
+    function subscribeToPlacesRealtime() {
+      if (placesChannel) {
+        return;
+      }
+
+      placesChannel = supabase
+        .channel('admin-places-realtime')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'places' },
+          () => schedulePlacesRefresh('data changed')
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'place_reviews' },
+          () => schedulePlacesRefresh('reviews updated')
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            const flashMessage = window.sessionStorage.getItem('placesAdminFlashMessage');
+            if (flashMessage) {
+              showStatus(flashMessage, 'success');
+              window.sessionStorage.removeItem('placesAdminFlashMessage');
+            } else {
+              showStatus('Live sync enabled for places.', 'success');
+            }
+          }
+        });
+    }
+
+    async function loadPlaces(options = {}) {
+      const {
+        silent = false,
+        statusMessage: loadingMessage = 'Loading places...',
+      } = options;
+
+      if (!silent) {
+        showStatus(loadingMessage, 'info');
+      }
       refreshButton.disabled = true;
       heroRefreshButton.disabled = true;
 
@@ -612,6 +659,14 @@
 
         placesRecords = data || [];
         applySearch();
+
+        if (!silent) {
+          const flashMessage = window.sessionStorage.getItem('placesAdminFlashMessage');
+          if (flashMessage) {
+            showStatus(flashMessage, 'success');
+            window.sessionStorage.removeItem('placesAdminFlashMessage');
+          }
+        }
       } catch (error) {
         console.error('Failed to load places:', error);
         placesRecords = [];
@@ -668,11 +723,22 @@
       }
     });
 
-    searchInput.addEventListener('input', applySearch);
-    refreshButton.addEventListener('click', loadPlaces);
-    heroRefreshButton.addEventListener('click', loadPlaces);
+    window.addEventListener('focus', () => {
+      loadPlaces({ silent: true });
+    });
 
+    window.addEventListener('pageshow', () => {
+      loadPlaces({ silent: true });
+    });
+
+    searchInput.addEventListener('input', applySearch);
+    refreshButton.addEventListener('click', () => loadPlaces());
+    heroRefreshButton.addEventListener('click', () => loadPlaces());
+
+    subscribeToPlacesRealtime();
     loadPlaces();
   </script>
 </body>
 </html>
+
+

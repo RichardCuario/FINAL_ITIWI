@@ -1,74 +1,280 @@
 // Shared Sidebar Component
 async function createSidebar() {
   const sidebarHTML = `
-  <div class="sidebar">
-    <div class="logo">
-      <h2>ITIWI</h2>
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-mark">I</div>
+      <div class="sidebar-brand-copy">
+        <h2>ITIWI</h2>
+        <p>Municipal admin</p>
+      </div>
     </div>
 
-    <div class="menu">
-      <a class="menu-item" href="dashboard.html" style="text-decoration: none; color: inherit;">
-        <span>&#8962;</span>
-        <p>Dashboard</p>
+    <nav class="menu menu-primary" aria-label="Primary">
+      <a class="menu-item" href="dashboard.html">
+        <span class="menu-icon">⌂</span>
+        <span class="menu-label">Dashboard</span>
       </a>
 
-      <a class="menu-item" href="index.html" style="text-decoration: none; color: inherit;">
-        <span>&#9888;</span>
-        <p>Emergency Hotline</p>
+      <a class="menu-item" href="index.html">
+        <span class="menu-icon">✦</span>
+        <span class="menu-label">Emergency Hotline</span>
       </a>
 
-      <a class="menu-item" href="news.html" style="text-decoration: none; color: inherit;">
-        <span>&#128240;</span>
-        <p>News</p>
+      <a class="menu-item" href="news.html">
+        <span class="menu-icon">▤</span>
+        <span class="menu-label">News</span>
       </a>
 
-      <a class="menu-item" href="reports.html" style="text-decoration: none; color: inherit;">
-        <span>&#128221;</span>
-        <p>Reports</p>
+      <a class="menu-item" href="reports.html">
+        <span class="menu-icon">▣</span>
+        <span class="menu-label">Report</span>
       </a>
 
-      <a class="menu-item" href="barangay.html" style="text-decoration: none; color: inherit;">
-        <span>&#127970;</span>
-        <p>Barangay</p>
+      <div class="menu-group online-services-group">
+        <button
+          class="menu-item menu-group-toggle"
+          type="button"
+          id="onlineServicesToggle"
+          aria-expanded="false"
+          aria-controls="onlineServicesSubmenu"
+        >
+          <span class="menu-icon">◎</span>
+          <span class="menu-label">Online Service</span>
+          <span class="menu-caret">▾</span>
+        </button>
+
+        <div class="menu-submenu" id="onlineServicesSubmenu">
+          <a class="menu-item menu-subitem" href="online_services.html">
+            <span class="menu-icon">◈</span>
+            <span class="menu-label">All Requests</span>
+          </a>
+
+          <a class="menu-item menu-subitem" href="online_services.html?category=Birth%20Certificate">
+            <span class="menu-icon">◇</span>
+            <span class="menu-label">Birth Certificate</span>
+          </a>
+
+          <a class="menu-item menu-subitem" href="online_services.html?category=CENODEATH">
+            <span class="menu-icon">◉</span>
+            <span class="menu-label">CENODEATH</span>
+          </a>
+
+          <a class="menu-item menu-subitem" href="online_services.html?category=Death%20Certificate">
+            <span class="menu-icon">◌</span>
+            <span class="menu-label">Death Certificate</span>
+          </a>
+
+          <a class="menu-item menu-subitem" href="online_services.html?category=CENOMAR">
+            <span class="menu-icon">◍</span>
+            <span class="menu-label">CENOMAR</span>
+          </a>
+
+          <a class="menu-item menu-subitem" href="online_services.html?category=Libjo%20Facilities">
+            <span class="menu-icon">◎</span>
+            <span class="menu-label">Libjo Facilities</span>
+          </a>
+
+          <a class="menu-item menu-subitem" href="online_services.html?category=Tiwi%20Gymnasium">
+            <span class="menu-icon">◐</span>
+            <span class="menu-label">Tiwi Gymnasium</span>
+          </a>
+        </div>
+      </div>
+
+      <a class="menu-item" href="barangay.html">
+        <span class="menu-icon">◫</span>
+        <span class="menu-label">Barangay</span>
       </a>
 
-      <a class="menu-item" href="tourist_guide.html" style="text-decoration: none; color: inherit;">
-        <span>&#128506;</span>
-        <p>Tourist Guide</p>
+      <a class="menu-item" href="tourist_guide.html">
+        <span class="menu-icon">◭</span>
+        <span class="menu-label">Tourist Guide</span>
       </a>
-    </div>
 
-    <div class="menu" style="margin-top: auto; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.08);">
-      <div id="adminSessionMeta" style="padding: 0 18px 12px; color: rgba(255,255,255,0.72); font-size: 12px; line-height: 1.6;">Signed in</div>
-      <button id="logoutButton" class="menu-item" type="button" style="width: 100%; background: transparent; border: 0; text-align: left; color: inherit; cursor: pointer;">
-        <span>&#10162;</span>
-        <p>Logout</p>
+      <div class="menu-group transparency-group">
+        <button
+          class="menu-item menu-group-toggle"
+          type="button"
+          id="transparencyToggle"
+          aria-expanded="false"
+          aria-controls="transparencySubmenu"
+        >
+          <span class="menu-icon">◐</span>
+          <span class="menu-label">Transparency</span>
+          <span class="menu-caret">▾</span>
+        </button>
+
+        <div class="menu-submenu" id="transparencySubmenu">
+          <a class="menu-item menu-subitem" href="transparency_programs.html">
+            <span class="menu-icon">◈</span>
+            <span class="menu-label">Programs</span>
+          </a>
+
+          <a class="menu-item menu-subitem" href="transparency_bids.html">
+            <span class="menu-icon">◇</span>
+            <span class="menu-label">Bids</span>
+          </a>
+
+          <a class="menu-item menu-subitem" href="transparency_financial_reports.html">
+            <span class="menu-icon">◉</span>
+            <span class="menu-label">Financial Reports</span>
+          </a>
+
+          <a class="menu-item menu-subitem" href="transparency_annual_budget.html">
+            <span class="menu-icon">◌</span>
+            <span class="menu-label">Annual Budget</span>
+          </a>
+
+          <a class="menu-item menu-subitem" href="transparency_legislative_ordinances.html">
+            <span class="menu-icon">◍</span>
+            <span class="menu-label">Legislative Ordinances</span>
+          </a>
+
+          <a class="menu-item menu-subitem" href="transparency_executive_orders.html">
+            <span class="menu-icon">◎</span>
+            <span class="menu-label">Executive Orders</span>
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer-group">
+      <div class="sidebar-footer-meta">
+        <div class="sidebar-section-heading">
+          <span>Account</span>
+        </div>
+        <div id="adminSessionMeta" class="sidebar-session-meta">Signed in</div>
+      </div>
+
+      <button id="logoutButton" class="menu-item sidebar-logout" type="button">
+        <span class="menu-icon">↪</span>
+        <span class="menu-label">Logout</span>
       </button>
     </div>
-  </div>
+  </aside>
   `;
 
-  const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+  const normalizePage = (value) => {
+    const cleanValue = (value || '').split('?')[0].split('#')[0].trim();
+
+    if (!cleanValue) {
+      return 'index';
+    }
+
+    return cleanValue.replace(/\.html$/i, '');
+  };
+
+  const currentPage = normalizePage(window.location.pathname.split('/').pop());
+  const currentQuery = new URLSearchParams(window.location.search);
+  const currentOnlineServiceCategory = currentQuery.get('category') || '';
 
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = sidebarHTML;
   const sidebarElement = tempDiv.firstElementChild;
   document.body.insertBefore(sidebarElement, document.body.firstChild);
 
-  const menuItems = document.querySelectorAll('.sidebar .menu-item');
-  menuItems.forEach(item => {
+  const menuItems = document.querySelectorAll('.sidebar .menu-item[href]');
+  const pageGroups = {
+    dashboard: 'dashboard',
+    index: 'hotline',
+    add: 'hotline',
+    edit: 'hotline',
+    news: 'news',
+    add_news: 'news',
+    news_new: 'news',
+    edit_news: 'news',
+    reports: 'reports',
+    online_services: 'online-services',
+    barangay: 'barangay',
+    add_barangay: 'barangay',
+    edit_barangay: 'barangay',
+    tourist_guide: 'tourist-guide',
+    places: 'tourist-guide',
+    edit_place: 'tourist-guide',
+    place_reviews: 'tourist-guide',
+    transparency_programs: 'transparency',
+    transparency_bids: 'transparency',
+    transparency_financial_reports: 'transparency',
+    transparency_annual_budget: 'transparency',
+    transparency_legislative_ordinances: 'transparency',
+    transparency_executive_orders: 'transparency'
+  };
+
+  const currentGroup = pageGroups[currentPage] || currentPage;
+  let hasActiveTransparencyChild = false;
+  let hasActiveOnlineServicesChild = false;
+
+  menuItems.forEach((item) => {
     const href = item.getAttribute('href');
-    if (href === currentPage ||
-        (currentPage === '' && href === 'dashboard.html') ||
-        (href === 'index.html' && currentPage === 'index.html') ||
-        (href === 'news.html' && (currentPage === 'news.html' || currentPage === 'add_news.html' || currentPage === 'news_new.html' || currentPage === 'edit_news.html')) ||
-        (href === 'reports.html' && currentPage === 'reports.html') ||
-        (href === 'index.html' && (currentPage === 'add.html' || currentPage === 'edit.html')) ||
-        (href === 'barangay.html' && (currentPage === 'barangay.html' || currentPage === 'add_barangay.html' || currentPage === 'edit_barangay.html')) ||
-        (href === 'tourist_guide.html' && (currentPage === 'tourist_guide.html' || currentPage === 'places.html' || currentPage === 'edit_place.html'))) {
-      item.classList.add('active');
+    const itemUrl = new URL(href, window.location.href);
+    const normalizedHref = normalizePage(itemUrl.pathname.split('/').pop());
+    const itemGroup = pageGroups[normalizedHref];
+    const itemCategory = itemUrl.searchParams.get('category') || '';
+    const isOnlineServicesSubitem = item.classList.contains('menu-subitem') && itemGroup === 'online-services';
+    const isOnlineServicesSubitemActive = isOnlineServicesSubitem
+      && normalizedHref === currentPage
+      && (
+        (itemCategory && itemCategory === currentOnlineServiceCategory)
+        || (!itemCategory && !currentOnlineServiceCategory)
+      );
+    const isExactPage = isOnlineServicesSubitem
+      ? false
+      : normalizedHref === currentPage && (!itemCategory || itemCategory === currentOnlineServiceCategory);
+    const isGroupedPage = itemGroup === currentGroup && !item.classList.contains('menu-subitem');
+    const isActive = isOnlineServicesSubitemActive || isExactPage || isGroupedPage;
+
+    item.classList.toggle('active', isActive);
+    item.setAttribute('aria-current', isActive ? 'page' : 'false');
+
+    if (isActive && item.classList.contains('menu-subitem')) {
+      if (itemGroup === 'transparency') {
+        hasActiveTransparencyChild = true;
+      }
+
+      if (itemGroup === 'online-services') {
+        hasActiveOnlineServicesChild = true;
+      }
     }
   });
+
+  const onlineServicesToggle = document.getElementById('onlineServicesToggle');
+  const onlineServicesSubmenu = document.getElementById('onlineServicesSubmenu');
+
+  if (onlineServicesToggle && onlineServicesSubmenu) {
+    const setOnlineServicesExpanded = (expanded) => {
+      onlineServicesToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      onlineServicesSubmenu.hidden = !expanded;
+      onlineServicesToggle.classList.toggle('active', expanded || hasActiveOnlineServicesChild);
+      onlineServicesSubmenu.classList.toggle('expanded', expanded);
+    };
+
+    setOnlineServicesExpanded(currentGroup === 'online-services');
+
+    onlineServicesToggle.addEventListener('click', () => {
+      const isExpanded = onlineServicesToggle.getAttribute('aria-expanded') === 'true';
+      setOnlineServicesExpanded(!isExpanded);
+    });
+  }
+
+  const transparencyToggle = document.getElementById('transparencyToggle');
+  const transparencySubmenu = document.getElementById('transparencySubmenu');
+
+  if (transparencyToggle && transparencySubmenu) {
+    const setTransparencyExpanded = (expanded) => {
+      transparencyToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      transparencySubmenu.hidden = !expanded;
+      transparencyToggle.classList.toggle('active', expanded || hasActiveTransparencyChild);
+      transparencySubmenu.classList.toggle('expanded', expanded);
+    };
+
+    setTransparencyExpanded(hasActiveTransparencyChild);
+
+    transparencyToggle.addEventListener('click', () => {
+      const isExpanded = transparencyToggle.getAttribute('aria-expanded') === 'true';
+      setTransparencyExpanded(!isExpanded);
+    });
+  }
 
   const adminSessionMeta = document.getElementById('adminSessionMeta');
   const logoutButton = document.getElementById('logoutButton');

@@ -4,8 +4,16 @@ class Place {
     required this.name,
     required this.description,
     required this.location,
+    required this.shortLocation,
+    required this.fullAddress,
     required this.imageUrl,
     required this.category,
+    required this.phone,
+    required this.websiteUrl,
+    required this.latitude,
+    required this.longitude,
+    required this.distanceLabel,
+    required this.isFeatured,
     required this.averageRating,
     required this.reviewCount,
   });
@@ -14,8 +22,16 @@ class Place {
   final String name;
   final String description;
   final String location;
+  final String shortLocation;
+  final String fullAddress;
   final String imageUrl;
   final String category;
+  final String phone;
+  final String websiteUrl;
+  final double? latitude;
+  final double? longitude;
+  final String distanceLabel;
+  final bool isFeatured;
   final double averageRating;
   final int reviewCount;
 
@@ -30,8 +46,16 @@ class Place {
               map['barangay'] ??
               '')
           .toString(),
+      shortLocation: (map['short_location'] ?? '').toString(),
+      fullAddress: (map['full_address'] ?? '').toString(),
       imageUrl: (map['image_url'] ?? map['imageUrl'] ?? '').toString(),
       category: (map['category'] ?? '').toString(),
+      phone: (map['phone'] ?? '').toString(),
+      websiteUrl: (map['website_url'] ?? map['websiteUrl'] ?? '').toString(),
+      latitude: _toNullableDouble(map['latitude']),
+      longitude: _toNullableDouble(map['longitude']),
+      distanceLabel: (map['distance_label'] ?? '').toString(),
+      isFeatured: map['is_featured'] == true,
       averageRating: _toDouble(
         map['average_rating'] ?? map['avg_rating'] ?? map['rating'] ?? 0,
       ),
@@ -44,8 +68,16 @@ class Place {
     String? name,
     String? description,
     String? location,
+    String? shortLocation,
+    String? fullAddress,
     String? imageUrl,
     String? category,
+    String? phone,
+    String? websiteUrl,
+    double? latitude,
+    double? longitude,
+    String? distanceLabel,
+    bool? isFeatured,
     double? averageRating,
     int? reviewCount,
   }) {
@@ -54,8 +86,16 @@ class Place {
       name: name ?? this.name,
       description: description ?? this.description,
       location: location ?? this.location,
+      shortLocation: shortLocation ?? this.shortLocation,
+      fullAddress: fullAddress ?? this.fullAddress,
       imageUrl: imageUrl ?? this.imageUrl,
       category: category ?? this.category,
+      phone: phone ?? this.phone,
+      websiteUrl: websiteUrl ?? this.websiteUrl,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      distanceLabel: distanceLabel ?? this.distanceLabel,
+      isFeatured: isFeatured ?? this.isFeatured,
       averageRating: averageRating ?? this.averageRating,
       reviewCount: reviewCount ?? this.reviewCount,
     );
@@ -66,6 +106,16 @@ class Place {
       return value.toDouble();
     }
     return double.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static double? _toNullableDouble(dynamic value) {
+    if (value == null || value.toString().trim().isEmpty) {
+      return null;
+    }
+    if (value is num) {
+      return value.toDouble();
+    }
+    return double.tryParse(value.toString());
   }
 
   static int _toInt(dynamic value) {

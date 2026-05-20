@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Edit Hotline</title>
+  
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="admin-theme.css">
   <style>
     .page-layout {
@@ -223,6 +224,20 @@
       .page-layout {
         grid-template-columns: 1fr;
       }
+
+      .hero-panel {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 960px) {
+      .page-hero-grid {
+        gap: 16px;
+      }
+
+      .current-logo {
+        align-items: flex-start;
+      }
     }
 
     @media (max-width: 720px) {
@@ -234,8 +249,39 @@
         grid-column: auto;
       }
 
+      .form-actions {
+        justify-content: stretch;
+      }
+
       .form-actions .btn {
         width: 100%;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .form-card,
+      .section-card {
+        padding: 16px;
+      }
+
+      .field-card {
+        padding: 16px;
+      }
+
+      .current-logo {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .current-logo img {
+        width: 100%;
+        max-width: 180px;
+        height: auto;
+        aspect-ratio: 1 / 1;
+      }
+
+      .success-card {
+        padding: 24px 20px;
       }
     }
   </style>
@@ -566,3 +612,4 @@
   <script src="sidebar.js"></script>
 </body>
 </html>
+

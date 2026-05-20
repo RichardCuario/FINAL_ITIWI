@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'shared_widgets.dart';
 import 'admin_widgets.dart';
+import 'app_rate_limiter.dart';
+import 'shared_widgets.dart';
 
 class EditNewsPage extends StatefulWidget {
   final String newsId;
 
-  const EditNewsPage({required this.newsId});
+  const EditNewsPage({super.key, required this.newsId});
 
   @override
   _EditNewsPageState createState() => _EditNewsPageState();
@@ -54,6 +55,27 @@ class _EditNewsPageState extends State<EditNewsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill all fields')),
       );
+      return;
+    }
+
+    final actionKey = 'news_update:${widget.newsId}';
+    final rateLimitResult = await AppRateLimiter.checkAndLock(
+      actionKey: actionKey,
+      cooldown: const Duration(seconds: 15),
+      message: 'Please wait 15 seconds before updating this article again.',
+    );
+
+    if (!rateLimitResult.allowed) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              rateLimitResult.message ??
+                  'Please wait before updating this article again.',
+            ),
+          ),
+        );
+      }
       return;
     }
 
@@ -115,6 +137,7 @@ class _EditNewsPageState extends State<EditNewsPage> {
         );
       }
     } finally {
+      await AppRateLimiter.release(actionKey);
       if (mounted) {
         setState(() => isLoading = false);
       }
@@ -122,6 +145,7 @@ class _EditNewsPageState extends State<EditNewsPage> {
   }
 
   Future deleteNews() async {
+    final actionKey = 'news_delete:${widget.newsId}';
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -141,6 +165,26 @@ class _EditNewsPageState extends State<EditNewsPage> {
     );
 
     if (confirm == true) {
+      final rateLimitResult = await AppRateLimiter.checkAndLock(
+        actionKey: actionKey,
+        cooldown: const Duration(seconds: 20),
+        message: 'Please wait 20 seconds before deleting this article again.',
+      );
+
+      if (!rateLimitResult.allowed) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                rateLimitResult.message ??
+                    'Please wait before deleting this article again.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
       setState(() => isLoading = true);
       try {
         await supabase.from('news').delete().eq('id', widget.newsId);
@@ -154,6 +198,7 @@ class _EditNewsPageState extends State<EditNewsPage> {
           );
         }
       } finally {
+        await AppRateLimiter.release(actionKey);
         if (mounted) {
           setState(() => isLoading = false);
         }
@@ -264,7 +309,7 @@ class _EditNewsPageState extends State<EditNewsPage> {
                     width: double.infinity,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.error!,
+                        backgroundColor: AppColors.error,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),

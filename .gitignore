@@ -53,5 +53,18 @@ google-services.json
 
 # Temp files
 temp/
+temp_*
+tmp_*
 temp_supabase_*.json
 inspection_report.txt
+
+# Environment and local secret files
+.env
+.env.*
+*.env
+*.env.*
+*.local
+*.secret
+*secret*.json
+*service-account*.json
+admin_vercel/admin-config.js

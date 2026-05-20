@@ -1,4 +1,16 @@
+import { applyRateLimit } from './_rate_limit.js';
+
 export default async function handler(req, res) {
+  const rateLimitResult = await applyRateLimit(req, res, {
+    key: 'upload-place-image',
+    windowMs: 60 * 1000,
+    max: 10,
+    message: 'Too many place image uploads. Please wait a minute before trying again.'
+  });
+  if (!rateLimitResult?.allowed) {
+    return rateLimitResult;
+  }
+
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });

@@ -3,13 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reports - ITIWI</title>
+  
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="admin-theme.css">
   <style>
     .page-stack {
       display: flex;
       flex-direction: column;
       gap: 24px;
+    }
+
+    .directory-body {
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(15, 23, 42, 0.06);
+      border-radius: 32px;
+      box-shadow: 0 28px 60px rgba(15, 23, 42, 0.08);
     }
 
     .toolbar-card {
@@ -25,7 +37,8 @@
     .action-group,
     .report-meta,
     .report-images,
-    .status-actions {
+    .status-actions,
+    .toolbar-metrics {
       display: flex;
       align-items: center;
       gap: 12px;
@@ -37,16 +50,81 @@
       justify-content: flex-end;
     }
 
-    .metric-pill {
-      display: inline-flex;
+    .toolbar-metrics {
+      justify-content: flex-start;
+    }
+
+    .status-filter-group {
+      display: flex;
       flex-direction: column;
-      gap: 4px;
-      padding: 14px 16px;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    .status-filter-label {
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .status-filter-select {
+      min-width: 220px;
+      min-height: 48px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(96, 165, 250, 0.55);
+      background: linear-gradient(180deg, #ffffff 0%, #eff6ff 100%);
+      color: #1e293b;
+      font-size: 15px;
+      font-weight: 700;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+      appearance: auto;
+    }
+
+    .status-filter-select:hover {
+      border-color: rgba(59, 130, 246, 0.72);
+      background: linear-gradient(180deg, #ffffff 0%, #dbeafe 100%);
+    }
+
+    .status-filter-select:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      background: linear-gradient(180deg, #ffffff 0%, #dbeafe 100%);
+    }
+
+    .analytics-filter {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: 14px;
+      background: #ffffff;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      color: #4b5563;
+      font-weight: 600;
+      box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
+    }
+
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .metric-pill {
+      min-height: 128px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 18px;
       border-radius: 18px;
-      min-width: 150px;
-      background: rgba(255, 255, 255, 0.72);
-      border: 1px solid rgba(255, 255, 255, 0.72);
-      box-shadow: var(--shadow-sm);
+      background: #ffffff;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.04);
     }
 
     .metric-pill span {
@@ -58,9 +136,10 @@
     }
 
     .metric-pill strong {
-      font-size: 26px;
+      font-size: 32px;
+      line-height: 1;
       color: var(--text);
-      letter-spacing: -0.03em;
+      letter-spacing: -0.04em;
     }
 
     .table-status {
@@ -81,24 +160,16 @@
 
     .reports-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      grid-template-columns: 1fr;
       gap: 18px;
     }
 
     .report-card {
-      padding: 26px;
-      border-radius: 28px;
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(248, 250, 252, 0.82));
-      border: 1px solid rgba(226, 232, 240, 0.95);
-      box-shadow: 0 18px 38px rgba(15, 23, 42, 0.07);
-    }
-
-    .report-card-header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 18px;
+      padding: 20px;
+      border-radius: 24px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      box-shadow: 0 18px 36px rgba(15, 23, 42, 0.05);
     }
 
     .report-card-main {
@@ -107,77 +178,104 @@
       gap: 18px;
     }
 
-    .report-card-body {
+    .report-card-header {
       display: grid;
-      grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.95fr);
-      gap: 22px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
       align-items: start;
-    }
-
-    .report-content-block,
-    .report-action-panel {
-      border-radius: 22px;
-      border: 1px solid rgba(226, 232, 240, 0.9);
-      background: rgba(255, 255, 255, 0.72);
-    }
-
-    .report-content-block {
-      padding: 18px;
-    }
-
-    .report-action-panel {
-      padding: 18px;
-      background: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(241, 245, 249, 0.92));
-    }
-
-    .report-action-heading {
-      margin: 0 0 14px;
-      color: var(--text);
-      font-size: 13px;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+      padding-bottom: 18px;
+      border-bottom: 1px solid rgba(226, 232, 240, 0.9);
     }
 
     .report-card-title {
       margin: 0;
       color: var(--text);
-      font-size: 18px;
-      line-height: 1.3;
-      letter-spacing: -0.02em;
+      font-size: 20px;
+      line-height: 1.25;
+      letter-spacing: -0.03em;
     }
 
     .report-card-subtitle {
       margin: 6px 0 0;
       color: var(--text-muted);
       font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .report-card-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.95fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .report-content-block,
+    .report-action-panel {
+      border-radius: 20px;
+      border: 1px solid rgba(226, 232, 240, 0.95);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.58);
+    }
+
+    .report-content-block {
+      padding: 20px;
+      background: #ffffff;
+    }
+
+    .report-action-panel {
+      padding: 20px;
+      background: linear-gradient(180deg, rgba(239, 246, 255, 0.82), rgba(248, 250, 252, 0.98));
+    }
+
+    .report-section-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .report-action-heading {
+      margin: 0 0 16px;
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
     }
 
     .report-message {
       margin: 0;
       color: var(--text-soft);
-      line-height: 1.8;
+      line-height: 1.75;
       font-size: 15px;
+      padding: 16px 18px;
+      border-radius: 18px;
+      background: #f8fafc;
+      border: 1px solid rgba(226, 232, 240, 0.95);
     }
 
     .report-meta {
       margin-top: 16px;
+      gap: 10px;
     }
 
     .meta-chip,
     .status-chip {
       display: inline-flex;
       align-items: center;
-      padding: 8px 12px;
+      padding: 9px 13px;
       border-radius: 999px;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 800;
       white-space: nowrap;
     }
 
     .meta-chip {
-      background: rgba(79, 70, 229, 0.08);
-      color: var(--primary);
+      background: #eef2ff;
+      color: #4338ca;
     }
 
     .status-chip.pending {
@@ -202,6 +300,9 @@
 
     .report-images {
       margin-top: 18px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(92px, 92px));
+      gap: 12px;
     }
 
     .report-image-button {
@@ -212,13 +313,19 @@
     }
 
     .report-thumb {
-      width: 74px;
-      height: 74px;
+      width: 92px;
+      height: 92px;
       border-radius: 18px;
       object-fit: cover;
       border: 1px solid rgba(148, 163, 184, 0.18);
       box-shadow: var(--shadow-sm);
       background: #eef2ff;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .report-image-button:hover .report-thumb {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 26px rgba(15, 23, 42, 0.12);
     }
 
     .attachment-empty {
@@ -226,24 +333,28 @@
       color: var(--text-muted);
       font-size: 13px;
       font-weight: 600;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: #f8fafc;
+      border: 1px dashed rgba(148, 163, 184, 0.28);
     }
 
     .rejection-reason-panel {
       margin-top: 18px;
-      padding: 14px 16px;
+      padding: 16px 18px;
       border-radius: 18px;
-      background: rgba(254, 242, 242, 0.92);
+      background: rgba(254, 242, 242, 0.96);
       border: 1px solid rgba(239, 68, 68, 0.16);
     }
 
     .rejection-reason-label {
       display: block;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
       color: #b91c1c;
-      font-size: 12px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.1em;
     }
 
     .rejection-reason-text {
@@ -255,22 +366,22 @@
     }
 
     .status-actions {
-      margin-top: 4px;
-      align-items: stretch;
+      margin-top: 6px;
+      display: grid;
+      grid-template-columns: 1fr;
       gap: 14px;
     }
 
     .status-select,
     .reason-select {
-      flex: 1;
-      min-width: 180px;
-      min-height: 54px;
+      width: 100%;
+      min-height: 52px;
       padding: 14px 16px;
       border-radius: 16px;
       border: 1px solid rgba(148, 163, 184, 0.24);
       background: rgba(255, 255, 255, 0.96);
       color: var(--text);
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 700;
       outline: none;
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
@@ -284,8 +395,6 @@
     .rejection-action-group,
     .status-action-group {
       display: flex;
-      flex: 1;
-      min-width: 220px;
       flex-direction: column;
       gap: 8px;
     }
@@ -293,23 +402,40 @@
     .rejection-action-group label,
     .status-action-group label {
       color: var(--text-muted);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.1em;
     }
 
     .rejection-helper {
       color: var(--text-muted);
       font-size: 12px;
-      line-height: 1.4;
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    .report-action-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    .report-action-note {
+      color: var(--text-muted);
+      font-size: 12px;
+      line-height: 1.45;
+      max-width: 240px;
     }
 
     .btn-process {
-      min-width: 150px;
-      min-height: 54px;
+      min-width: 160px;
+      min-height: 52px;
       padding: 14px 20px;
-      border-radius: 18px;
+      border-radius: 16px;
       border: 0;
       background: linear-gradient(135deg, #4f46e5, #2563eb);
       color: #fff;
@@ -317,10 +443,12 @@
       font-weight: 800;
       cursor: pointer;
       box-shadow: 0 16px 30px rgba(37, 99, 235, 0.24);
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
     }
 
     .btn-process:hover {
       transform: translateY(-1px);
+      box-shadow: 0 20px 32px rgba(37, 99, 235, 0.28);
     }
 
     .empty-state {
@@ -391,9 +519,63 @@
       background: #f8fafc;
     }
 
-    @media (max-width: 1100px) {
+    .section-card-soft,
+    .data-table-card,
+    .content-card.toolbar-card {
+      background: #ffffff;
+      border-radius: 22px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.04);
+    }
+
+    .content-card.toolbar-card,
+    .data-table-card {
+      padding: 22px;
+    }
+
+    .page-hero {
+      padding: 0;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+    }
+
+    .page-hero-grid {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .hero-title {
+      margin: 0;
+      font-size: 48px;
+      line-height: 1;
+      letter-spacing: -0.05em;
+      color: #111827;
+    }
+
+    .hero-subtitle {
+      margin-top: 12px;
+      max-width: 760px;
+      color: #6b7280;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    @media (max-width: 1180px) {
       .report-card-body {
         grid-template-columns: 1fr;
+      }
+
+      .metrics-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .report-action-panel,
+      .report-content-block {
+        min-width: 0;
       }
     }
 
@@ -403,16 +585,80 @@
       }
 
       .page-tools,
-      .table-actions {
+      .table-actions,
+      .page-hero-grid {
         justify-content: flex-start;
       }
 
-      .status-actions {
-        flex-direction: column;
+      .report-card-header,
+      .report-card-body {
+        grid-template-columns: 1fr;
       }
 
+      .report-action-footer {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .report-action-note,
       .btn-process {
+        max-width: none;
         width: 100%;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .directory-body {
+        padding: 18px;
+      }
+
+      .hero-title {
+        font-size: 38px;
+      }
+
+      .metrics-row {
+        grid-template-columns: 1fr;
+      }
+
+      .report-card,
+      .report-content-block,
+      .report-action-panel {
+        padding: 16px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .directory-body,
+      .content-card.toolbar-card,
+      .data-table-card {
+        padding: 16px;
+      }
+
+      .hero-title {
+        font-size: 32px;
+      }
+
+      .hero-subtitle {
+        font-size: 14px;
+      }
+
+      .report-images {
+        grid-template-columns: repeat(auto-fit, minmax(72px, 72px));
+      }
+
+      .report-thumb {
+        width: 72px;
+        height: 72px;
+        border-radius: 14px;
+      }
+
+      .attachment-viewer {
+        padding: 12px;
+      }
+
+      .attachment-viewer-dialog {
+        padding: 14px;
+        border-radius: 18px;
       }
     }
   </style>
@@ -420,71 +666,76 @@
 <body>
   <div class="main">
     <div class="page-stack">
-      <section class="page-hero">
-        <div class="page-hero-grid">
-          <div>
-            <div class="hero-kicker">Incident Management</div>
-            <h1 class="hero-title">Citizen reports</h1>
-            <p class="hero-subtitle">Review submitted concerns from users, inspect the attached evidence, and process each report by updating its current status.</p>
+      <div class="directory-body">
+        <section class="page-hero">
+          <div class="page-hero-grid">
+            <div>
+              <h1 class="hero-title">Citizen reports</h1>
+              <p class="hero-subtitle">Review submitted concerns, inspect attached evidence, and manage report status updates in the same streamlined layout used on the News and Announcement page.</p>
+            </div>
 
-            <div class="hero-highlights">
-              <div class="hero-highlight">
-                <strong id="totalReportsCount">0</strong>
-                <span>Total reports</span>
-              </div>
-              <div class="hero-highlight">
-                <strong id="pendingReportsCount">0</strong>
-                <span>Pending queue</span>
-              </div>
-              <div class="hero-highlight">
-                <strong id="resolvedReportsCount">0</strong>
-                <span>Resolved cases</span>
-              </div>
+            <div class="analytics-filter">📢 Community incident updates</div>
+          </div>
+        </section>
+
+        <section class="content-card toolbar-card">
+          <div class="section-heading" style="margin-bottom: 0;">
+            <div>
+              <h2>Reports queue</h2>
+              <p>Every user submission is listed here so the admin team can review the message, attachments, and processing status.</p>
             </div>
           </div>
 
-          <div class="hero-panel">
-            <div class="hero-panel-label">Processing workflow</div>
-            <strong>Move reports through the review cycle.</strong>
-            <p>Admins can change each report from pending to reviewing, resolved, or rejected using the controls below.</p>
-            <div class="status-row" style="margin-top: 18px;">
-              <button class="btn btn-secondary" type="button" onclick="loadReports(true)">Refresh</button>
-            </div>
+          <div class="toolbar-metrics">
+            <div class="analytics-filter">Incident management</div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="content-card toolbar-card">
-        <div class="section-heading" style="margin-bottom: 0;">
-          <div>
-            <h2>Reports queue</h2>
-            <p>Every user submission is listed here so the admin team can review the message, attachments, and processing status.</p>
+        <section class="metrics-row">
+          <div class="metric-pill">
+            <span>Total reports</span>
+            <strong id="totalReportsCount">0</strong>
           </div>
-        </div>
-
-        <div class="page-tools">
+          <div class="metric-pill">
+            <span>Pending queue</span>
+            <strong id="pendingReportsCount">0</strong>
+          </div>
           <div class="metric-pill">
             <span>Reviewing now</span>
             <strong id="reviewingReportsCount">0</strong>
           </div>
-        </div>
-      </section>
+          <div class="metric-pill">
+            <span>Resolved cases</span>
+            <strong id="resolvedReportsCount">0</strong>
+          </div>
+        </section>
 
-      <section class="data-table-card">
-        <div class="section-heading">
-          <div>
-            <h2>Submitted reports</h2>
-            <p>Use the status dropdown in each card to process the report.</p>
+        <section class="data-table-card">
+          <div class="section-heading">
+            <div>
+              <h2>Submitted reports</h2>
+              <p>Review the report details on the left and manage the status cleanly from the action panel on the right.</p>
+            </div>
+
+            <div class="table-actions">
+              <div class="status-filter-group">
+                <label class="status-filter-label" for="statusFilter">Review status</label>
+                <select id="statusFilter" class="status-filter-select" onchange="setActiveStatusFilter(this.value)">
+                  <option value="all">All statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="reviewing">Processing</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+              <button class="btn btn-secondary" type="button" onclick="loadReports(true)">Refresh list</button>
+            </div>
           </div>
 
-          <div class="table-actions">
-            <button class="btn btn-secondary" type="button" onclick="loadReports(true)">Refresh list</button>
-          </div>
-        </div>
-
-        <div id="tableStatus" class="table-status">Loading reports...</div>
-        <div id="reportsContainer" class="reports-grid"></div>
-      </section>
+          <div id="tableStatus" class="table-status">Loading reports...</div>
+          <div id="reportsContainer" class="reports-grid"></div>
+        </section>
+      </div>
     </div>
   </div>
 
@@ -509,6 +760,8 @@
     const attachmentViewer = document.getElementById('attachmentViewer');
     const attachmentViewerImage = document.getElementById('attachmentViewerImage');
     const attachmentViewerClose = document.getElementById('attachmentViewerClose');
+
+    let activeStatusFilter = 'all';
 
     const rejectionReasonOptions = [
       'Duplicate report',
@@ -615,6 +868,12 @@
       }
     }
 
+    function getVisibleReports(items) {
+      return items.filter((item) => {
+        return activeStatusFilter === 'all' || normalizeStatus(item.status) === activeStatusFilter;
+      });
+    }
+
     function renderReports(items) {
       if (!items.length) {
         reportsContainer.innerHTML = `
@@ -637,23 +896,24 @@
               <div class="report-card-header">
                 <div>
                   <h3 class="report-card-title">Report from ${escapeHtml(item.user_id || 'Unknown user')}</h3>
-                  <p class="report-card-subtitle">Created ${formatDate(item.created_at)}</p>
+                  <p class="report-card-subtitle">Created ${formatDate(item.created_at)} · Last updated ${formatDate(item.updated_at)}</p>
                 </div>
                 <span id="status-chip-${item.id}" class="status-chip ${status}">${formatStatusLabel(status)}</span>
               </div>
 
               <div class="report-card-body">
                 <div class="report-content-block">
+                  <div class="report-section-label">Citizen message</div>
                   <p class="report-message">${escapeHtml(item.message || 'No message provided')}</p>
 
                   <div class="report-meta">
-                    <span class="meta-chip">Updated ${formatDate(item.updated_at)}</span>
                     <span class="meta-chip">${imageUrls.length} attachment${imageUrls.length === 1 ? '' : 's'}</span>
+                    <span class="meta-chip">Report ID ${escapeHtml(item.id)}</span>
                   </div>
 
                   ${status === 'rejected' && rejectionReason ? `
                     <div class="rejection-reason-panel">
-                      <span class="rejection-reason-label">Rejection reason</span>
+                      <span class="rejection-reason-label">Saved rejection reason</span>
                       <p class="rejection-reason-text">${escapeHtml(rejectionReason)}</p>
                     </div>
                   ` : ''}
@@ -661,7 +921,7 @@
                   ${imageUrls.length ? `
                     <div class="report-images">
                       ${imageUrls.map((url, index) => `
-                        <button class="report-image-button" type="button" onclick="viewAttachment('${escapeAttribute(url)}')">
+                        <button class="report-image-button" type="button" onclick="viewAttachment('${escapeAttribute(url)}')" title="View attachment ${index + 1}">
                           <img src="${escapeAttribute(url)}" alt="Report attachment ${index + 1}" class="report-thumb">
                         </button>
                       `).join('')}
@@ -670,10 +930,11 @@
                 </div>
 
                 <div class="report-action-panel">
-                  <p class="report-action-heading">Process report</p>
+                  <div class="report-section-label">Status management</div>
+                  <p class="report-action-heading">Process this report</p>
                   <div class="status-actions">
                     <div class="status-action-group">
-                      <label for="status-${item.id}">Status</label>
+                      <label for="status-${item.id}">Update status</label>
                       <select class="status-select" id="status-${item.id}" onchange="toggleReasonSelect('${item.id}')">
                         <option value="pending" ${status === 'pending' ? 'selected' : ''}>Pending</option>
                         <option value="processing" ${status === 'reviewing' ? 'selected' : ''}>Processing</option>
@@ -686,9 +947,12 @@
                       <select class="reason-select" id="reason-${item.id}">
                         ${buildReasonOptions(rejectionReason)}
                       </select>
-                      <div class="rejection-helper">Choose one of the preset reasons when marking a report as rejected. The selected reason will be shown in the mobile app.</div>
+                      <p class="rejection-helper">Only required when the report is rejected. This reason is sent to the citizen in the mobile app notification.</p>
                     </div>
-                    <button class="btn-process" type="button" onclick="processReport('${item.id}')">Update status</button>
+                    <div class="report-action-footer">
+                      <div class="report-action-note">Choose the correct status, then save once to update both the dashboard and the citizen app.</div>
+                      <button class="btn-process" type="button" onclick="processReport('${item.id}')">Save status update</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -750,8 +1014,23 @@
           select.value = savedStatus === 'reviewing' ? 'processing' : savedStatus;
         }
 
-        tableStatus.textContent = `Report updated to ${formatStatusLabel(savedStatus)}.`;
-        tableStatus.className = 'table-status';
+        const pushWarning = result?.pushWarning;
+        const pushSuccess = result?.push;
+
+        if (pushWarning) {
+          const warningDetails = pushWarning?.details
+            ? ` ${typeof pushWarning.details === 'string' ? pushWarning.details : JSON.stringify(pushWarning.details)}`
+            : '';
+          tableStatus.textContent = `${formatStatusLabel(savedStatus)} saved, but push failed: ${pushWarning.error || 'Unknown push error.'}${warningDetails}`;
+          tableStatus.className = 'table-status error';
+        } else if (pushSuccess) {
+          tableStatus.textContent = `Report updated to ${formatStatusLabel(savedStatus)} and push notification sent.`;
+          tableStatus.className = 'table-status';
+        } else {
+          tableStatus.textContent = `Report updated to ${formatStatusLabel(savedStatus)}.`;
+          tableStatus.className = 'table-status';
+        }
+
         await loadReports(true);
       } catch (error) {
         tableStatus.textContent = `Unable to update report: ${error instanceof Error ? error.message : String(error)}`;
@@ -831,19 +1110,32 @@
       }
 
       const items = Array.isArray(data) ? data : [];
+      const visibleItems = getVisibleReports(items);
       updateSummary(items);
-      renderReports(items);
+      renderReports(visibleItems);
+      window.__reportItems = items;
 
       if (missingRejectionReasonColumn) {
         tableStatus.textContent = items.length
-          ? `Showing ${items.length} report${items.length === 1 ? '' : 's'}.`
+          ? `Showing ${visibleItems.length} of ${items.length} report${items.length === 1 ? '' : 's'}.`
           : 'No reports available yet.';
         tableStatus.className = 'table-status';
         return;
       }
 
       tableStatus.textContent = items.length
-        ? `Showing ${items.length} report${items.length === 1 ? '' : 's'}.`
+        ? `Showing ${visibleItems.length} of ${items.length} report${items.length === 1 ? '' : 's'}.`
+        : 'No reports available yet.';
+      tableStatus.className = 'table-status';
+    }
+
+    function setActiveStatusFilter(status) {
+      activeStatusFilter = status === 'all' ? 'all' : normalizeStatus(status);
+      const items = Array.isArray(window.__reportItems) ? window.__reportItems : [];
+      const visibleItems = getVisibleReports(items);
+      renderReports(visibleItems);
+      tableStatus.textContent = items.length
+        ? `Showing ${visibleItems.length} of ${items.length} report${items.length === 1 ? '' : 's'}.`
         : 'No reports available yet.';
       tableStatus.className = 'table-status';
     }
@@ -852,6 +1144,7 @@
     window.processReport = processReport;
     window.viewAttachment = viewAttachment;
     window.toggleReasonSelect = toggleReasonSelect;
+    window.setActiveStatusFilter = setActiveStatusFilter;
 
     loadReports(true);
   </script>

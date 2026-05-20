@@ -454,7 +454,7 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
                                   ],
                                 ),
                               );
-                            }).toList(),
+                            }),
                           ],
                         ),
                       ),

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'app_rate_limiter.dart';
 import 'my_reports_page.dart';
 import 'shared_widgets.dart';
 
@@ -114,6 +115,20 @@ class _ReportPageState extends State<ReportPage> {
       return;
     }
 
+    const actionKey = 'report_submit';
+    final rateLimitResult = await AppRateLimiter.checkAndLock(
+      actionKey: actionKey,
+      cooldown: const Duration(seconds: 30),
+      message: 'Please wait 30 seconds before submitting another report.',
+    );
+
+    if (!rateLimitResult.allowed) {
+      _showSnackBar(
+        rateLimitResult.message ?? 'Please wait before submitting again.',
+      );
+      return;
+    }
+
     FocusScope.of(context).unfocus();
 
     setState(() {
@@ -161,6 +176,8 @@ class _ReportPageState extends State<ReportPage> {
       });
 
       _showSnackBar('Unable to submit report: $e');
+    } finally {
+      await AppRateLimiter.release(actionKey);
     }
   }
 

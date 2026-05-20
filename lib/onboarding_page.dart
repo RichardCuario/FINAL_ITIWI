@@ -18,6 +18,7 @@ class OnboardingPage extends StatefulWidget {
 class _OnboardingPageState extends State<OnboardingPage> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  bool _didPrecacheImages = false;
 
   final List<_OnboardingItem> _items = const [
     _OnboardingItem(
@@ -76,6 +77,18 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didPrecacheImages) return;
+
+    for (final item in _items) {
+      precacheImage(AssetImage(item.imagePath), context);
+    }
+
+    _didPrecacheImages = true;
+  }
+
+  @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
@@ -92,9 +105,21 @@ class _OnboardingPageState extends State<OnboardingPage> {
     final titleFontSize = screenHeight < 700 ? 17.0 : 19.0;
     final descriptionFontSize = screenHeight < 700 ? 12.0 : 13.0;
     final verticalGap = screenHeight < 700 ? 14.0 : 18.0;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBackground =
+        isDark ? const Color(0xFF0F172A) : Colors.white;
+    final panelBackground =
+        isDark ? const Color(0xFF111827) : Colors.white;
+    final titleColor = isDark ? Colors.white : const Color(0xFF111111);
+    final descriptionColor =
+        isDark ? Colors.white70 : const Color(0xFF9E9E9E);
+    final secondaryButtonBackground =
+        isDark ? const Color(0xFF1F2937) : const Color(0xFFE8E8E8);
+    final secondaryButtonForeground =
+        isDark ? Colors.white : const Color(0xFF222222);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: scaffoldBackground,
       body: SafeArea(
         top: false,
         child: Stack(
@@ -127,9 +152,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   horizontalPadding,
                   24 + bottomInset,
                 ),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(34)),
+                decoration: BoxDecoration(
+                  color: panelBackground,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(34),
+                  ),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -146,7 +173,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                               style: TextStyle(
                                 fontSize: titleFontSize,
                                 fontWeight: FontWeight.w700,
-                                color: const Color(0xFF111111),
+                                color: titleColor,
                                 height: 1.35,
                               ),
                             ),
@@ -156,7 +183,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: descriptionFontSize,
-                                color: const Color(0xFF9E9E9E),
+                                color: descriptionColor,
                                 height: 1.5,
                               ),
                             ),
@@ -192,8 +219,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                               child: ElevatedButton(
                                 onPressed: _skipToLast,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFE8E8E8),
-                                  foregroundColor: const Color(0xFF222222),
+                                  backgroundColor: secondaryButtonBackground,
+                                  foregroundColor: secondaryButtonForeground,
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(28),
@@ -234,21 +261,30 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   Widget _buildImageSection(String imagePath) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fallbackColor =
+        isDark ? const Color(0xFF0F172A) : const Color(0xFFEAF3FB);
+
     return Stack(
       fit: StackFit.expand,
       children: [
+        Container(color: fallbackColor),
         Image.asset(
           imagePath,
           fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(color: fallbackColor);
+          },
         ),
         Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
                 Colors.transparent,
-                Color(0x26000000),
+                isDark ? const Color(0x66000000) : const Color(0x26000000),
               ],
             ),
           ),
@@ -258,6 +294,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   Widget _buildIndicators() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(
@@ -270,6 +308,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
           decoration: BoxDecoration(
             color: _currentPage == index
                 ? const Color(0xFF1F86D9)
+                : isDark
+                ? const Color(0xFF334155)
                 : const Color(0xFFB9D7F2),
             borderRadius: BorderRadius.circular(10),
           ),

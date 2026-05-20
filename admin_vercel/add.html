@@ -3,16 +3,89 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Add Hotline</title>
+  
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="admin-theme.css">
   <style>
-    .page-hero .hero-panel {
-      align-self: stretch;
+    .page-stack {
       display: flex;
       flex-direction: column;
-      justify-content: center;
+      gap: 24px;
+    }
+
+    .page-hero {
+      padding: 0;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+    }
+
+    .page-hero-grid {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .hero-title {
+      margin: 0;
+      font-size: 48px;
+      line-height: 1;
+      letter-spacing: -0.05em;
+      color: #111827;
+    }
+
+    .hero-subtitle {
+      margin-top: 12px;
+      max-width: 760px;
+      color: #6b7280;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .directory-body {
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(15, 23, 42, 0.06);
+      border-radius: 32px;
+      box-shadow: 0 28px 60px rgba(15, 23, 42, 0.08);
+    }
+
+    .content-card.toolbar-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: center;
+      padding: 22px;
+      background: #ffffff;
+      border-radius: 22px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.04);
+    }
+
+    .toolbar-metrics {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+    }
+
+    .analytics-filter {
+      display: inline-flex;
+      align-items: center;
       gap: 10px;
-      min-height: 100%;
+      padding: 12px 16px;
+      border-radius: 14px;
+      background: #ffffff;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      color: #4b5563;
+      font-weight: 600;
+      box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
     }
 
     .page-layout {
@@ -28,6 +101,15 @@
       gap: 24px;
     }
 
+    .form-card,
+    .section-card {
+      padding: 22px;
+      background: #ffffff;
+      border-radius: 22px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.04);
+    }
+
     .form-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -37,7 +119,7 @@
     .field-card {
       padding: 18px;
       border-radius: 18px;
-      background: rgba(255, 255, 255, 0.72);
+      background: #ffffff;
       border: 1px solid rgba(148, 163, 184, 0.16);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
     }
@@ -94,7 +176,7 @@
     .tip-item {
       padding: 18px;
       border-radius: 18px;
-      background: rgba(255, 255, 255, 0.72);
+      background: #ffffff;
       border: 1px solid rgba(148, 163, 184, 0.16);
     }
 
@@ -230,6 +312,32 @@
       }
     }
 
+    @media (max-width: 960px) {
+      .content-card.toolbar-card,
+      .page-hero-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .logo-preview {
+        align-items: flex-start;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .directory-body {
+        padding: 18px;
+      }
+
+      .hero-title {
+        font-size: 38px;
+      }
+
+      .section-heading {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+
     @media (max-width: 720px) {
       .form-grid {
         grid-template-columns: 1fr;
@@ -247,38 +355,76 @@
         width: 100%;
       }
     }
+
+    @media (max-width: 560px) {
+      .directory-body,
+      .form-card,
+      .section-card,
+      .content-card.toolbar-card {
+        padding: 16px;
+      }
+
+      .hero-title {
+        font-size: 32px;
+      }
+
+      .hero-subtitle {
+        font-size: 14px;
+      }
+
+      .field-card {
+        padding: 16px;
+      }
+
+      .logo-preview {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .logo-preview img {
+        width: 100%;
+        max-width: 180px;
+        height: auto;
+        aspect-ratio: 1 / 1;
+      }
+
+      .success-card {
+        padding: 24px 20px;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="main">
-    <section class="page-hero">
-      <div class="page-hero-grid">
-        <div>
-          <div class="hero-kicker">Emergency Directory</div>
-          <h1 class="hero-title">Add a new hotline record</h1>
-          <p class="hero-subtitle">Create a clear, accurate emergency contact entry so residents can quickly find the right agency during urgent situations.</p>
-          <div class="hero-highlights">
-            <div class="hero-highlight">
-              <strong>Fast publishing</strong>
-              <span>Save hotline details instantly</span>
+    <div class="page-stack">
+      <div class="directory-body">
+        <section class="page-hero">
+          <div class="page-hero-grid">
+            <div>
+              <h1 class="hero-title">Add a new hotline record</h1>
+              <p class="hero-subtitle">Create a clear, accurate emergency contact entry so residents can quickly find the right agency during urgent situations.</p>
             </div>
-            <div class="hero-highlight">
-              <strong>Better visibility</strong>
-              <span>Keep names and categories easy to scan</span>
+
+            <div class="analytics-filter">⏳ Publish to directory</div>
+          </div>
+        </section>
+
+        <section class="content-card toolbar-card">
+          <div class="section-heading" style="margin-bottom: 0;">
+            <div>
+              <h2>Directory overview</h2>
+              <p>Complete the hotline details below, upload an optional logo, then publish the record to the emergency directory.</p>
             </div>
           </div>
-        </div>
-        <div class="hero-panel">
-          <span class="hero-panel-label">Admin workflow</span>
-          <h3>Before you publish</h3>
-          <p>Verify the hotline name, public contact number, category, and optional logo so the listing appears polished and trustworthy.</p>
-        </div>
-      </div>
-    </section>
 
-    <div class="page-layout">
-      <div class="form-shell">
-        <section class="form-card">
+          <div class="toolbar-metrics">
+            <div class="analytics-filter">Emergency Directory</div>
+          </div>
+        </section>
+
+        <div class="page-layout">
+          <div class="form-shell">
+            <section class="form-card">
           <div class="section-heading">
             <div>
               <h2>Hotline information</h2>
@@ -347,29 +493,31 @@
         </section>
       </div>
 
-      <aside class="section-card tips-card">
-        <div class="section-heading">
-          <div>
-            <h2>Publishing tips</h2>
-            <p>Improve quality and reduce confusion during emergencies.</p>
-          </div>
-        </div>
+          <aside class="section-card tips-card">
+            <div class="section-heading">
+              <div>
+                <h2>Publishing tips</h2>
+                <p>Improve quality and reduce confusion during emergencies.</p>
+              </div>
+            </div>
 
-        <div class="tips-list">
-          <div class="tip-item">
-            <strong>Clear naming</strong>
-            <span>Use recognizable agency names so residents can identify the service immediately.</span>
-          </div>
-          <div class="tip-item">
-            <strong>Correct category</strong>
-            <span>Assign the right service type to keep the hotline directory organized and searchable.</span>
-          </div>
-          <div class="tip-item">
-            <strong>Verified phone number</strong>
-            <span>Double-check contact details before publishing to avoid failed calls during urgent moments.</span>
-          </div>
+            <div class="tips-list">
+              <div class="tip-item">
+                <strong>Clear naming</strong>
+                <span>Use recognizable agency names so residents can identify the service immediately.</span>
+              </div>
+              <div class="tip-item">
+                <strong>Correct category</strong>
+                <span>Assign the right service type to keep the hotline directory organized and searchable.</span>
+              </div>
+              <div class="tip-item">
+                <strong>Verified phone number</strong>
+                <span>Double-check contact details before publishing to avoid failed calls during urgent moments.</span>
+              </div>
+            </div>
+          </aside>
         </div>
-      </aside>
+      </div>
     </div>
   </div>
 
@@ -540,3 +688,5 @@
   <script src="sidebar.js"></script>
 </body>
 </html>
+
+

@@ -1,9 +1,8 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:http/http.dart' as http;
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'content_cache_service.dart';
@@ -446,6 +445,8 @@ class BarangayDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final name = barangay['name']?.toString().trim() ?? 'Barangay';
     final description =
         barangay['description']?.toString().trim().isNotEmpty == true
@@ -461,7 +462,7 @@ class BarangayDetailPage extends StatelessWidget {
     final longitude = _readCoordinate('longitude');
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF3F4F6),
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
@@ -523,9 +524,9 @@ class BarangayDetailPage extends StatelessWidget {
               offset: const Offset(0, -4),
               child: Container(
                 width: double.infinity,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF8F8F8),
-                  borderRadius: BorderRadius.vertical(
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF111827) : const Color(0xFFF8F8F8),
+                  borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(28),
                   ),
                 ),
@@ -538,28 +539,30 @@ class BarangayDetailPage extends StatelessWidget {
                         child: Text(
                           _formatTitle(name),
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF151515),
+                            color: isDark ? Colors.white : const Color(0xFF151515),
                           ),
                         ),
                       ),
                       const SizedBox(height: 30),
                       _DetailSection(
                         title: 'History',
+                        titleColor: isDark ? Colors.white : const Color(0xFF151515),
                         child: Text(
                           description,
                           style: TextStyle(
                             fontSize: 16,
                             height: 1.7,
-                            color: Colors.grey[850],
+                            color: isDark ? Colors.white70 : Colors.grey[850],
                           ),
                         ),
                       ),
                       const SizedBox(height: 30),
                       _DetailSection(
                         title: 'Geographic data',
+                        titleColor: isDark ? Colors.white : const Color(0xFF151515),
                         child: _GeographicMapSection(
                           address: address,
                           geographicData: geographicData,
@@ -576,6 +579,7 @@ class BarangayDetailPage extends StatelessWidget {
                       const SizedBox(height: 30),
                       _DetailSection(
                         title: 'Barangay Officials',
+                        titleColor: isDark ? Colors.white : const Color(0xFF151515),
                         child: officialsData.structuredRows.isNotEmpty
                             ? _OfficialsTable(rows: officialsData.structuredRows)
                             : officialsData.fallbackLines.isEmpty
@@ -583,7 +587,7 @@ class BarangayDetailPage extends StatelessWidget {
                                     'No officials listed yet.',
                                     style: TextStyle(
                                       fontSize: 16,
-                                      color: Colors.grey[700],
+                                      color: isDark ? Colors.white70 : Colors.grey[700],
                                     ),
                                   )
                                 : Column(
@@ -606,11 +610,13 @@ class BarangayDetailPage extends StatelessWidget {
                                               vertical: 14,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: Colors.white,
+                                              color: isDark ? const Color(0xFF1F2937) : Colors.white,
                                               borderRadius:
                                                   BorderRadius.circular(14),
                                               border: Border.all(
-                                                color: Colors.grey.shade300,
+                                                color: isDark
+                                                    ? Colors.white12
+                                                    : Colors.grey.shade300,
                                               ),
                                             ),
                                             child: Row(
@@ -619,9 +625,10 @@ class BarangayDetailPage extends StatelessWidget {
                                                   width: 34,
                                                   height: 34,
                                                   decoration:
-                                                      const BoxDecoration(
-                                                        color:
-                                                            Color(0xFFEAF4FF),
+                                                      BoxDecoration(
+                                                        color: isDark
+                                                            ? const Color(0xFF243145)
+                                                            : const Color(0xFFEAF4FF),
                                                         shape: BoxShape.circle,
                                                       ),
                                                   child: const Icon(
@@ -634,11 +641,13 @@ class BarangayDetailPage extends StatelessWidget {
                                                 Expanded(
                                                   child: Text(
                                                     entry.value,
-                                                    style: const TextStyle(
+                                                    style: TextStyle(
                                                       fontSize: 15,
                                                       fontWeight:
                                                           FontWeight.w600,
-                                                      color: Color(0xFF232323),
+                                                      color: isDark
+                                                          ? Colors.white
+                                                          : const Color(0xFF232323),
                                                     ),
                                                   ),
                                                 ),
@@ -990,440 +999,286 @@ class _GeographicMapSection extends StatefulWidget {
 }
 
 class _GeographicMapSectionState extends State<_GeographicMapSection> {
-  late Future<_GeocodedMapResult?> _mapFuture;
+  late final Set<Marker> _markers;
 
   @override
   void initState() {
     super.initState();
-    _mapFuture = _fetchMap();
-  }
-
-  Future<_GeocodedMapResult?> _fetchMap() async {
-    final presetLatitude = widget.latitude;
-    final presetLongitude = widget.longitude;
-
-    if (presetLatitude != null && presetLongitude != null) {
-      return _GeocodedMapResult(
-        latitude: presetLatitude,
-        longitude: presetLongitude,
-        displayName: widget.address,
-      );
-    }
-
-    try {
-      final uri = Uri.https('nominatim.openstreetmap.org', '/search', {
-        'q': widget.address,
-        'format': 'jsonv2',
-        'limit': '1',
-      });
-
-      final response = await http.get(
-        uri,
-        headers: const {
-          'User-Agent': 'hotline_app/1.0 (barangay geographic viewer)',
-          'Accept': 'application/json',
-        },
-      );
-
-      if (response.statusCode != 200) {
-        return null;
-      }
-
-      final decoded = jsonDecode(response.body);
-      if (decoded is! List || decoded.isEmpty) {
-        return null;
-      }
-
-      final first = decoded.first;
-      if (first is! Map) {
-        return null;
-      }
-
-      final lat = double.tryParse('${first['lat'] ?? ''}');
-      final lon = double.tryParse('${first['lon'] ?? ''}');
-      final displayName = '${first['display_name'] ?? ''}'.trim();
-
-      if (lat == null || lon == null) {
-        return null;
-      }
-
-      return _GeocodedMapResult(
-        latitude: lat,
-        longitude: lon,
-        displayName: displayName.isEmpty ? widget.address : displayName,
-      );
-    } catch (_) {
-      return null;
-    }
+    final markerPosition = LatLng(
+      widget.latitude ?? 13.4631300,
+      widget.longitude ?? 123.6519000,
+    );
+    _markers = {
+      Marker(
+        markerId: const MarkerId('barangay-location'),
+        position: markerPosition,
+        infoWindow: InfoWindow(title: widget.address),
+      ),
+    };
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<_GeocodedMapResult?>(
-      future: _mapFuture,
-      builder: (context, snapshot) {
-        final result = snapshot.data;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hasCoordinates = widget.latitude != null && widget.longitude != null;
+    final latitude = widget.latitude ?? 13.4631300;
+    final longitude = widget.longitude ?? 123.6519000;
+    final cameraPosition = CameraPosition(
+      target: LatLng(latitude, longitude),
+      zoom: hasCoordinates ? 16 : 13,
+    );
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-                border: Border.all(color: const Color(0xFFD7E3F2)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            color: isDark ? const Color(0xFF1F2937) : Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(isDark ? 0.16 : 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    height: 240,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(18),
-                      ),
-                      color: const Color(0xFFEAF4FF),
+            ],
+            border: Border.all(
+              color: isDark ? Colors.white10 : const Color(0xFFD7E3F2),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 240,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(18),
+                  ),
+                  color: isDark ? const Color(0xFF243145) : const Color(0xFFEAF4FF),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    GoogleMap(
+                      initialCameraPosition: cameraPosition,
+                      markers: _markers,
+                      myLocationButtonEnabled: false,
+                      mapToolbarEnabled: false,
+                      zoomControlsEnabled: !kIsWeb,
+                      compassEnabled: true,
                     ),
-                    clipBehavior: Clip.antiAlias,
-                    child: result != null
-                        ? Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              FlutterMap(
-                                options: MapOptions(
-                                  initialCenter: LatLng(
-                                    result.latitude,
-                                    result.longitude,
-                                  ),
-                                  initialZoom: 16,
-                                  interactionOptions:
-                                      const InteractionOptions(
-                                        flags: InteractiveFlag.all,
-                                      ),
-                                ),
-                                children: [
-                                  TileLayer(
-                                    urlTemplate:
-                                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                    userAgentPackageName:
-                                        'com.example.hotline_app',
-                                  ),
-                                  MarkerLayer(
-                                    markers: [
-                                      Marker(
-                                        point: LatLng(
-                                          result.latitude,
-                                          result.longitude,
-                                        ),
-                                        width: 48,
-                                        height: 48,
-                                        child: const Icon(
-                                          Icons.location_pin,
-                                          color: Color(0xFFDB4437),
-                                          size: 46,
-                                        ),
-                                      ),
-                                    ],
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.black.withOpacity(0.10),
+                            Colors.transparent,
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.center,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 14,
+                      left: 14,
+                      right: 14,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? const Color(0xFF0F172A).withOpacity(0.92)
+                                    : Colors.white.withOpacity(0.95),
+                                borderRadius: BorderRadius.circular(28),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.10),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
                                   ),
                                 ],
                               ),
-                              DecoratedBox(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.black.withOpacity(0.10),
-                                      Colors.transparent,
-                                    ],
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.center,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.search,
+                                    size: 18,
+                                    color: isDark ? Colors.white70 : const Color(0xFF5F6368),
                                   ),
-                                ),
-                              ),
-                              Positioned(
-                                top: 14,
-                                left: 14,
-                                right: 14,
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 14,
-                                          vertical: 10,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.95),
-                                          borderRadius: BorderRadius.circular(28),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(0.10),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            const Icon(
-                                              Icons.search,
-                                              size: 18,
-                                              color: Color(0xFF5F6368),
-                                            ),
-                                            const SizedBox(width: 10),
-                                            Expanded(
-                                              child: Text(
-                                                result.displayName.isNotEmpty
-                                                    ? result.displayName
-                                                    : widget.address,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: Color(0xFF202124),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      widget.address,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: isDark ? Colors.white : const Color(0xFF202124),
                                       ),
                                     ),
-                                    const SizedBox(width: 10),
-                                    Container(
-                                      width: 40,
-                                      height: 40,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.95),
-                                        shape: BoxShape.circle,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(0.10),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
-                                      child: IconButton(
-                                        onPressed: widget.onOpenMaps,
-                                        icon: const Icon(
-                                          Icons.open_in_new,
-                                          size: 18,
-                                          color: Color(0xFF202124),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                              Positioned(
-                                right: 14,
-                                bottom: 14,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.95),
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: const Text(
-                                    'Live map preview',
-                                    style: TextStyle(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF1F2937),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          )
-                        : _MapFallbackPreview(address: widget.address),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          result?.displayName.isNotEmpty == true
-                              ? result!.displayName
-                              : widget.address,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF111827),
-                            height: 1.35,
+                            ),
                           ),
-                        ),
-                        if (result != null) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'Lat ${result.latitude.toStringAsFixed(6)}, Lng ${result.longitude.toStringAsFixed(6)}',
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              color: Color(0xFF6B7280),
+                          const SizedBox(width: 10),
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? const Color(0xFF0F172A).withOpacity(0.92)
+                                  : Colors.white.withOpacity(0.95),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.10),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: IconButton(
+                              onPressed: widget.onOpenMaps,
+                              icon: Icon(
+                                Icons.open_in_new,
+                                size: 18,
+                                color: isDark ? Colors.white : const Color(0xFF202124),
+                              ),
                             ),
                           ),
                         ],
-                        const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: widget.onOpenMaps,
-                                icon: const Icon(Icons.directions_outlined),
-                                label: const Text('Directions'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF1A73E8),
-                                  side: const BorderSide(color: Color(0xFFBFD3F2)),
-                                  padding: const EdgeInsets.symmetric(vertical: 13),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                ),
+                      ),
+                    ),
+                    Positioned(
+                      right: 14,
+                      bottom: 14,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0xFF0F172A).withOpacity(0.92)
+                              : Colors.white.withOpacity(0.95),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          hasCoordinates
+                              ? 'Google Maps preview'
+                              : 'Google Maps preview (approx.)',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? Colors.white70 : const Color(0xFF1F2937),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.address,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : const Color(0xFF111827),
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Lat ${latitude.toStringAsFixed(6)}, Lng ${longitude.toStringAsFixed(6)}',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: isDark ? Colors.white60 : const Color(0xFF6B7280),
+                      ),
+                    ),
+                    if (!hasCoordinates) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Using the default Tiwi, Albay coordinates because this barangay has no saved latitude/longitude yet.',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: isDark ? Colors.white60 : const Color(0xFF6B7280),
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: widget.onOpenMaps,
+                            icon: const Icon(Icons.directions_outlined),
+                            label: const Text('Directions'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF1A73E8),
+                              side: const BorderSide(
+                                color: Color(0xFFBFD3F2),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 13),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: widget.onOpenMaps,
-                                icon: const Icon(Icons.map_outlined),
-                                label: const Text('Open Maps'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF1A73E8),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 13),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: widget.onOpenMaps,
+                            icon: const Icon(Icons.map_outlined),
+                            label: const Text('Open Maps'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF1A73E8),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 13),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
                               ),
                             ),
-                          ],
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              widget.geographicData,
-              style: TextStyle(
-                fontSize: 16,
-                height: 1.7,
-                color: Colors.grey[850],
-              ),
-            ),
-          ],
-        );
-      },
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text(
+          widget.geographicData,
+          style: TextStyle(
+            fontSize: 16,
+            height: 1.7,
+            color: isDark ? Colors.white70 : Colors.grey[850],
+          ),
+        ),
+      ],
     );
   }
-}
-
-class _MapFallbackPreview extends StatelessWidget {
-  final String address;
-
-  const _MapFallbackPreview({required this.address});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFFDDEBF7),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.95),
-              borderRadius: BorderRadius.circular(28),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.search,
-                  size: 18,
-                  color: Color(0xFF5F6368),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    address,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF202124),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Spacer(),
-          Container(
-            width: 62,
-            height: 62,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.92),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.place,
-              size: 34,
-              color: Color(0xFFDB4437),
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Google Maps style preview',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1F2937),
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'The real map will appear when the location resolves successfully.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12.5,
-              height: 1.4,
-              color: Color(0xFF4B5563),
-            ),
-          ),
-          const Spacer(),
-        ],
-      ),
-    );
-  }
-}
-
-class _GeocodedMapResult {
-  final double latitude;
-  final double longitude;
-  final String displayName;
-
-  const _GeocodedMapResult({
-    required this.latitude,
-    required this.longitude,
-    required this.displayName,
-  });
 }
 
 class _OfficialsTable extends StatelessWidget {
@@ -1433,10 +1288,14 @@ class _OfficialsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFF8E8E8E)),
+        color: isDark ? const Color(0xFF1F2937) : Colors.white,
+        border: Border.all(
+          color: isDark ? Colors.white24 : const Color(0xFF8E8E8E),
+        ),
       ),
       child: Column(
         children: [
@@ -1446,7 +1305,7 @@ class _OfficialsTable extends StatelessWidget {
               Divider(
                 height: 1,
                 thickness: 1,
-                color: Colors.grey.shade200,
+                color: isDark ? Colors.white12 : Colors.grey.shade200,
               ),
           ],
         ],
@@ -1462,6 +1321,8 @@ class _OfficialsTableRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1469,9 +1330,11 @@ class _OfficialsTableRow extends StatelessWidget {
           Container(
             width: 150,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(
-                right: BorderSide(color: Color(0xFF8E8E8E)),
+                right: BorderSide(
+                  color: isDark ? Colors.white24 : const Color(0xFF8E8E8E),
+                ),
               ),
             ),
             alignment: Alignment.centerLeft,
@@ -1479,10 +1342,10 @@ class _OfficialsTableRow extends StatelessWidget {
                 ? const SizedBox.shrink()
                 : Text(
                     row.label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF2B2B2B),
+                      color: isDark ? Colors.white : const Color(0xFF2B2B2B),
                     ),
                   ),
           ),
@@ -1491,10 +1354,10 @@ class _OfficialsTableRow extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
               child: Text(
                 row.value,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: Color(0xFF4B5563),
+                  color: isDark ? Colors.white70 : const Color(0xFF4B5563),
                   height: 1.4,
                 ),
               ),
@@ -1679,8 +1542,13 @@ class _OfficialRow {
 class _DetailSection extends StatelessWidget {
   final String title;
   final Widget child;
+  final Color? titleColor;
 
-  const _DetailSection({required this.title, required this.child});
+  const _DetailSection({
+    required this.title,
+    required this.child,
+    this.titleColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1689,10 +1557,10 @@ class _DetailSection extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF151515),
+            color: titleColor ?? const Color(0xFF151515),
           ),
         ),
         const SizedBox(height: 14),

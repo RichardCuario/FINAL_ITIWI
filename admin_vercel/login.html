@@ -1,909 +1,527 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="icon" type="image/png" href="favicon.png">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Login - ITIWI</title>
-  <link rel="stylesheet" href="admin-theme.css">
+  <title>Admin Login</title>
   <style>
-    body {
-      min-height: 100vh;
-      margin: 0;
-      display: grid;
-      place-items: center;
-      padding: 24px;
-      background:
-        radial-gradient(circle at top left, rgba(99, 102, 241, 0.12), transparent 28%),
-        radial-gradient(circle at bottom right, rgba(37, 99, 235, 0.14), transparent 30%),
-        linear-gradient(180deg, #f8fbff 0%, #eef3ff 48%, #f7f9fc 100%);
-      position: relative;
-      overflow: hidden;
+    :root {
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --surface-2: #eef3fb;
+      --text: #172033;
+      --muted: #5f6b85;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --danger: #dc2626;
+      --radius: 24px;
+      --shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
+      --border: rgba(148, 163, 184, 0.25);
+      --ring: rgba(37, 99, 235, 0.2);
     }
 
-    body::after {
-      content: "";
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Inter", "Segoe UI", sans-serif;
       background:
-        radial-gradient(circle at 80% 22%, rgba(37, 99, 235, 0.08) 0, rgba(37, 99, 235, 0.08) 28px, transparent 29px),
-        radial-gradient(circle at 86% 33%, rgba(99, 102, 241, 0.07) 0, rgba(99, 102, 241, 0.07) 17px, transparent 18px),
-        radial-gradient(circle at 90% 27%, rgba(148, 163, 184, 0.08) 0, rgba(148, 163, 184, 0.08) 9px, transparent 10px);
-      z-index: 0;
+        radial-gradient(circle at top left, rgba(37, 99, 235, 0.16), transparent 32%),
+        linear-gradient(180deg, #f8fbff 0%, #eef4ff 48%, #f4f7fb 100%);
+      color: var(--text);
     }
 
     .login-shell {
-      position: relative;
-      z-index: 1;
-      width: min(100%, 1180px);
-      min-height: 680px;
+      min-height: 100vh;
       display: grid;
-      grid-template-columns: minmax(0, 0.94fr) minmax(420px, 1.06fr);
-      align-items: center;
-      gap: 32px;
-      padding: 28px 12px;
+      grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+      width: 100%;
     }
 
-    .login-copy {
-      padding: 28px 24px 28px 12px;
+    .brand-panel {
+      position: relative;
+      padding: 64px 72px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      min-width: 0;
     }
 
-    .brand-row {
+    .brand-panel::before,
+    .brand-panel::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      filter: blur(0);
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    .brand-panel::before {
+      width: min(420px, 60vw);
+      height: min(420px, 60vw);
+      background: rgba(37, 99, 235, 0.13);
+      top: -120px;
+      left: -120px;
+    }
+
+    .brand-panel::after {
+      width: min(260px, 42vw);
+      height: min(260px, 42vw);
+      background: rgba(15, 118, 110, 0.12);
+      bottom: 48px;
+      right: 40px;
+    }
+
+    .brand-copy {
+      position: relative;
+      max-width: 560px;
+      z-index: 1;
+      min-width: 0;
+    }
+
+    .brand-pill {
       display: inline-flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 54px;
-    }
-
-    .brand-mark {
-      width: 42px;
-      height: 42px;
-      border-radius: 14px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, #60a5fa, #4f46e5);
-      color: #fff;
-      font-weight: 800;
-      font-size: 16px;
-      box-shadow: 0 16px 30px rgba(79, 70, 229, 0.22);
-    }
-
-    .brand-text strong {
-      display: block;
-      color: #1d4ed8;
-      font-size: 30px;
-      line-height: 1;
-      letter-spacing: 0.06em;
-    }
-
-    .brand-text span {
-      display: block;
-      margin-top: 4px;
-      color: var(--text-muted);
-      font-size: 11px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-    }
-
-    .hero-kicker {
-      margin-bottom: 18px;
-    }
-
-    .login-copy h1 {
-      margin: 0;
-      font-size: clamp(40px, 5vw, 60px);
-      line-height: 1.04;
-      letter-spacing: -0.05em;
-      color: #020617;
-    }
-
-    .subtitle {
-      margin: 14px 0 0;
-      color: #64748b;
-      font-size: 24px;
-      line-height: 1.4;
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: rgba(37, 99, 235, 0.1);
+      color: var(--primary);
       font-weight: 600;
+      letter-spacing: 0.01em;
+      max-width: 100%;
     }
 
-    .login-form-wrap {
+    .brand-pill span {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.14);
+      flex-shrink: 0;
+    }
+
+    .brand-copy h1 {
+      margin: 28px 0 18px;
+      font-size: clamp(2.6rem, 4vw, 4.6rem);
+      line-height: 1.05;
+      overflow-wrap: anywhere;
+    }
+
+    .brand-copy p {
+      max-width: 520px;
+      margin: 0;
+      font-size: 1.08rem;
+      line-height: 1.8;
+      color: var(--muted);
+    }
+
+    .brand-highlights {
+      position: relative;
       display: grid;
-      gap: 28px;
-      margin-top: 58px;
-      max-width: 430px;
-    }
-
-    .status-box {
-      padding: 15px 18px;
-      border-radius: 18px;
-      border: 1px solid rgba(148, 163, 184, 0.16);
-      background: rgba(255, 255, 255, 0.74);
-      color: var(--text-soft);
-      font-size: 14px;
-      line-height: 1.6;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .status-box.error {
-      color: #b91c1c;
-      background: rgba(254, 242, 242, 0.96);
-      border-color: rgba(239, 68, 68, 0.16);
-    }
-
-    .status-box.success {
-      color: #047857;
-      background: rgba(236, 253, 245, 0.96);
-      border-color: rgba(16, 185, 129, 0.18);
-    }
-
-    .field-stack {
-      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 18px;
+      margin-top: 48px;
+      z-index: 1;
     }
 
-    .field-card {
-      display: grid;
-      grid-template-columns: 52px minmax(0, 1fr);
-      align-items: center;
-      min-height: 74px;
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.78);
-      border: 1.5px solid rgba(15, 23, 42, 0.16);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-      overflow: hidden;
+    .highlight-card {
+      min-width: 0;
+      padding: 20px 22px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.62);
+      border: 1px solid rgba(255, 255, 255, 0.65);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 18px 40px rgba(148, 163, 184, 0.18);
     }
 
-    .field-icon {
-      display: inline-flex;
+    .highlight-card strong {
+      display: block;
+      font-size: 1.55rem;
+      margin-bottom: 10px;
+    }
+
+    .highlight-card span {
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.55;
+    }
+
+    .login-panel {
+      display: flex;
       align-items: center;
       justify-content: center;
-      color: #475569;
-      font-size: 20px;
+      padding: 48px 32px;
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(14px);
+      border-left: 1px solid rgba(148, 163, 184, 0.2);
+      min-width: 0;
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 460px;
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 28px;
+      padding: 38px 38px 34px;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(255, 255, 255, 0.78);
+    }
+
+    .login-header {
+      margin-bottom: 30px;
+    }
+
+    .login-header h2 {
+      margin: 0 0 10px;
+      font-size: 2rem;
+    }
+
+    .login-header p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
     }
 
     .field-label {
       display: block;
-      height: 100%;
-    }
-
-    .field-label input {
-      height: 100%;
-      border: 0;
-      border-radius: 0;
-      background: transparent;
-      box-shadow: none;
-      padding: 0 20px 0 0;
-      color: var(--text);
-      font-size: 18px;
+      margin-bottom: 10px;
+      font-size: 0.95rem;
       font-weight: 600;
+      color: #22304a;
     }
 
-    .field-label input::placeholder {
-      color: rgba(51, 65, 85, 0.86);
-    }
-
-    .field-label input:focus {
-      box-shadow: none;
-    }
-
-    .form-actions {
-      padding-top: 6px;
-    }
-
-    .form-actions .btn {
-      min-width: 168px;
-      min-height: 52px;
-      border-radius: 999px;
-      padding: 14px 28px;
-      font-size: 22px;
-      font-weight: 700;
-      box-shadow: 0 18px 28px rgba(29, 78, 216, 0.22);
-    }
-
-    .help-text {
-      margin: 4px 0 0;
-      color: var(--text-muted);
-      font-size: 12px;
-      line-height: 1.7;
-      max-width: 430px;
-    }
-
-    .visual-panel {
-      position: relative;
-      min-height: 640px;
+    .input-shell {
       display: flex;
       align-items: center;
-      justify-content: center;
+      gap: 14px;
+      padding: 0 18px;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      box-shadow: inset 0 1px 2px rgba(148, 163, 184, 0.08);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      min-width: 0;
     }
 
-    .visual-stage {
-      position: relative;
+    .input-shell:focus-within {
+      border-color: rgba(37, 99, 235, 0.48);
+      box-shadow: 0 0 0 4px var(--ring);
+    }
+
+    .input-shell i {
+      color: #7c8aa5;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .input-shell input {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      background: transparent;
+      height: 54px;
+      font-size: 1rem;
+      color: var(--text);
+      outline: none;
+    }
+
+    .toggle-password {
+      border: none;
+      background: none;
+      color: #7c8aa5;
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 4px;
+      flex-shrink: 0;
+    }
+
+    .form-meta {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: -4px;
+    }
+
+    .forgot-link {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .forgot-link:hover {
+      text-decoration: underline;
+    }
+
+    .login-btn {
       width: 100%;
-      max-width: 700px;
-      aspect-ratio: 1.05 / 0.9;
-    }
-
-    .shape-main {
-      position: absolute;
-      inset: 12% 10% 2% 8%;
-      border-radius: 45% 38% 24% 30% / 34% 32% 30% 28%;
-      background: radial-gradient(circle at 38% 35%, rgba(255, 255, 255, 0.55), rgba(191, 219, 254, 0.4) 38%, rgba(147, 197, 253, 0.25) 60%, rgba(191, 219, 254, 0.14) 100%);
-    }
-
-    .shape-secondary {
-      position: absolute;
-      right: 12%;
-      bottom: 4%;
-      width: 220px;
-      height: 170px;
-      border-radius: 45% 55% 52% 48%;
-      background: rgba(147, 197, 253, 0.22);
-    }
-
-    .bubble {
-      position: absolute;
-      border-radius: 999px;
-      background: rgba(191, 219, 254, 0.48);
-    }
-
-    .bubble.b1 {
-      right: 22%;
-      top: 4%;
-      width: 54px;
-      height: 54px;
-    }
-
-    .bubble.b2 {
-      right: 8%;
-      top: 18%;
-      width: 34px;
-      height: 34px;
-    }
-
-    .bubble.b3 {
-      right: 1%;
-      top: 16%;
-      width: 18px;
-      height: 18px;
-    }
-
-    .orbit {
-      position: absolute;
-      inset: 24% 17% 15% 20%;
-      border-radius: 50%;
-      border: 3px dashed rgba(255, 255, 255, 0.55);
-      opacity: 0.58;
-    }
-
-    .floating-card,
-    .shield-card,
-    .lock-card,
-    .code-card {
-      position: absolute;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
+      border: none;
       border-radius: 18px;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .floating-card {
-      top: 19%;
-      left: 41%;
-      width: 68px;
-      height: 48px;
-      background: #93c5fd;
-      color: white;
-      font-weight: 800;
-      letter-spacing: 0.22em;
-      font-size: 12px;
-    }
-
-    .shield-card {
-      top: 18%;
-      right: 29%;
-      width: 76px;
-      height: 86px;
-      background: linear-gradient(180deg, #bfdbfe, #93c5fd);
-      clip-path: polygon(50% 0%, 100% 20%, 88% 68%, 50% 100%, 12% 68%, 0% 20%);
-      color: #2563eb;
-      font-size: 30px;
+      padding: 15px 20px;
+      font-size: 1rem;
       font-weight: 700;
+      color: #fff;
+      background: linear-gradient(135deg, var(--primary) 0%, #4f7df3 100%);
+      cursor: pointer;
+      box-shadow: 0 18px 30px rgba(37, 99, 235, 0.22);
+      transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
     }
 
-    .lock-card {
-      right: 14%;
-      top: 28%;
-      width: 56px;
-      height: 78px;
-      border-radius: 18px;
-      background: rgba(191, 219, 254, 0.9);
-      color: #ffffff;
-      font-size: 32px;
+    .login-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 20px 34px rgba(37, 99, 235, 0.24);
     }
 
-    .code-card {
-      right: 8%;
-      width: 84px;
-      height: 38px;
-      border-radius: 12px;
-      background: rgba(147, 197, 253, 0.85);
-      color: #2563eb;
-      font-size: 18px;
-      font-weight: 800;
-      letter-spacing: 0.04em;
+    .login-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
     }
 
-    .code-card.css {
-      top: 48%;
-    }
-
-    .code-card.html {
-      top: 58%;
-      right: 4%;
-    }
-
-    .scene-base {
-      position: absolute;
-      left: 14%;
-      right: 10%;
-      bottom: 4%;
-      height: 30px;
-      border-radius: 50%;
-      background: rgba(100, 116, 139, 0.18);
-      filter: blur(1px);
-    }
-
-    .plant {
-      position: absolute;
-      width: 120px;
-      height: 120px;
-    }
-
-    .plant.left {
-      left: 6%;
-      bottom: 17%;
-    }
-
-    .plant.right {
-      right: 0;
-      bottom: 8%;
-    }
-
-    .leaf {
-      position: absolute;
-      width: 58px;
-      height: 24px;
-      background: linear-gradient(135deg, #0891b2, #0f766e);
-      border-radius: 100% 0 100% 0;
-      transform-origin: left center;
-      opacity: 0.96;
-    }
-
-    .plant.left .leaf:nth-child(1) {
-      left: 24px;
-      top: 12px;
-      transform: rotate(-38deg);
-    }
-
-    .plant.left .leaf:nth-child(2) {
-      left: 10px;
-      top: 42px;
-      transform: rotate(-8deg);
-    }
-
-    .plant.left .leaf:nth-child(3) {
-      left: 32px;
-      top: 64px;
-      transform: rotate(22deg);
-    }
-
-    .plant.right .leaf:nth-child(1) {
-      right: 30px;
-      top: 20px;
-      transform: rotate(28deg);
-    }
-
-    .plant.right .leaf:nth-child(2) {
-      right: 8px;
-      top: 48px;
-      transform: rotate(-8deg);
-    }
-
-    .plant.right .leaf:nth-child(3) {
-      right: 34px;
-      top: 78px;
-      transform: rotate(-34deg);
-    }
-
-    .monitor {
-      position: absolute;
-      left: 20%;
-      bottom: 8%;
-      width: 46%;
-      height: 38%;
-      border-radius: 22px;
-      background: linear-gradient(145deg, #93b9e6, #a8c6ec 42%, #8ab0de);
-      border: 10px solid rgba(255, 255, 255, 0.34);
-      box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.16);
-      overflow: hidden;
-    }
-
-    .monitor::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: repeating-linear-gradient(
-        -35deg,
-        rgba(255, 255, 255, 0.08) 0,
-        rgba(255, 255, 255, 0.08) 14px,
-        rgba(255, 255, 255, 0.02) 14px,
-        rgba(255, 255, 255, 0.02) 28px
-      );
-      opacity: 0.8;
-    }
-
-    .monitor::after {
-      content: "";
-      position: absolute;
-      left: 22%;
-      top: 14%;
-      width: 34%;
-      height: 34%;
-      background: rgba(255, 255, 255, 0.34);
-      border-radius: 50%;
-    }
-
-    .monitor-stand {
-      position: absolute;
-      left: 30%;
-      bottom: 6%;
-      width: 12%;
-      height: 26%;
-      border-left: 7px solid rgba(255, 255, 255, 0.72);
-      border-bottom: 7px solid rgba(255, 255, 255, 0.72);
-      border-radius: 0 0 0 22px;
-      transform: skew(-8deg);
-    }
-
-    .monitor-stand::before,
-    .monitor-stand::after {
-      content: "";
-      position: absolute;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.82);
-      left: -13px;
-    }
-
-    .monitor-stand::before {
-      top: 10px;
-    }
-
-    .monitor-stand::after {
-      bottom: -9px;
-    }
-
-    .seated {
-      position: absolute;
-      left: 38%;
-      top: 24%;
-      width: 34%;
-      height: 47%;
-    }
-
-    .seated .head {
-      position: absolute;
-      left: 30%;
-      top: 0;
-      width: 54px;
-      height: 54px;
-      border-radius: 50%;
-      background: #7c3f1b;
-      z-index: 3;
-    }
-
-    .seated .hair {
-      position: absolute;
-      left: 24%;
-      top: -4px;
-      width: 74px;
-      height: 48px;
-      border-radius: 50% 50% 42% 38%;
-      background: #3b1d0f;
-      z-index: 4;
-    }
-
-    .seated .torso {
-      position: absolute;
-      left: 22%;
-      top: 48px;
-      width: 116px;
-      height: 92px;
-      border-radius: 26px 26px 18px 20px;
-      background: #f59e0b;
-      transform: skewX(-8deg);
-      z-index: 2;
-    }
-
-    .seated .arm-left,
-    .seated .arm-right {
-      position: absolute;
-      height: 20px;
-      border-radius: 999px;
-      background: #d68b57;
-      z-index: 4;
-      transform-origin: left center;
-    }
-
-    .seated .arm-left {
-      left: 4%;
-      top: 96px;
-      width: 90px;
-      transform: rotate(42deg);
-    }
-
-    .seated .arm-right {
-      left: 60%;
-      top: 90px;
-      width: 72px;
-      transform: rotate(-18deg);
-    }
-
-    .seated .skirt {
-      position: absolute;
-      left: 24%;
-      top: 118px;
-      width: 148px;
-      height: 92px;
-      border-radius: 24px 24px 40px 36px;
-      background: #3b82f6;
-      z-index: 1;
-    }
-
-    .seated .leg-left,
-    .seated .leg-right {
-      position: absolute;
-      width: 26px;
-      background: #2563eb;
+    .message {
+      display: none;
+      padding: 14px 16px;
       border-radius: 16px;
-      z-index: 0;
+      font-size: 0.95rem;
+      line-height: 1.55;
+      overflow-wrap: anywhere;
     }
 
-    .seated .leg-left {
-      left: 40%;
-      top: 180px;
-      height: 92px;
-      transform: rotate(-2deg);
+    .message.error {
+      display: block;
+      background: rgba(220, 38, 38, 0.08);
+      color: #b91c1c;
+      border: 1px solid rgba(220, 38, 38, 0.14);
     }
 
-    .seated .leg-right {
-      left: 68%;
-      top: 176px;
-      height: 86px;
-      transform: rotate(-14deg);
+    .message.success {
+      display: block;
+      background: rgba(22, 163, 74, 0.08);
+      color: #166534;
+      border: 1px solid rgba(22, 163, 74, 0.14);
     }
 
-    .seated .shoe-left,
-    .seated .shoe-right {
-      position: absolute;
-      width: 34px;
-      height: 12px;
-      border-radius: 999px;
-      background: #2563eb;
-    }
-
-    .seated .shoe-left {
-      left: 38%;
-      top: 266px;
-    }
-
-    .seated .shoe-right {
-      left: 76%;
-      top: 246px;
-      transform: rotate(20deg);
-    }
-
-    .worker {
-      position: absolute;
-      right: 14%;
-      bottom: 1%;
-      width: 31%;
-      height: 43%;
-    }
-
-    .worker .head {
-      position: absolute;
-      left: 42%;
-      top: 10%;
-      width: 46px;
-      height: 46px;
-      border-radius: 50%;
-      background: #d99062;
-      z-index: 4;
-    }
-
-    .worker .hair {
-      position: absolute;
-      left: 39%;
-      top: 4%;
-      width: 54px;
-      height: 34px;
-      border-radius: 46% 46% 34% 34%;
-      background: #2a130b;
-      z-index: 5;
-    }
-
-    .worker .torso {
-      position: absolute;
-      left: 22%;
-      top: 25%;
-      width: 124px;
-      height: 78px;
-      border-radius: 22px;
-      background: #3b82f6;
-      z-index: 2;
-    }
-
-    .worker .laptop {
-      position: absolute;
-      left: 12%;
-      top: 40%;
-      width: 128px;
-      height: 62px;
-      background: #93b5e1;
-      border-radius: 8px;
-      transform: skew(-8deg);
-      z-index: 6;
-      box-shadow: 0 12px 18px rgba(59, 130, 246, 0.12);
-    }
-
-    .worker .laptop::after {
-      content: "";
-      position: absolute;
-      left: -8px;
-      right: -10px;
-      bottom: -10px;
-      height: 14px;
-      background: #7ea5d8;
-      border-radius: 10px;
-      transform: skew(8deg);
-    }
-
-    .worker .arm {
-      position: absolute;
-      width: 74px;
-      height: 20px;
-      border-radius: 999px;
-      background: #f08f7b;
-      z-index: 5;
-    }
-
-    .worker .arm.left {
-      left: 8%;
-      top: 46%;
-      transform: rotate(-26deg);
-    }
-
-    .worker .arm.right {
-      left: 68%;
-      top: 42%;
-      transform: rotate(64deg);
-      width: 68px;
-    }
-
-    .worker .leg-left,
-    .worker .leg-right {
-      position: absolute;
-      background: #f59e0b;
+    .security-note {
+      margin-top: 28px;
+      padding: 16px 18px;
       border-radius: 18px;
-      z-index: 1;
+      background: var(--surface-2);
+      border: 1px solid rgba(37, 99, 235, 0.1);
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.6;
     }
 
-    .worker .leg-left {
-      left: 30%;
-      top: 62%;
-      width: 52px;
-      height: 130px;
-      transform: rotate(8deg);
+    .security-note strong {
+      color: #1e3a8a;
     }
 
-    .worker .leg-right {
-      left: 54%;
-      top: 60%;
-      width: 48px;
-      height: 126px;
-      transform: rotate(-8deg);
+    @media (max-width: 1180px) {
+      .login-shell {
+        grid-template-columns: minmax(0, 1fr) minmax(340px, 430px);
+      }
+
+      .brand-panel {
+        padding: 54px 48px;
+      }
+
+      .brand-highlights {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
 
-    .worker .shoe-left,
-    .worker .shoe-right {
-      position: absolute;
-      width: 34px;
-      height: 18px;
-      border-radius: 12px;
-      background: #2a130b;
-      bottom: 0;
-      z-index: 2;
-    }
-
-    .worker .shoe-left {
-      left: 34%;
-    }
-
-    .worker .shoe-right {
-      left: 62%;
-    }
-
-    @media (max-width: 1100px) {
+    @media (max-width: 920px) {
       .login-shell {
         grid-template-columns: 1fr;
+      }
+
+      .brand-panel {
+        padding: 42px 28px 22px;
         min-height: auto;
-        gap: 8px;
       }
 
-      .login-copy {
-        padding: 16px 10px 0;
+      .brand-copy p {
+        max-width: none;
       }
 
-      .visual-panel {
-        min-height: 460px;
-      }
-
-      .brand-row {
-        margin-bottom: 32px;
-      }
-
-      .login-form-wrap {
+      .brand-highlights {
         margin-top: 36px;
+      }
+
+      .login-panel {
+        padding: 12px 20px 36px;
+        border-left: none;
+        background: transparent;
+      }
+
+      .login-card {
+        max-width: 100%;
       }
     }
 
-    @media (max-width: 760px) {
-      body {
+    @media (max-width: 620px) {
+      .brand-panel {
+        padding: 34px 20px 12px;
+      }
+
+      .brand-copy h1 {
+        font-size: clamp(2.1rem, 9vw, 2.9rem);
+      }
+
+      .brand-copy p {
+        font-size: 1rem;
+        line-height: 1.7;
+      }
+
+      .brand-highlights {
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+
+      .login-panel {
+        padding: 8px 14px 28px;
+      }
+
+      .login-card {
+        padding: 28px 20px 24px;
+        border-radius: 22px;
+      }
+
+      .login-header h2 {
+        font-size: 1.7rem;
+      }
+
+      .input-shell {
+        padding: 0 14px;
+      }
+
+      .input-shell input {
+        height: 50px;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .brand-pill {
+        width: 100%;
+        justify-content: flex-start;
+        padding: 10px 14px;
+        font-size: 0.92rem;
+      }
+
+      .highlight-card {
         padding: 18px;
       }
 
-      .login-shell {
-        padding: 6px 0 16px;
+      .highlight-card strong {
+        font-size: 1.35rem;
       }
 
-      .brand-text strong {
-        font-size: 24px;
+      .login-card {
+        padding: 24px 16px 22px;
       }
 
-      .login-copy h1 {
-        font-size: 38px;
+      .login-header h2 {
+        font-size: 1.5rem;
       }
 
-      .subtitle {
-        font-size: 18px;
+      .login-header p,
+      .security-note,
+      .message {
+        font-size: 0.9rem;
       }
 
-      .field-card {
-        min-height: 64px;
+      .form-meta {
+        justify-content: flex-start;
       }
 
-      .field-label input {
-        font-size: 16px;
-      }
-
-      .form-actions .btn {
-        width: 100%;
-        min-width: 0;
-        font-size: 20px;
-      }
-
-      .visual-panel {
-        min-height: 320px;
-      }
-
-      .floating-card,
-      .shield-card,
-      .lock-card,
-      .code-card,
-      .plant {
-        transform: scale(0.86);
+      .forgot-link {
+        font-size: 0.9rem;
       }
     }
   </style>
 </head>
 <body>
   <div class="login-shell">
-    <section class="login-copy">
-      <div class="brand-row">
-        <span class="brand-mark">IT</span>
-        <div class="brand-text">
-          <strong>ITIWI</strong>
-          <span>Disaster Information</span>
-        </div>
+    <section class="brand-panel">
+      <div class="brand-copy">
+        <div class="brand-pill"><span></span> Secure municipal administration</div>
+        <h1>Welcome back to the Admin Panel</h1>
+        <p>
+          Access the Itiwi municipality admin tools to manage public content, destination records,
+          transparency pages, barangay information, and platform analytics with confidence.
+        </p>
       </div>
 
-      <span class="hero-kicker">Admin Access</span>
-      <h1>Welcome back, Admin</h1>
-      <p class="subtitle">Welcome back to your special place</p>
-
-      <form id="loginForm" class="login-form-wrap">
-        <div id="statusBox" class="status-box">Enter your admin credentials to continue.</div>
-
-        <div class="field-stack">
-          <div class="field-card">
-            <span class="field-icon">&#128100;</span>
-            <label class="field-label" for="email">
-              <input id="email" name="email" type="email" placeholder="Username" autocomplete="email" required>
-            </label>
-          </div>
-
-          <div class="field-card">
-            <span class="field-icon">&#128274;</span>
-            <label class="field-label" for="password">
-              <input id="password" name="password" type="password" placeholder="Password" autocomplete="current-password" required>
-            </label>
-          </div>
+      <div class="brand-highlights">
+        <div class="highlight-card">
+          <strong>Unified</strong>
+          <span>Manage core public information and service content in one place.</span>
         </div>
-
-        <div class="form-actions">
-          <button class="btn btn-primary" type="submit" id="loginButton">Login</button>
+        <div class="highlight-card">
+          <strong>Realtime</strong>
+          <span>Track updates and synchronized records across supported modules.</span>
         </div>
-
-      </form>
+        <div class="highlight-card">
+          <strong>Protected</strong>
+          <span>Use secured admin access before making changes to public data.</span>
+        </div>
+      </div>
     </section>
 
-    <section class="visual-panel" aria-hidden="true">
-      <div class="visual-stage">
-        <div class="shape-main"></div>
-        <div class="shape-secondary"></div>
-        <div class="bubble b1"></div>
-        <div class="bubble b2"></div>
-        <div class="bubble b3"></div>
-        <div class="orbit"></div>
-        <div class="floating-card">&bull; &bull; &bull;</div>
-        <div class="shield-card">&#10003;</div>
-        <div class="lock-card">&#128274;</div>
-        <div class="code-card css">CSS</div>
-        <div class="code-card html">HTML</div>
-        <div class="scene-base"></div>
-
-        <div class="plant left">
-          <span class="leaf"></span>
-          <span class="leaf"></span>
-          <span class="leaf"></span>
+    <section class="login-panel">
+      <div class="login-card">
+        <div class="login-header">
+          <h2>Sign in</h2>
+          <p>Enter your administrator credentials to continue.</p>
         </div>
 
-        <div class="plant right">
-          <span class="leaf"></span>
-          <span class="leaf"></span>
-          <span class="leaf"></span>
-        </div>
+        <div id="message" class="message" role="status" aria-live="polite"></div>
 
-        <div class="monitor"></div>
-        <div class="monitor-stand"></div>
+        <form id="loginForm" class="login-form" novalidate>
+          <div>
+            <label class="field-label" for="email">Email address</label>
+            <div class="input-shell">
+              <i>@</i>
+              <input id="email" name="email" type="email" placeholder="admin@example.com" autocomplete="email" required>
+            </div>
+          </div>
 
-        <div class="seated">
-          <span class="hair"></span>
-          <span class="head"></span>
-          <span class="torso"></span>
-          <span class="arm-left"></span>
-          <span class="arm-right"></span>
-          <span class="skirt"></span>
-          <span class="leg-left"></span>
-          <span class="leg-right"></span>
-          <span class="shoe-left"></span>
-          <span class="shoe-right"></span>
-        </div>
+          <div>
+            <label class="field-label" for="password">Password</label>
+            <div class="input-shell">
+              <i>*</i>
+              <input id="password" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" required>
+              <button class="toggle-password" id="togglePassword" type="button" aria-label="Toggle password visibility">👁</button>
+            </div>
+          </div>
 
-        <div class="worker">
-          <span class="hair"></span>
-          <span class="head"></span>
-          <span class="torso"></span>
-          <span class="arm left"></span>
-          <span class="arm right"></span>
-          <span class="laptop"></span>
-          <span class="leg-left"></span>
-          <span class="leg-right"></span>
-          <span class="shoe-left"></span>
-          <span class="shoe-right"></span>
+          <div class="form-meta">
+            <a class="forgot-link" href="#">Admin access only</a>
+          </div>
+
+          <button class="login-btn" id="loginButton" type="submit">Sign in to dashboard</button>
+        </form>
+
+        <div class="security-note">
+          <strong>Security notice:</strong> only authorized administrators should access this panel.
         </div>
       </div>
     </section>
@@ -912,65 +530,57 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="auth.js"></script>
   <script>
-    const loginForm = document.getElementById('loginForm');
+    const form = document.getElementById('loginForm');
     const emailInput = document.getElementById('email');
     const passwordInput = document.getElementById('password');
-    const statusBox = document.getElementById('statusBox');
+    const message = document.getElementById('message');
     const loginButton = document.getElementById('loginButton');
+    const togglePassword = document.getElementById('togglePassword');
 
-    function setStatus(message, type = '') {
-      statusBox.textContent = message;
-      statusBox.className = `status-box${type ? ` ${type}` : ''}`;
+    function setMessage(text, type) {
+      message.textContent = text || '';
+      message.className = text ? `message ${type}` : 'message';
     }
 
-    async function initializeLoginPage() {
-      try {
-        await window.adminAuth.redirectIfAuthenticated();
-        setStatus('Enter your admin credentials to continue.');
-      } catch (error) {
-        setStatus(error.message || 'Unable to initialize login.', 'error');
-      }
-    }
+    togglePassword.addEventListener('click', () => {
+      const isPassword = passwordInput.type === 'password';
+      passwordInput.type = isPassword ? 'text' : 'password';
+      togglePassword.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+    });
 
-    loginForm.addEventListener('submit', async (event) => {
+    form.addEventListener('submit', async (event) => {
       event.preventDefault();
 
       const email = emailInput.value.trim();
       const password = passwordInput.value;
 
-      if (!email) {
-        setStatus('Please enter your email address.', 'error');
-        emailInput.focus();
-        return;
-      }
-
-      if (!password) {
-        setStatus('Please enter your password.', 'error');
-        passwordInput.focus();
+      if (!email || !password) {
+        setMessage('Please enter your email and password.', 'error');
         return;
       }
 
       loginButton.disabled = true;
-      setStatus('Signing in...');
+      setMessage('Signing in...', 'success');
 
       try {
-        const { error } = await window.adminAuth.signInAdmin(email, password);
+        const result = await window.adminAuth.signInAdmin(email, password);
 
-        if (error) {
-          throw error;
+        if (result?.error) {
+          throw new Error(result.error.message || 'Unable to sign in.');
         }
 
-        setStatus('Sign in successful. Redirecting to dashboard...', 'success');
-        window.setTimeout(() => {
-          window.location.href = 'dashboard.html';
-        }, 700);
+        if (!result?.data?.session) {
+          throw new Error('Unable to sign in.');
+        }
+
+        setMessage('Login successful. Redirecting...', 'success');
+        window.location.href = 'dashboard.html';
       } catch (error) {
-        setStatus(error.message || 'Unable to sign in.', 'error');
+        console.error('Login failed:', error);
+        setMessage(error.message || 'Login failed. Please try again.', 'error');
         loginButton.disabled = false;
       }
     });
-
-    initializeLoginPage();
   </script>
 </body>
 </html>

@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'content_cache_service.dart';
 import 'shared_widgets.dart';
 
 class MyReportsPage extends StatefulWidget {
@@ -15,9 +16,155 @@ class MyReportsPage extends StatefulWidget {
 
 class _MyReportsPageState extends State<MyReportsPage> {
   final _supabase = Supabase.instance.client;
+  final _cacheService = const ContentCacheService();
+  late Future<List<Map<String, dynamic>>> _reportsFuture;
+  List<Map<String, dynamic>> _reports = const [];
+  bool _isMutatingReport = false;
 
   firebase_auth.User? get _currentUser =>
       firebase_auth.FirebaseAuth.instance.currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _reportsFuture = _loadReports();
+  }
+
+  void _refreshReports() {
+    setState(() {
+      _reportsFuture = _loadReports();
+    });
+  }
+
+  void _removeReportFromList(String reportId) {
+    setState(() {
+      _reports = _reports
+          .where((report) => report['id']?.toString() != reportId)
+          .toList();
+      _reportsFuture = Future.value(_reports);
+    });
+  }
+
+  String _normalizeReportStatus(String status) {
+    final normalized = status.trim().toLowerCase();
+
+    switch (normalized) {
+      case 'reviewing':
+      case 'processing':
+      case 'in progress':
+        return 'processing';
+      case 'under review':
+      case 'pending':
+        return 'under review';
+      case 'resolved':
+        return 'resolved';
+      case 'rejected':
+        return 'rejected';
+      default:
+        return normalized.isEmpty ? 'under review' : normalized;
+    }
+  }
+
+  String _buildReportNotificationTitle(String status) {
+    switch (_normalizeReportStatus(status)) {
+      case 'resolved':
+        return 'Your report was resolved';
+      case 'rejected':
+        return 'Your report was rejected';
+      case 'processing':
+        return 'Your report is now processing';
+      default:
+        return 'Your report is under review';
+    }
+  }
+
+  String _buildReportNotificationDescription(Map<String, dynamic> report) {
+    final status = report['status']?.toString() ?? '';
+    final normalizedStatus = _normalizeReportStatus(status);
+    final message = report['message']?.toString().trim() ?? '';
+    final trimmedMessage = message.isEmpty ? 'your submitted report' : message;
+
+    if (normalizedStatus == 'rejected') {
+      final reason = report['rejection_reason']?.toString().trim() ?? '';
+      if (reason.isNotEmpty) {
+        return 'Admin updated "$trimmedMessage" to rejected. Reason: $reason';
+      }
+      return 'Admin updated "$trimmedMessage" to rejected.';
+    }
+
+    if (normalizedStatus == 'resolved') {
+      return 'Admin marked "$trimmedMessage" as resolved.';
+    }
+
+    if (normalizedStatus == 'processing') {
+      return 'Admin started processing "$trimmedMessage".';
+    }
+
+    return 'Admin updated "$trimmedMessage" to under review.';
+  }
+
+  Future<void> _syncReportStatusNotifications(
+    List<Map<String, dynamic>> reports,
+  ) async {
+    final previousSnapshot = await _cacheService.getReportStatusSnapshot();
+    final existingNotifications = await _cacheService.getReportNotifications();
+    final updatedNotifications = List<Map<String, dynamic>>.from(
+      existingNotifications,
+    );
+
+    final nextSnapshot = <String, dynamic>{};
+
+    for (final report in reports) {
+      final reportId = report['id']?.toString();
+      if (reportId == null || reportId.isEmpty) {
+        continue;
+      }
+
+      final status = report['status']?.toString() ?? '';
+      final updatedAt = report['updated_at']?.toString() ?? '';
+      final normalizedStatus = _normalizeReportStatus(status);
+
+      nextSnapshot[reportId] = {
+        'status': normalizedStatus,
+        'updated_at': updatedAt,
+      };
+
+      final previous = previousSnapshot[reportId];
+      if (previous is! Map) {
+        continue;
+      }
+
+      final previousStatus = previous['status']?.toString() ?? '';
+      final previousUpdatedAt = previous['updated_at']?.toString() ?? '';
+
+      final didChange =
+          previousStatus != normalizedStatus || previousUpdatedAt != updatedAt;
+
+      if (!didChange) {
+        continue;
+      }
+
+      updatedNotifications.removeWhere(
+        (item) => item['id']?.toString() == 'report_$reportId',
+      );
+
+      updatedNotifications.insert(0, {
+        'id': 'report_$reportId',
+        'type': 'report_status',
+        'title': _buildReportNotificationTitle(status),
+        'description': _buildReportNotificationDescription(report),
+        'created_at': updatedAt.isNotEmpty
+            ? updatedAt
+            : DateTime.now().toIso8601String(),
+        'report_id': reportId,
+        'report_status': normalizedStatus,
+        'rejection_reason': report['rejection_reason'],
+      });
+    }
+
+    await _cacheService.saveReportStatusSnapshot(nextSnapshot);
+    await _cacheService.saveReportNotifications(updatedNotifications);
+  }
 
   Future<List<Map<String, dynamic>>> _loadReports() async {
     final user = _currentUser;
@@ -34,9 +181,14 @@ class _MyReportsPageState extends State<MyReportsPage> {
           .eq('user_id', user.uid)
           .order('created_at', ascending: false);
 
-      return (response as List)
+      final reports = (response as List)
           .map((item) => Map<String, dynamic>.from(item as Map))
           .toList();
+
+      await _syncReportStatusNotifications(reports);
+      _reports = reports;
+
+      return reports;
     } on PostgrestException catch (error) {
       final detailsText = error.details?.toString() ?? '';
       if (!(error.message.contains('rejection_reason') ||
@@ -50,7 +202,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
           .eq('user_id', user.uid)
           .order('created_at', ascending: false);
 
-      return (fallbackResponse as List)
+      final reports = (fallbackResponse as List)
           .map(
             (item) => {
               ...Map<String, dynamic>.from(item as Map),
@@ -58,6 +210,11 @@ class _MyReportsPageState extends State<MyReportsPage> {
             },
           )
           .toList();
+
+      await _syncReportStatusNotifications(reports);
+      _reports = reports;
+
+      return reports;
     }
   }
 
@@ -183,6 +340,279 @@ class _MyReportsPageState extends State<MyReportsPage> {
 
     final withoutYear = formatted.replaceFirst(', ${DateTime.now().year}', '');
     return withoutYear.replaceFirst(' • ', '\n');
+  }
+
+  bool _canManageReport(String status) {
+    final normalized = _normalizeReportStatus(status);
+    return normalized != 'resolved' && normalized != 'rejected';
+  }
+
+  Future<void> _editReport(Map<String, dynamic> report) async {
+    final user = _currentUser;
+    if (user == null || _isMutatingReport) {
+      return;
+    }
+
+    final controller = TextEditingController(
+      text: report['message']?.toString().trim() ?? '',
+    );
+    final formKey = GlobalKey<FormState>();
+    final reportId = report['id']?.toString();
+
+    String? draftMessage;
+    final didSubmit = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (dialogContext) {
+        final theme = Theme.of(dialogContext);
+        final isDark = theme.brightness == Brightness.dark;
+        final titleColor = isDark ? Colors.white : const Color(0xFF111827);
+        final subtitleColor = isDark ? Colors.white70 : const Color(0xFF64748B);
+        final fillColor =
+            isDark ? const Color(0xFF111827) : const Color(0xFFF8FAFC);
+        final borderColor = isDark
+            ? Colors.white.withValues(alpha: 0.10)
+            : const Color(0xFFD6DCE5);
+
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF172033) : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+          contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          title: Text(
+            'Edit report',
+            style: TextStyle(
+              color: titleColor,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: controller,
+              maxLines: 6,
+              minLines: 5,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter your report message.';
+                }
+                if (value.trim().length < 10) {
+                  return 'Please provide a little more detail.';
+                }
+                return null;
+              },
+              style: TextStyle(color: titleColor, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'Update your report details here...',
+                hintStyle: TextStyle(color: subtitleColor, fontSize: 13),
+                filled: true,
+                fillColor: fillColor,
+                contentPadding: const EdgeInsets.all(16),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: borderColor),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: borderColor),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(
+                    color: AppColors.primary,
+                    width: 1.4,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (!formKey.currentState!.validate()) {
+                  return;
+                }
+                draftMessage = controller.text.trim();
+                Navigator.of(dialogContext).pop(true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: const Text(
+                'Save',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    final updatedMessage = draftMessage;
+
+    controller.dispose();
+
+    if (!mounted ||
+        didSubmit != true ||
+        updatedMessage == null ||
+        updatedMessage == (report['message']?.toString().trim() ?? '') ||
+        reportId == null) {
+      return;
+    }
+
+    setState(() {
+      _isMutatingReport = true;
+    });
+
+    try {
+      await _supabase
+          .from('reports')
+          .update({'message': updatedMessage})
+          .eq('id', reportId)
+          .eq('user_id', user.uid);
+
+      if (!mounted) return;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Report updated successfully.')),
+        );
+        _refreshReports();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to update report: $e')),
+        );
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isMutatingReport = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _deleteReport(Map<String, dynamic> report) async {
+    final user = _currentUser;
+    if (user == null || _isMutatingReport) {
+      return;
+    }
+
+    final reportId = report['id']?.toString();
+    final message = report['message']?.toString().trim() ?? 'this report';
+
+    if (reportId == null) {
+      return;
+    }
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text(
+          'Delete report?',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+        content: Text(
+          'This will permanently remove "$message" from your submitted reports.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            child: const Text(
+              'Delete',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isMutatingReport = true;
+    });
+
+    try {
+      final deletedRows = await _supabase
+          .from('reports')
+          .delete()
+          .eq('id', reportId)
+          .eq('user_id', user.uid)
+          .select('id');
+
+      if ((deletedRows as List).isEmpty) {
+        throw Exception(
+          'Delete was not allowed by the database. Add a delete policy for reports in Supabase.',
+        );
+      }
+
+      final imageUrls = (report['image_urls'] as List?) ?? const [];
+      for (final imageUrl in imageUrls) {
+        final url = imageUrl?.toString() ?? '';
+        final marker = '/object/public/report-images/';
+        final markerIndex = url.indexOf(marker);
+        if (markerIndex == -1) {
+          continue;
+        }
+        final path = url.substring(markerIndex + marker.length);
+        if (path.isEmpty) {
+          continue;
+        }
+        await _supabase.storage.from('report-images').remove([path]);
+      }
+
+      if (!mounted) return;
+
+      _removeReportFromList(reportId);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Report deleted successfully.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to delete report: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isMutatingReport = false;
+        });
+      }
+    }
   }
 
   void _showRejectionReasonDialog(String rejectionReason) {
@@ -421,7 +851,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
                 ),
                 Expanded(
                   child: FutureBuilder<List<Map<String, dynamic>>>(
-                    future: _loadReports(),
+                    future: _reportsFuture,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(
@@ -446,7 +876,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
                         );
                       }
 
-                      final reports = snapshot.data ?? [];
+                      final reports = snapshot.data ?? _reports;
 
                       if (_currentUser == null) {
                         return Center(
@@ -467,7 +897,8 @@ class _MyReportsPageState extends State<MyReportsPage> {
 
                       return RefreshIndicator(
                         onRefresh: () async {
-                          setState(() {});
+                          _refreshReports();
+                          await _reportsFuture;
                         },
                         child: ListView(
                           padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
@@ -592,6 +1023,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
                                 final showRejectionReason = status.toLowerCase() ==
                                         'rejected' &&
                                     rejectionReason.isNotEmpty;
+                                final canManageReport = _canManageReport(status);
 
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 14),
@@ -654,6 +1086,69 @@ class _MyReportsPageState extends State<MyReportsPage> {
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
+                                      if (canManageReport) ...[
+                                        const SizedBox(height: 14),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: OutlinedButton.icon(
+                                                onPressed: _isMutatingReport
+                                                    ? null
+                                                    : () => _editReport(report),
+                                                icon: const Icon(
+                                                  Icons.edit_outlined,
+                                                  size: 18,
+                                                ),
+                                                label: const Text('Edit'),
+                                                style: OutlinedButton.styleFrom(
+                                                  foregroundColor:
+                                                      AppColors.primary,
+                                                  side: BorderSide(
+                                                    color: AppColors.primary
+                                                        .withValues(alpha: 0.25),
+                                                  ),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 12,
+                                                      ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(14),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: OutlinedButton.icon(
+                                                onPressed: _isMutatingReport
+                                                    ? null
+                                                    : () => _deleteReport(report),
+                                                icon: const Icon(
+                                                  Icons.delete_outline_rounded,
+                                                  size: 18,
+                                                ),
+                                                label: const Text('Delete'),
+                                                style: OutlinedButton.styleFrom(
+                                                  foregroundColor:
+                                                      const Color(0xFFDC2626),
+                                                  side: const BorderSide(
+                                                    color: Color(0xFFFCA5A5),
+                                                  ),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 12,
+                                                      ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(14),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                       const SizedBox(height: 14),
                                       Row(
                                         children: [

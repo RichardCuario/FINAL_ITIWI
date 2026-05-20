@@ -8,22 +8,96 @@ import 'news_feed_page.dart';
 import 'news_notification_service.dart';
 import 'onboarding_page.dart';
 
-void main() async {
+const _defaultSupabaseUrl = 'https://jbhlbukxankrtcwhqoll.supabase.co';
+const _defaultSupabaseAnonKey =
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpiaGxidWt4YW5rcnRjd2hxb2xsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NzAxODgsImV4cCI6MjA5MDA0NjE4OH0.DebtVdw7bF5nRaXQg8Ta2SsO2Qv42QnGSzoS8hT2vJc';
+
+const _supabaseUrl = String.fromEnvironment(
+  'SUPABASE_URL',
+  defaultValue: _defaultSupabaseUrl,
+);
+const _supabaseAnonKey = String.fromEnvironment(
+  'SUPABASE_ANON_KEY',
+  defaultValue: _defaultSupabaseAnonKey,
+);
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp();
-  await Supabase.initialize(
-    url: 'https://jbhlbukxankrtcwhqoll.supabase.co',
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpiaGxidWt4YW5rcnRjd2hxb2xsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NzAxODgsImV4cCI6MjA5MDA0NjE4OH0.DebtVdw7bF5nRaXQg8Ta2SsO2Qv42QnGSzoS8hT2vJc',
-    authOptions: const FlutterAuthClientOptions(
-      autoRefreshToken: false,
-      detectSessionInUri: false,
-    ),
-  );
-  await NewsNotificationService.instance.initialize();
+  try {
+    await Firebase.initializeApp();
+    await Supabase.initialize(
+      url: _supabaseUrl,
+      anonKey: _supabaseAnonKey,
+      authOptions: const FlutterAuthClientOptions(
+        autoRefreshToken: false,
+        detectSessionInUri: false,
+      ),
+    );
 
-  runApp(const MyApp());
+    await NewsNotificationService.instance.initialize(
+      externalUserId: FirebaseAuth.instance.currentUser?.uid,
+    );
+
+    runApp(const MyApp());
+  } catch (error, stackTrace) {
+    debugPrint('App startup failed: $error');
+    debugPrintStack(stackTrace: stackTrace);
+    runApp(StartupErrorApp(error: error.toString()));
+  }
+}
+
+class StartupErrorApp extends StatelessWidget {
+  final String error;
+
+  const StartupErrorApp({super.key, required this.error});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Hotline App',
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: const Color(0xFFF3F6FB),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  size: 64,
+                  color: Colors.redAccent,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'App failed to start',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  error,
+                  style: const TextStyle(fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'The app uses the project default Supabase configuration unless you override it with --dart-define values for SUPABASE_URL and SUPABASE_ANON_KEY.',
+                  style: TextStyle(color: Colors.black54),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class MyApp extends StatefulWidget {
@@ -35,6 +109,16 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   bool _isDarkMode = false;
+  late final Stream<User?> _authStateStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _authStateStream = FirebaseAuth.instance.authStateChanges();
+    _authStateStream.listen((user) {
+      NewsNotificationService.instance.syncUser(user?.uid);
+    });
+  }
 
   ThemeData _buildLightTheme() {
     final colorScheme = ColorScheme.fromSeed(
@@ -179,7 +263,7 @@ class _MyAppState extends State<MyApp> {
         '/news': (context) => NewsFeedPage(),
       },
       home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
+        stream: _authStateStream,
         initialData: FirebaseAuth.instance.currentUser,
         builder: (context, snapshot) {
           final user = snapshot.data ?? FirebaseAuth.instance.currentUser;

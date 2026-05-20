@@ -1,4 +1,16 @@
+import { applyRateLimit } from './_rate_limit.js';
+
 export default async function handler(req, res) {
+  const rateLimitResult = await applyRateLimit(req, res, {
+    key: 'manage-place',
+    windowMs: 60 * 1000,
+    max: 15,
+    message: 'Too many place management requests. Please wait a minute before trying again.'
+  });
+  if (!rateLimitResult?.allowed) {
+    return rateLimitResult;
+  }
+
   const method = String(req.method || '').toUpperCase();
 
   if (!['POST', 'PATCH', 'DELETE'].includes(method)) {

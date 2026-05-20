@@ -3,13 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>News - ITIWI</title>
+  
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="admin-theme.css">
   <style>
     .page-stack {
       display: flex;
       flex-direction: column;
       gap: 24px;
+    }
+
+    .directory-body {
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(15, 23, 42, 0.06);
+      border-radius: 32px;
+      box-shadow: 0 28px 60px rgba(15, 23, 42, 0.08);
     }
 
     .toolbar-card {
@@ -19,7 +31,7 @@
       align-items: center;
     }
 
-    .page-tools,
+    .toolbar-metrics,
     .table-actions,
     .thumbnail-wrap,
     .action-group,
@@ -30,35 +42,25 @@
       flex-wrap: wrap;
     }
 
-    .page-tools,
+    .toolbar-metrics {
+      justify-content: flex-start;
+    }
+
     .table-actions {
       justify-content: flex-end;
     }
 
-    .metric-pill {
+    .analytics-filter {
       display: inline-flex;
-      flex-direction: column;
-      gap: 4px;
-      padding: 14px 16px;
-      border-radius: 18px;
-      min-width: 150px;
-      background: rgba(255, 255, 255, 0.72);
-      border: 1px solid rgba(255, 255, 255, 0.72);
-      box-shadow: var(--shadow-sm);
-    }
-
-    .metric-pill span {
-      font-size: 12px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      font-weight: 700;
-    }
-
-    .metric-pill strong {
-      font-size: 26px;
-      color: var(--text);
-      letter-spacing: -0.03em;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: 14px;
+      background: #ffffff;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      color: #4b5563;
+      font-weight: 600;
+      box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
     }
 
     .table-scroll {
@@ -69,10 +71,12 @@
       overflow: hidden;
       border-radius: 20px;
       border: 1px solid rgba(148, 163, 184, 0.14);
-      background: rgba(255, 255, 255, 0.5);
+      background: #ffffff;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
     }
 
-    table {
+    .news-table {
+      width: 100%;
       min-width: 920px;
     }
 
@@ -131,38 +135,34 @@
     .date-chip {
       display: inline-flex;
       align-items: center;
-      padding: 8px 12px;
+      padding: 9px 12px;
       border-radius: 999px;
-      background: rgba(79, 70, 229, 0.08);
-      color: var(--primary);
+      background: rgba(16, 185, 129, 0.12);
+      color: #047857;
       font-size: 12px;
       font-weight: 700;
       white-space: nowrap;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
     }
 
-    .btn-edit,
-    .btn-delete {
+    .action-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .action-group .btn {
       padding: 10px 14px;
       border-radius: 12px;
       font-size: 12px;
       font-weight: 700;
-      border: 0;
-      cursor: pointer;
-    }
-
-    .btn-edit {
-      background: rgba(79, 70, 229, 0.12);
-      color: var(--primary);
     }
 
     .btn-delete {
-      background: rgba(239, 68, 68, 0.12);
-      color: #dc2626;
-    }
-
-    .btn-edit:hover,
-    .btn-delete:hover {
-      transform: translateY(-1px);
+      color: #ffffff;
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      box-shadow: 0 14px 22px rgba(239, 68, 68, 0.18);
     }
 
     .table-status {
@@ -200,13 +200,280 @@
       font-size: 14px;
     }
 
-    @media (max-width: 960px) {
+    @media (max-width: 1180px) {
+      .news-title {
+        max-width: 220px;
+      }
+
+      .news-desc {
+        max-width: 280px;
+      }
+    }
+
+    @media (max-width: 1080px) {
+      .directory-body {
+        padding: 22px;
+      }
+
       .toolbar-card {
         grid-template-columns: 1fr;
       }
 
-      .page-tools,
+      .table-actions,
+      .page-hero-grid {
+        justify-content: flex-start;
+      }
+
+      .news-table {
+        min-width: 760px;
+      }
+
+      .news-title,
+      .news-desc {
+        max-width: 100%;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .analytics-filter,
+      .toolbar-metrics,
+      .table-actions,
+      .page-hero-grid {
+        width: 100%;
+      }
+
+      .toolbar-metrics,
       .table-actions {
+        justify-content: flex-start;
+      }
+
+      .table-actions .btn {
+        flex: 1 1 180px;
+      }
+
+      .news-table {
+        min-width: 0;
+      }
+
+      .news-table thead {
+        display: none;
+      }
+
+      .news-table,
+      .news-table tbody,
+      .news-table tr,
+      .news-table td {
+        display: block;
+        width: 100%;
+      }
+
+      .news-table tbody {
+        display: grid;
+        gap: 14px;
+      }
+
+      .news-table tr {
+        padding: 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        background: #ffffff;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .news-table td {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+        background: transparent;
+      }
+
+      .news-table tr td:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+      }
+
+      .news-table td::before {
+        content: attr(data-label);
+        flex: 0 0 84px;
+        color: var(--text-muted);
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .news-table td > * {
+        min-width: 0;
+      }
+
+      .thumbnail-wrap {
+        justify-content: flex-end;
+        width: 100%;
+      }
+
+      .action-group {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .directory-body {
+        padding: 18px;
+      }
+
+      .toolbar-metrics,
+      .table-actions,
+      .action-group {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .analytics-filter,
+      .table-actions .btn,
+      .action-group .btn {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .toolbar-card,
+      .section-heading {
+        gap: 14px;
+      }
+
+      .toolbar-metrics,
+      .table-actions,
+      .action-group {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .analytics-filter,
+      .table-actions .btn,
+      .action-group .btn {
+        width: 100%;
+      }
+
+      .table-scroll {
+        overflow: visible;
+      }
+
+      .table-shell {
+        overflow: visible;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+      }
+
+      .news-table {
+        min-width: 0;
+      }
+
+      .news-table thead {
+        display: none;
+      }
+
+      .news-table,
+      .news-table tbody,
+      .news-table tr,
+      .news-table td {
+        display: block;
+        width: 100%;
+      }
+
+      .news-table tbody {
+        display: grid;
+        gap: 14px;
+      }
+
+      .news-table tr {
+        padding: 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        background: #ffffff;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .news-table td {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+        background: transparent;
+      }
+
+      .news-table tr td:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+      }
+
+      .news-table td::before {
+        content: attr(data-label);
+        flex: 0 0 84px;
+        color: var(--text-muted);
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .news-table td > * {
+        min-width: 0;
+      }
+
+      .thumbnail-wrap {
+        justify-content: flex-end;
+        width: 100%;
+      }
+
+      .action-group {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .directory-body,
+      .content-card.toolbar-card,
+      .data-table-card {
+        padding: 16px;
+      }
+
+      .hero-title {
+        font-size: 32px;
+      }
+
+      .hero-subtitle {
+        font-size: 14px;
+      }
+
+      .table-img,
+      .empty-thumb {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+      }
+
+      .news-table tr {
+        padding: 14px;
+        border-radius: 16px;
+      }
+
+      .news-table td {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+
+      .news-table td::before {
+        flex: none;
+      }
+
+      .thumbnail-wrap {
         justify-content: flex-start;
       }
     }
@@ -215,54 +482,32 @@
 <body>
   <div class="main">
     <div class="page-stack">
-      <section class="page-hero">
-        <div class="page-hero-grid">
-          <div>
-            <div class="hero-kicker">Community Updates</div>
-            <h1 class="hero-title">News and announcements</h1>
-            <p class="hero-subtitle">Review published stories, maintain announcement visibility, and keep residents informed with a clean, structured newsroom management experience.</p>
+      <div class="directory-body">
+        <section class="page-hero">
+          <div class="page-hero-grid">
+            <div>
+              <h1 class="hero-title">News and announcements</h1>
+              <p class="hero-subtitle">Review published stories, maintain announcement visibility, and keep residents informed with a clean, structured newsroom management experience.</p>
+            </div>
 
-            <div class="hero-highlights">
-              <div class="hero-highlight">
-                <strong id="newsCount">0</strong>
-                <span>Total posts</span>
-              </div>
-              <div class="hero-highlight">
-                <strong id="latestUpdate">No posts yet</strong>
-                <span>Latest update</span>
-              </div>
+            <div class="analytics-filter">📰 Community updates</div>
+          </div>
+        </section>
+
+        <section class="content-card toolbar-card">
+          <div class="section-heading" style="margin-bottom: 0;">
+            <div>
+              <h2>Published newsroom</h2>
+              <p>Review all existing news items, update article details, or remove outdated posts from the public feed.</p>
             </div>
           </div>
 
-          <div class="hero-panel">
-            <div class="hero-panel-label">Publishing workflow</div>
-            <strong>Create timely public updates.</strong>
-            <p>Add announcements, post community stories, and maintain an organized timeline of official news content.</p>
-            <div class="status-row" style="margin-top: 18px;">
-              <button class="btn btn-primary" type="button" onclick="goAdd()">Add news post</button>
-              <button class="btn btn-secondary" type="button" onclick="loadData(true)">Refresh</button>
-            </div>
+          <div class="toolbar-metrics">
+            <div class="analytics-filter">Official announcements</div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="content-card toolbar-card">
-        <div class="section-heading" style="margin-bottom: 0;">
-          <div>
-            <h2>Published newsroom</h2>
-            <p>Review all existing news items, update article details, or remove outdated posts from the public feed.</p>
-          </div>
-        </div>
-
-        <div class="page-tools">
-          <div class="metric-pill">
-            <span>Active posts</span>
-            <strong id="newsSummaryCount">0</strong>
-          </div>
-        </div>
-      </section>
-
-      <section class="data-table-card">
+        <section class="data-table-card">
         <div class="section-heading">
           <div>
             <h2>News records</h2>
@@ -279,7 +524,7 @@
 
         <div class="table-scroll">
           <div class="table-shell">
-            <table>
+            <table class="news-table">
               <thead>
                 <tr>
                   <th>Title</th>
@@ -293,7 +538,8 @@
             </table>
           </div>
         </div>
-      </section>
+        </section>
+      </div>
     </div>
   </div>
 
@@ -304,9 +550,6 @@
 
     const tableBody = document.getElementById('tableBody');
     const tableStatus = document.getElementById('tableStatus');
-    const newsCount = document.getElementById('newsCount');
-    const newsSummaryCount = document.getElementById('newsSummaryCount');
-    const latestUpdate = document.getElementById('latestUpdate');
 
     function goAdd() {
       window.location.href = 'add_news.html';
@@ -348,13 +591,6 @@
         .replaceAll("'", "\\'");
     }
 
-    function updateSummary(items) {
-      const total = items.length;
-      newsCount.textContent = String(total);
-      newsSummaryCount.textContent = String(total);
-      latestUpdate.textContent = total ? formatDate(items[0].created_at) : 'No posts yet';
-    }
-
     function renderTable(items) {
       if (!items.length) {
         tableBody.innerHTML = `
@@ -370,18 +606,18 @@
 
       tableBody.innerHTML = items.map((item) => `
         <tr>
-          <td><strong class="news-title">${escapeHtml(item.title || 'Untitled')}</strong></td>
-          <td><div class="news-desc">${escapeHtml(item.description || 'No description provided')}</div></td>
-          <td>
+          <td data-label="Title"><strong class="news-title">${escapeHtml(item.title || 'Untitled')}</strong></td>
+          <td data-label="Description"><div class="news-desc">${escapeHtml(item.description || 'No description provided')}</div></td>
+          <td data-label="Image">
             <div class="thumbnail-wrap">
               ${item.image_url ? `<img src="${escapeAttribute(item.image_url)}" class="table-img" alt="${escapeAttribute(item.title || 'News image')}">` : '<span class="empty-thumb">No image</span>'}
             </div>
           </td>
-          <td><span class="date-chip">${formatDate(item.created_at)}</span></td>
-          <td>
+          <td data-label="Created"><span class="date-chip">${formatDate(item.created_at)}</span></td>
+          <td data-label="Actions">
             <div class="action-group">
-              <button class="btn-edit" type="button" onclick="goEdit('${escapeJsString(item.id)}')">Edit</button>
-              <button class="btn-delete" type="button" onclick="deleteData('${escapeJsString(item.id)}')">Delete</button>
+              <button class="btn btn-primary" type="button" onclick="goEdit('${escapeJsString(item.id)}')">Edit</button>
+              <button class="btn btn-delete" type="button" onclick="deleteData('${escapeJsString(item.id)}')">Delete</button>
             </div>
           </td>
         </tr>
@@ -441,7 +677,6 @@
         .order('created_at', { ascending: false });
 
       if (error) {
-        updateSummary([]);
         tableBody.innerHTML = `
           <tr>
             <td colspan="5" class="empty-state">
@@ -456,7 +691,6 @@
       }
 
       const items = Array.isArray(data) ? data : [];
-      updateSummary(items);
       renderTable(items);
       tableStatus.textContent = items.length
         ? `Showing ${items.length} news post${items.length === 1 ? '' : 's'}.`

@@ -1,7 +1,8 @@
-<![CDATA[<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
-  <title>Dashboard - ITIWI</title>
+  
+  <link rel="icon" type="image/png" href="favicon.png">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="admin-theme.css">
@@ -13,83 +14,296 @@
       gap: 24px;
     }
 
-    .dashboard-stat-card {
-      min-height: 180px;
+    .analytics-frame {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(15, 23, 42, 0.06);
+      border-radius: 32px;
+      box-shadow: 0 28px 60px rgba(15, 23, 42, 0.08);
+      overflow: hidden;
     }
 
-    .dashboard-stat-card.primary .stat-card-icon {
-      background: linear-gradient(135deg, rgba(79, 70, 229, 0.16), rgba(37, 99, 235, 0.22));
-      color: var(--primary);
+    .analytics-body {
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
     }
 
-    .dashboard-stat-card.success .stat-card-icon {
-      background: linear-gradient(135deg, rgba(16, 185, 129, 0.14), rgba(5, 150, 105, 0.2));
-      color: var(--success);
+    .analytics-hero {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
     }
 
-    .dashboard-stat-card.violet .stat-card-icon {
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.14), rgba(124, 58, 237, 0.22));
-      color: var(--violet);
-    }
-
-    .dashboard-stat-card.danger .stat-card-icon {
-      background: linear-gradient(135deg, rgba(239, 68, 68, 0.14), rgba(248, 113, 113, 0.2));
-      color: var(--danger);
-    }
-
-    .dashboard-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 24px;
-    }
-
-    .chart-card-header h2 {
+    .analytics-hero h2 {
       margin: 0;
-      color: var(--text);
-      font-size: 24px;
-      letter-spacing: -0.03em;
+      font-size: 48px;
+      line-height: 1;
+      letter-spacing: -0.05em;
+      color: #111827;
     }
 
-    .chart-card-header p {
-      margin: 6px 0 0;
-      color: var(--text-muted);
+    .analytics-hero p {
+      margin: 10px 0 0;
+      color: #6b7280;
+      font-size: 15px;
       line-height: 1.6;
     }
 
-    .hero-panel-metrics {
+    .analytics-filter {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: 14px;
+      background: #ffffff;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      color: #4b5563;
+      font-weight: 600;
+      box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
+    }
+
+    .analytics-stats {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .analytics-stat-card {
+      min-height: 128px;
+      padding: 18px 18px 16px;
+      border-radius: 18px;
+      background: #ffffff;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.04);
+      display: flex;
+      flex-direction: column;
       gap: 14px;
+    }
+
+    .analytics-stat-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .analytics-stat-label {
+      color: #6b7280;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .analytics-stat-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #7c3aed;
+      background: rgba(124, 58, 237, 0.08);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .analytics-stat-value {
+      margin: 0;
+      font-size: 32px;
+      line-height: 1;
+      letter-spacing: -0.04em;
+      color: #111827;
+    }
+
+    .analytics-stat-foot {
+      margin-top: auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+    }
+
+    .analytics-stat-foot span:first-child {
+      color: #9ca3af;
+    }
+
+    .analytics-stat-change {
+      color: #10b981;
+      font-weight: 700;
+    }
+
+    .analytics-panels {
+      display: grid;
+      grid-template-columns: minmax(0, 1.65fr) minmax(300px, 0.95fr);
+      gap: 18px;
+    }
+
+    .analytics-panel,
+    .analytics-table-panel {
+      background: #ffffff;
+      border-radius: 22px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.04);
+      padding: 22px;
+    }
+
+    .analytics-panel h3,
+    .analytics-table-panel h3 {
+      margin: 0;
+      color: #111827;
+      font-size: 18px;
+      letter-spacing: -0.03em;
+    }
+
+    .analytics-panel-subtitle {
+      margin: 8px 0 0;
+      color: #9ca3af;
+      font-size: 13px;
+    }
+
+    .analytics-chart-wrap {
+      height: 300px;
       margin-top: 18px;
     }
 
-    .hero-panel-metric {
-      padding: 14px 16px;
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.12);
-      border: 1px solid rgba(255, 255, 255, 0.14);
+    .analytics-donut-wrap {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) minmax(120px, 160px);
+      align-items: center;
+      gap: 8px;
+      margin-top: 18px;
     }
 
-    .hero-panel-metric strong {
+    .analytics-donut-chart {
+      position: relative;
+      width: min(220px, 100%);
+      margin: 0 auto;
+    }
+
+    .analytics-donut-center {
+      position: absolute;
+      inset: 50% auto auto 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .analytics-donut-center strong {
       display: block;
-      font-size: 20px;
-      margin-bottom: 4px;
+      font-size: 24px;
+      color: #111827;
+      letter-spacing: -0.04em;
     }
 
-    .hero-panel-metric span {
+    .analytics-donut-center span {
+      display: block;
+      margin-top: 4px;
+      color: #9ca3af;
       font-size: 12px;
-      color: rgba(255, 255, 255, 0.76);
-      letter-spacing: 0.03em;
+      font-weight: 600;
       text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .analytics-donut-legend {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .analytics-donut-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: #4b5563;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .analytics-donut-item-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .analytics-donut-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+
+    .analytics-table-panel {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .analytics-table-head {
+      padding: 22px 22px 16px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    .analytics-table-wrap {
+      overflow-x: auto;
+    }
+
+    .analytics-table-wrap table th {
+      background: #ffffff;
+      color: #6b7280;
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      text-transform: none;
+    }
+
+    .analytics-table-wrap table td {
+      background: #ffffff;
+      color: #111827;
+    }
+
+    .analytics-table-wrap table tbody tr:nth-child(even) td {
+      background: #fbfcff;
+    }
+
+    .chart-empty {
+      margin-top: 16px;
+      color: #94a3b8;
+      font-size: 14px;
+      display: none;
+    }
+
+    @media (max-width: 1280px) {
+      .analytics-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .analytics-panels {
+        grid-template-columns: 1fr;
+      }
     }
 
     @media (max-width: 768px) {
-      .hero-panel-metrics {
+      .analytics-body {
+        padding: 18px;
+      }
+
+      .analytics-hero h2 {
+        font-size: 38px;
+      }
+
+      .analytics-stats {
         grid-template-columns: 1fr;
       }
 
-      .chart-card-header h2 {
-        font-size: 22px;
+      .analytics-donut-wrap {
+        grid-template-columns: 1fr;
+      }
+
+      .analytics-table-wrap table {
+        min-width: 720px;
       }
     }
   </style>
@@ -98,139 +312,158 @@
 <body>
   <div class="main">
     <div class="dashboard-shell">
-      <div class="topbar">
-        <div class="topbar-title">
-          <h1>Dashboard Overview</h1>
-          <p>Monitor hotline activity, published news, reports, and user growth from one place.</p>
-        </div>
-        <div class="topbar-actions">
-          <span class="topbar-pill">Live Supabase data</span>
-          <span class="status-badge">Last 6 months</span>
-        </div>
-      </div>
-
-      <section class="page-hero">
-        <div class="page-hero-grid">
-          <div>
-            <span class="hero-kicker">Control Center</span>
-            <h1 class="hero-title">See the full picture of your emergency information system.</h1>
-            <p class="hero-subtitle">
-              Track totals across hotlines, news, reports, and users while reviewing trends from your live records.
-              This dashboard keeps your existing Chart.js and Supabase data flow intact in a cleaner modern interface.
-            </p>
-
-            <div class="hero-highlights">
-              <div class="hero-highlight">
-                <strong>Real-time counts</strong>
-                <span>Connected directly to your database tables</span>
-              </div>
-              <div class="hero-highlight">
-                <strong>Monthly trends</strong>
-                <span>Visual overview for the past six months</span>
-              </div>
-              <div class="hero-highlight">
-                <strong>Admin ready</strong>
-                <span>Built to match the shared glassmorphism UI</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="hero-panel">
-            <span class="hero-panel-label">Dashboard focus</span>
-            <h3 style="margin: 10px 0 0; font-size: 28px; letter-spacing: -0.03em;">System pulse</h3>
-            <p>Review platform totals quickly, then scan the chart to understand how content and user activity are trending over time.</p>
-
-            <div class="hero-panel-metrics">
-              <div class="hero-panel-metric">
-                <strong>4</strong>
-                <span>Core metrics</span>
-              </div>
-              <div class="hero-panel-metric">
-                <strong>6</strong>
-                <span>Months tracked</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="stats-grid">
-        <article class="stat-card dashboard-stat-card primary">
-          <div class="stat-card-header">
-            <span class="stat-card-label">Total Hotlines</span>
-            <span class="stat-card-icon">&#9888;</span>
-          </div>
-          <h2 id="totalHotlines">0</h2>
-          <div class="stat-meta">
-            <span>Emergency contact entries</span>
-          </div>
-        </article>
-
-        <article class="stat-card dashboard-stat-card success">
-          <div class="stat-card-header">
-            <span class="stat-card-label">Total News</span>
-            <span class="stat-card-icon">&#128240;</span>
-          </div>
-          <h2 id="totalNews">0</h2>
-          <div class="stat-meta">
-            <span>Published updates and announcements</span>
-          </div>
-        </article>
-
-        <article class="stat-card dashboard-stat-card danger">
-          <div class="stat-card-header">
-            <span class="stat-card-label">Total Reports</span>
-            <span class="stat-card-icon">&#128221;</span>
-          </div>
-          <h2 id="totalReports">0</h2>
-          <div class="stat-meta">
-            <span>Submitted incident records</span>
-          </div>
-        </article>
-
-        <article class="stat-card dashboard-stat-card violet">
-          <div class="stat-card-header">
-            <span class="stat-card-label">Total Users</span>
-            <span class="stat-card-icon">&#128100;</span>
-          </div>
-          <h2 id="totalUsers">0</h2>
-          <div class="stat-meta">
-            <span>Registered profile accounts</span>
-          </div>
-        </article>
-      </section>
-
-      <div class="dashboard-grid">
-        <section class="chart-card">
-          <div class="chart-card-header">
+      <section class="analytics-frame">
+        <div class="analytics-body">
+          <div class="analytics-hero">
             <div>
-              <h2>Monthly Data Overview</h2>
-              <p>Graph is connected to your real Supabase <strong>hotlines</strong> and <strong>news</strong> tables, alongside user profile activity.</p>
+              <h2>Analytics</h2>
+              <p>Track your platform performance and insights across hotlines, news, reports, and registered users.</p>
             </div>
 
-            <div class="chart-legend">
-              <div class="legend-item">
-                <span class="legend-color" style="background:#2f5fa5;"></span>
-                <span>Hotlines</span>
+            <div class="analytics-filter">⏳ Last 6 months</div>
+          </div>
+
+          <section class="analytics-stats">
+            <article class="analytics-stat-card">
+              <div class="analytics-stat-top">
+                <div>
+                  <div class="analytics-stat-label">Hotlines</div>
+                  <h3 class="analytics-stat-value" id="totalHotlines">0</h3>
+                </div>
+                <span class="analytics-stat-icon">⚠</span>
               </div>
-              <div class="legend-item">
-                <span class="legend-color" style="background:#10b981;"></span>
-                <span>News</span>
+              <div class="analytics-stat-foot">
+                <span>Emergency records</span>
+                <span class="analytics-stat-change">↗ Live</span>
               </div>
-              <div class="legend-item">
-                <span class="legend-color" style="background:#8b5cf6;"></span>
-                <span>Users</span>
+            </article>
+
+            <article class="analytics-stat-card">
+              <div class="analytics-stat-top">
+                <div>
+                  <div class="analytics-stat-label">News</div>
+                  <h3 class="analytics-stat-value" id="totalNews">0</h3>
+                </div>
+                <span class="analytics-stat-icon">📰</span>
               </div>
+              <div class="analytics-stat-foot">
+                <span>Published updates</span>
+                <span class="analytics-stat-change">↗ Synced</span>
+              </div>
+            </article>
+
+            <article class="analytics-stat-card">
+              <div class="analytics-stat-top">
+                <div>
+                  <div class="analytics-stat-label">Reports</div>
+                  <h3 class="analytics-stat-value" id="totalReports">0</h3>
+                </div>
+                <span class="analytics-stat-icon">▣</span>
+              </div>
+              <div class="analytics-stat-foot">
+                <span>Submitted incidents</span>
+                <span class="analytics-stat-change">↗ Active</span>
+              </div>
+            </article>
+
+            <article class="analytics-stat-card">
+              <div class="analytics-stat-top">
+                <div>
+                  <div class="analytics-stat-label">Users</div>
+                  <h3 class="analytics-stat-value" id="totalUsers">0</h3>
+                </div>
+                <span class="analytics-stat-icon">◉</span>
+              </div>
+              <div class="analytics-stat-foot">
+                <span>Registered accounts</span>
+                <span class="analytics-stat-change">↗ Growth</span>
+              </div>
+            </article>
+          </section>
+
+          <section class="analytics-panels">
+            <article class="analytics-panel">
+              <h3>Performance Trends</h3>
+              <p class="analytics-panel-subtitle">Six-month activity trend from your live Supabase records.</p>
+              <div class="analytics-chart-wrap">
+                <canvas id="dashboardChart"></canvas>
+              </div>
+              <p class="chart-empty" id="chartEmpty">No chart data found yet.</p>
+            </article>
+
+            <article class="analytics-panel">
+              <h3>Demographic Breakdown</h3>
+              <p class="analytics-panel-subtitle">Current system distribution across the four tracked sources.</p>
+
+              <div class="analytics-donut-wrap">
+                <div class="analytics-donut-chart">
+                  <canvas id="breakdownChart"></canvas>
+                  <div class="analytics-donut-center">
+                    <strong id="breakdownTotal">0</strong>
+                    <span>Total records</span>
+                  </div>
+                </div>
+
+                <div class="analytics-donut-legend">
+                  <div class="analytics-donut-item">
+                    <span class="analytics-donut-item-label">
+                      <span class="analytics-donut-dot" style="background:#8b5cf6;"></span>
+                      Hotlines
+                    </span>
+                    <span id="legendHotlines">0%</span>
+                  </div>
+                  <div class="analytics-donut-item">
+                    <span class="analytics-donut-item-label">
+                      <span class="analytics-donut-dot" style="background:#c084fc;"></span>
+                      News
+                    </span>
+                    <span id="legendNews">0%</span>
+                  </div>
+                  <div class="analytics-donut-item">
+                    <span class="analytics-donut-item-label">
+                      <span class="analytics-donut-dot" style="background:#4f46e5;"></span>
+                      Reports
+                    </span>
+                    <span id="legendReports">0%</span>
+                  </div>
+                  <div class="analytics-donut-item">
+                    <span class="analytics-donut-item-label">
+                      <span class="analytics-donut-dot" style="background:#e9d5ff;"></span>
+                      Users
+                    </span>
+                    <span id="legendUsers">0%</span>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </section>
+
+          <section class="analytics-table-panel">
+            <div class="analytics-table-head">
+              <h3>Channel Performances</h3>
             </div>
-          </div>
 
-          <div class="chart-wrap">
-            <canvas id="dashboardChart"></canvas>
-          </div>
-
-          <p class="chart-empty" id="chartEmpty">No chart data found yet.</p>
-        </section>
-      </div>
+            <div class="analytics-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">Source</th>
+                    <th scope="col">Total</th>
+                    <th scope="col">Latest Month</th>
+                    <th scope="col">Peak Month</th>
+                    <th scope="col">6-Month Activity</th>
+                  </tr>
+                </thead>
+                <tbody id="performanceTableBody">
+                  <tr>
+                    <td colspan="5">Loading analytics...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </section>
     </div>
   </div>
 
@@ -239,190 +472,450 @@
   <script src="auth.js"></script>
 
   <script type="module">
-const supabase = window.adminAuth.getSupabaseClient();
+    const supabase = window.adminAuth.getSupabaseClient();
 
-await window.adminAuth.requireAdminAuth();
+    await window.adminAuth.requireAdminAuth();
 
-let dashboardChart = null
+    let dashboardChart = null;
+    let breakdownChart = null;
 
-function getLastSixMonths() {
-  const months = []
-  const now = new Date()
+    const USER_FALLBACK_TABLES = [
+      'reports',
+      'birth_certificate_appointments',
+      'marriage_certificate_appointments',
+      'death_certificate_appointments',
+      'cenomar_appointments',
+      'cenodeath_appointments',
+      'facility_borrow_requests',
+      'place_reviews'
+    ];
 
-  for (let i = 5; i >= 0; i--) {
-    const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-    const label = date.toLocaleString('en-US', { month: 'short' })
-    months.push({ key, label })
-  }
+    function getLastSixMonths() {
+      const months = [];
+      const now = new Date();
 
-  return months
-}
+      for (let i = 5; i >= 0; i--) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const label = date.toLocaleString('en-US', { month: 'short' });
+        months.push({ key, label });
+      }
 
-function buildMonthlyCounts(items, months) {
-  const counts = Object.fromEntries(months.map(month => [month.key, 0]))
+      return months;
+    }
 
-  ;(items || []).forEach(item => {
-    if (!item.created_at) return
-    const date = new Date(item.created_at)
-    if (Number.isNaN(date.getTime())) return
+    function buildMonthlyCounts(items, months) {
+      const counts = Object.fromEntries(months.map((month) => [month.key, 0]));
 
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-    if (key in counts) counts[key] += 1
-  })
+      (items || []).forEach((item) => {
+        if (!item.created_at) return;
+        const date = new Date(item.created_at);
+        if (Number.isNaN(date.getTime())) return;
 
-  return months.map(month => counts[month.key] || 0)
-}
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        if (key in counts) counts[key] += 1;
+      });
 
-function renderChart(months, hotlineData, newsData, userData) {
-  const ctx = document.getElementById('dashboardChart')
-  const emptyState = document.getElementById('chartEmpty')
-  const hasAnyData = [...hotlineData, ...newsData, ...userData].some(value => value > 0)
+      return months.map((month) => counts[month.key] || 0);
+    }
 
-  if (!hasAnyData) {
-    emptyState.style.display = 'block'
-  } else {
-    emptyState.style.display = 'none'
-  }
+    function formatCompactNumber(value) {
+      return new Intl.NumberFormat('en', {
+        notation: 'compact',
+        maximumFractionDigits: 1,
+      }).format(value || 0);
+    }
 
-  if (dashboardChart) {
-    dashboardChart.destroy()
-  }
+    function renderChart(months, hotlineData, newsData, reportsData, userData) {
+      const ctx = document.getElementById('dashboardChart');
+      const emptyState = document.getElementById('chartEmpty');
+      const hasAnyData = [...hotlineData, ...newsData, ...reportsData, ...userData].some((value) => value > 0);
 
-  dashboardChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: months.map(month => month.label),
-      datasets: [
-        {
-          label: 'Hotlines',
-          data: hotlineData,
-          backgroundColor: '#2f5fa5',
-          borderRadius: 8
+      if (!hasAnyData) {
+        emptyState.style.display = 'block';
+      } else {
+        emptyState.style.display = 'none';
+      }
+
+      if (dashboardChart) {
+        dashboardChart.destroy();
+      }
+
+      dashboardChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: months.map((month) => month.label),
+          datasets: [
+            {
+              label: 'Hotlines',
+              data: hotlineData,
+              borderColor: '#8b5cf6',
+              backgroundColor: 'rgba(139, 92, 246, 0.12)',
+              tension: 0.42,
+              borderWidth: 3,
+              pointRadius: 3,
+              pointHoverRadius: 5,
+              fill: false
+            },
+            {
+              label: 'News',
+              data: newsData,
+              borderColor: '#22c55e',
+              backgroundColor: 'rgba(34, 197, 94, 0.12)',
+              tension: 0.42,
+              borderWidth: 3,
+              pointRadius: 3,
+              pointHoverRadius: 5,
+              fill: false
+            },
+            {
+              label: 'Reports',
+              data: reportsData,
+              borderColor: '#f59e0b',
+              backgroundColor: 'rgba(245, 158, 11, 0.12)',
+              tension: 0.42,
+              borderWidth: 3,
+              pointRadius: 3,
+              pointHoverRadius: 5,
+              fill: false
+            },
+            {
+              label: 'Users',
+              data: userData,
+              borderColor: '#4f46e5',
+              backgroundColor: 'rgba(79, 70, 229, 0.12)',
+              tension: 0.42,
+              borderWidth: 3,
+              pointRadius: 3,
+              pointHoverRadius: 5,
+              fill: false
+            }
+          ]
         },
-        {
-          label: 'News',
-          data: newsData,
-          backgroundColor: '#10b981',
-          borderRadius: 8
-        },
-        {
-          label: 'Users',
-          data: userData,
-          backgroundColor: '#8b5cf6',
-          borderRadius: 8
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {
-        mode: 'index',
-        intersect: false
-      },
-      plugins: {
-        legend: {
-          display: false
-        },
-        tooltip: {
-          backgroundColor: '#111827',
-          padding: 12,
-          titleFont: {
-            size: 13
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false
           },
-          bodyFont: {
-            size: 12
+          plugins: {
+            legend: {
+              position: 'top',
+              align: 'start',
+              labels: {
+                usePointStyle: true,
+                pointStyle: 'circle',
+                boxWidth: 8,
+                boxHeight: 8,
+                color: '#6b7280',
+                padding: 18
+              }
+            },
+            tooltip: {
+              backgroundColor: '#111827',
+              padding: 12,
+              titleFont: {
+                size: 13
+              },
+              bodyFont: {
+                size: 12
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: {
+                display: false
+              },
+              ticks: {
+                color: '#9ca3af'
+              }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                precision: 0,
+                color: '#9ca3af'
+              },
+              grid: {
+                color: '#f1f5f9'
+              }
+            }
           }
         }
-      },
-      scales: {
-        x: {
-          grid: {
-            display: false
-          },
-          ticks: {
-            color: '#667085'
-          }
+      });
+    }
+
+    function renderBreakdownChart(hotlineCount, newsCount, reportsCount, usersCount) {
+      const values = [hotlineCount || 0, newsCount || 0, reportsCount || 0, usersCount || 0];
+      const total = values.reduce((sum, value) => sum + value, 0);
+
+      if (breakdownChart) {
+        breakdownChart.destroy();
+      }
+
+      breakdownChart = new Chart(document.getElementById('breakdownChart'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Hotlines', 'News', 'Reports', 'Users'],
+          datasets: [
+            {
+              data: values,
+              backgroundColor: ['#8b5cf6', '#c084fc', '#4f46e5', '#e9d5ff'],
+              borderWidth: 0,
+              hoverOffset: 6
+            }
+          ]
         },
-        y: {
-          beginAtZero: true,
-          ticks: {
-            precision: 0,
-            color: '#667085'
-          },
-          grid: {
-            color: '#eaecf0'
+        options: {
+          responsive: true,
+          cutout: '70%',
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: '#111827',
+              padding: 12
+            }
           }
         }
+      });
+
+      document.getElementById('breakdownTotal').textContent = formatCompactNumber(total);
+
+      const percent = (value) => {
+        if (!total) return '0%';
+        return `${((value / total) * 100).toFixed(1)}%`;
+      };
+
+      document.getElementById('legendHotlines').textContent = percent(hotlineCount || 0);
+      document.getElementById('legendNews').textContent = percent(newsCount || 0);
+      document.getElementById('legendReports').textContent = percent(reportsCount || 0);
+      document.getElementById('legendUsers').textContent = percent(usersCount || 0);
+    }
+
+    function buildTableRow(label, total, monthlyData, months) {
+      const latestMonthValue = monthlyData[monthlyData.length - 1] || 0;
+      const peakValue = Math.max(...monthlyData, 0);
+      const peakIndex = monthlyData.findIndex((value) => value === peakValue);
+      const peakMonth = peakIndex >= 0 ? months[peakIndex].label : '—';
+      const sixMonthTotal = monthlyData.reduce((sum, value) => sum + value, 0);
+
+      return `
+        <tr>
+          <td>${label}</td>
+          <td>${total}</td>
+          <td>${latestMonthValue}</td>
+          <td>${peakMonth} (${peakValue})</td>
+          <td>${sixMonthTotal}</td>
+        </tr>
+      `;
+    }
+
+    function renderPerformanceTable(data) {
+      const tableBody = document.getElementById('performanceTableBody');
+
+      tableBody.innerHTML = [
+        buildTableRow('Hotlines', data.hotlineCount, data.hotlineData, data.months),
+        buildTableRow('News', data.newsCount, data.newsData, data.months),
+        buildTableRow('Reports', data.reportsCount, data.reportsData, data.months),
+        buildTableRow('Users', data.usersCount, data.userData, data.months)
+      ].join('');
+    }
+
+    async function loadFirebaseUsers() {
+      try {
+        const response = await fetch(`/api/update-report-status?action=firebase-users&t=${Date.now()}`, {
+          cache: 'no-store'
+        });
+        const payload = await response.json();
+
+        console.log('[DEBUG Dashboard Firebase] API response:', {
+          ok: response.ok,
+          status: response.status,
+          count: payload?.count,
+          hasUsers: Array.isArray(payload?.users),
+          usersLength: payload?.users?.length,
+          source: payload?.source,
+          error: payload?.error,
+          debugProject: payload?.debug?.firebaseProjectId,
+          sampleUser: payload?.debug?.sampleUser
+        });
+
+        if (!response.ok) {
+          throw new Error(payload?.details || payload?.error || 'Failed to load Firebase users.');
+        }
+
+        return {
+          count: Number(payload?.count || 0),
+          users: Array.isArray(payload?.users) ? payload.users : [],
+          source: 'firebase'
+        };
+      } catch (error) {
+        console.error('Failed to load Firebase Authentication users:', error);
+        return {
+          count: 0,
+          users: [],
+          source: 'firebase'
+        };
       }
     }
-  })
-}
 
-async function loadCounts() {
-  const { count: hotlineCount } = await supabase
-    .from('hotlines')
-    .select('*', { count: 'exact', head: true })
+    async function loadFallbackUsersFromSupabase() {
+      try {
+        const responses = await Promise.all(
+          USER_FALLBACK_TABLES.map((table) =>
+            supabase
+              .from(table)
+              .select('user_id, created_at')
+              .not('user_id', 'is', null)
+          )
+        );
 
-  document.getElementById('totalHotlines').innerText = hotlineCount || 0
+        const fallbackUsersMap = new Map();
 
-  const { count: newsCount } = await supabase
-    .from('news')
-    .select('*', { count: 'exact', head: true })
+        responses.forEach((response, index) => {
+          console.log(`[DEBUG Fallback] Table ${USER_FALLBACK_TABLES[index]}: ${response.data?.length || 0} rows with user_id`);
+          if (response.error) {
+            console.error(`Failed to load fallback users from ${USER_FALLBACK_TABLES[index]}:`, response.error);
+            return;
+          }
 
-  document.getElementById('totalNews').innerText = newsCount || 0
+          (response.data || []).forEach((row) => {
+            const userId = String(row?.user_id || '').trim();
+            if (!userId) return;
 
-  const { count: reportsCount } = await supabase
-    .from('reports')
-    .select('*', { count: 'exact', head: true })
+            const existing = fallbackUsersMap.get(userId);
+            const createdAt = row?.created_at || null;
 
-  document.getElementById('totalReports').innerText = reportsCount || 0
+            if (!existing) {
+              fallbackUsersMap.set(userId, { created_at: createdAt });
+              return;
+            }
 
-  const { count: usersCount, error: usersError } = await supabase
-    .from('profiles')
-    .select('*', { count: 'exact', head: true })
+            if (!existing.created_at && createdAt) {
+              existing.created_at = createdAt;
+              return;
+            }
 
-  if (usersError) {
-    console.error('Failed to count profiles:', usersError)
-  }
+            if (existing.created_at && createdAt && new Date(createdAt) < new Date(existing.created_at)) {
+              existing.created_at = createdAt;
+            }
+          });
+        });
 
-  document.getElementById('totalUsers').innerText = usersCount || 0
-}
+        return {
+          count: fallbackUsersMap.size,
+          users: Array.from(fallbackUsersMap.values()),
+          source: 'supabase-fallback'
+        };
+      } catch (error) {
+        console.error('Failed to load fallback users from Supabase records:', error);
+        return {
+          count: 0,
+          users: [],
+          source: 'supabase-fallback'
+        };
+      }
+    }
 
-async function loadDashboard() {
-  const months = getLastSixMonths()
+    async function loadUsers() {
+      const firebaseUsers = await loadFirebaseUsers();
+      console.log('[DEBUG Dashboard loadUsers] Firebase result:', firebaseUsers.count, firebaseUsers.source);
 
-  const [hotlinesResponse, newsResponse, usersResponse] = await Promise.all([
-    supabase.from('hotlines').select('created_at').order('created_at', { ascending: false }),
-    supabase.from('news').select('created_at').order('created_at', { ascending: false }),
-    supabase.from('profiles').select('created_at').order('created_at', { ascending: false })
-  ])
+      if (firebaseUsers.count > 0) {
+        console.log('[DEBUG Dashboard] Using Firebase count:', firebaseUsers.count);
+        return firebaseUsers;
+      }
 
-  if (hotlinesResponse.error) {
-    console.error('Failed to load hotlines:', hotlinesResponse.error)
-  }
+      console.log('[DEBUG Dashboard] Firebase count 0, using fallback');
+      return loadFallbackUsersFromSupabase();
+    }
 
-  if (newsResponse.error) {
-    console.error('Failed to load news:', newsResponse.error)
-  }
+    async function loadCounts(firebaseUsersCount) {
+      const { count: hotlineCount } = await supabase
+        .from('hotlines')
+        .select('*', { count: 'exact', head: true });
 
-  if (usersResponse.error) {
-    console.error('Failed to load profile chart data:', usersResponse.error)
-  }
+      const { count: newsCount } = await supabase
+        .from('news')
+        .select('*', { count: 'exact', head: true });
 
-  await loadCounts()
+      const { count: reportsCount } = await supabase
+        .from('reports')
+        .select('*', { count: 'exact', head: true });
 
-  const hotlineData = buildMonthlyCounts(hotlinesResponse.data, months)
-  const newsData = buildMonthlyCounts(newsResponse.data, months)
-  const userData = buildMonthlyCounts(usersResponse.data, months)
+      const usersCount = Number(firebaseUsersCount || 0);
 
-  renderChart(months, hotlineData, newsData, userData)
-}
+      document.getElementById('totalHotlines').innerText = formatCompactNumber(hotlineCount || 0);
+      document.getElementById('totalNews').innerText = formatCompactNumber(newsCount || 0);
+      document.getElementById('totalReports').innerText = formatCompactNumber(reportsCount || 0);
+      document.getElementById('totalUsers').innerText = formatCompactNumber(usersCount);
 
-loadDashboard()
+      return {
+        hotlineCount: hotlineCount || 0,
+        newsCount: newsCount || 0,
+        reportsCount: reportsCount || 0,
+        usersCount
+      };
+    }
+
+    async function loadDashboard() {
+      const months = getLastSixMonths();
+
+      const [hotlinesResponse, newsResponse, usersResponse, reportsResponse] = await Promise.all([
+        supabase.from('hotlines').select('created_at').order('created_at', { ascending: false }),
+        supabase.from('news').select('created_at').order('created_at', { ascending: false }),
+        loadUsers(),
+        supabase.from('reports').select('created_at').order('created_at', { ascending: false })
+      ]);
+
+      if (hotlinesResponse.error) {
+        console.error('Failed to load hotlines:', hotlinesResponse.error);
+      }
+
+      if (newsResponse.error) {
+        console.error('Failed to load news:', newsResponse.error);
+      }
+
+      if (reportsResponse.error) {
+        console.error('Failed to load reports:', reportsResponse.error);
+      }
+
+      const counts = await loadCounts(usersResponse.count);
+
+      const hotlineData = buildMonthlyCounts(hotlinesResponse.data, months);
+      const newsData = buildMonthlyCounts(newsResponse.data, months);
+      const userData = buildMonthlyCounts(usersResponse.users, months);
+      const reportsData = buildMonthlyCounts(reportsResponse.data, months);
+
+      renderChart(months, hotlineData, newsData, reportsData, userData);
+      renderBreakdownChart(
+        counts.hotlineCount,
+        counts.newsCount,
+        counts.reportsCount,
+        counts.usersCount
+      );
+      renderPerformanceTable({
+        months,
+        hotlineCount: counts.hotlineCount,
+        newsCount: counts.newsCount,
+        reportsCount: counts.reportsCount,
+        usersCount: counts.usersCount,
+        hotlineData,
+        newsData,
+        reportsData,
+        userData
+      });
+    }
+
+    loadDashboard();
   </script>
 
   <script src="sidebar.js"></script>
 </body>
-</html>]]>
+</html>
+
+

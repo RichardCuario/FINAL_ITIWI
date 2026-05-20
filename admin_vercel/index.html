@@ -3,13 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Emergency Hotline</title>
+  
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="admin-theme.css">
   <style>
     .page-stack {
       display: flex;
       flex-direction: column;
       gap: 24px;
+    }
+
+    .directory-body {
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(15, 23, 42, 0.06);
+      border-radius: 32px;
+      box-shadow: 0 28px 60px rgba(15, 23, 42, 0.08);
     }
 
     .hero-actions,
@@ -43,30 +55,86 @@
       justify-content: flex-start;
     }
 
-    .metric-pill {
+    .analytics-filter {
       display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: 14px;
+      background: #ffffff;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      color: #4b5563;
+      font-weight: 600;
+      box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
+    }
+
+    .hotline-stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .metric-pill {
+      min-height: 128px;
+      display: flex;
       flex-direction: column;
-      gap: 4px;
-      padding: 14px 16px;
+      gap: 14px;
+      padding: 18px;
       border-radius: 18px;
-      min-width: 140px;
-      background: rgba(255, 255, 255, 0.7);
-      border: 1px solid rgba(255, 255, 255, 0.72);
-      box-shadow: var(--shadow-sm);
+      background: #ffffff;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.04);
+    }
+
+    .metric-pill-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
     }
 
     .metric-pill span {
       font-size: 12px;
       color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
       font-weight: 700;
     }
 
     .metric-pill strong {
-      font-size: 26px;
+      font-size: 32px;
+      line-height: 1;
       color: var(--text);
-      letter-spacing: -0.03em;
+      letter-spacing: -0.04em;
+    }
+
+    .metric-pill-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #7c3aed;
+      background: rgba(124, 58, 237, 0.08);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .metric-pill-foot {
+      margin-top: auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+    }
+
+    .metric-pill-foot span:first-child {
+      color: #9ca3af;
+    }
+
+    .metric-pill-change {
+      color: #10b981;
+      font-weight: 700;
     }
 
     .status-banner {
@@ -102,7 +170,8 @@
       overflow: hidden;
       border-radius: 20px;
       border: 1px solid rgba(148, 163, 184, 0.14);
-      background: rgba(255, 255, 255, 0.52);
+      background: #ffffff;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
     }
 
     table {
@@ -227,14 +296,144 @@
       box-shadow: 0 14px 22px rgba(239, 68, 68, 0.18);
     }
 
+    .section-card-soft,
+    .data-table-card,
+    .content-card.toolbar-card {
+      background: #ffffff;
+      border-radius: 22px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.04);
+    }
+
+    .content-card.toolbar-card,
+    .data-table-card {
+      padding: 22px;
+    }
+
+    .page-hero {
+      padding: 0;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+    }
+
+    .page-hero-grid {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .hero-title {
+      margin: 0;
+      font-size: 48px;
+      line-height: 1;
+      letter-spacing: -0.05em;
+      color: #111827;
+    }
+
+    .hero-subtitle {
+      margin-top: 12px;
+      max-width: 760px;
+      color: #6b7280;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    @media (max-width: 1180px) {
+      .hotline-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .truncate-copy {
+        max-width: 260px;
+      }
+    }
+
     @media (max-width: 960px) {
       .toolbar-card {
         grid-template-columns: 1fr;
       }
 
       .table-actions,
-      .hero-actions {
+      .hero-actions,
+      .page-hero-grid {
         justify-content: flex-start;
+      }
+
+      .analytics-filter {
+        max-width: 100%;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .directory-body {
+        padding: 18px;
+      }
+
+      .hero-title {
+        font-size: 38px;
+      }
+
+      .hotline-stats {
+        grid-template-columns: 1fr;
+      }
+
+      .table-actions {
+        width: 100%;
+      }
+
+      .table-actions .btn {
+        flex: 1 1 180px;
+      }
+
+      .hotline-name {
+        align-items: flex-start;
+      }
+
+      .truncate-copy {
+        max-width: 220px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .directory-body,
+      .content-card.toolbar-card,
+      .data-table-card {
+        padding: 16px;
+      }
+
+      .hero-title {
+        font-size: 32px;
+      }
+
+      .hero-subtitle {
+        font-size: 14px;
+      }
+
+      .hotline-logo {
+        width: 42px;
+        height: 42px;
+        border-radius: 14px;
+      }
+
+      .action-buttons {
+        width: 100%;
+      }
+
+      .action-buttons .btn,
+      .table-actions .btn {
+        width: 100%;
+      }
+
+      .truncate-copy {
+        max-width: 180px;
+      }
+
+      th,
+      td {
+        padding: 12px;
       }
     }
   </style>
@@ -242,55 +441,34 @@
 <body>
   <div class="main">
     <div class="page-stack">
-      <section class="page-hero">
-        <div class="page-hero-grid">
-          <div>
-            <div class="hero-kicker">Emergency Directory</div>
-            <h1 class="hero-title">Emergency hotline management</h1>
-            <p class="hero-subtitle">Keep official response numbers organized, visible, and up to date. Review hotline entries, maintain clear service descriptions, and manage updates from one streamlined admin workspace.</p>
+      <div class="directory-body">
+        <section class="page-hero">
+          <div class="page-hero-grid">
+            <div>
+              <h1 class="hero-title">Emergency hotline management</h1>
+              <p class="hero-subtitle">Track and maintain emergency hotline records with the same clean, analytics-style layout used on the dashboard.</p>
+            </div>
 
-            <div class="hero-highlights">
-              <div class="hero-highlight">
-                <strong id="recordCount">0</strong>
-                <span>Total hotline records</span>
-              </div>
-              <div class="hero-highlight">
-                <strong id="categoryCount">0</strong>
-                <span>Categories in directory</span>
-              </div>
+            <div class="analytics-filter">⏳ Last updated live</div>
+          </div>
+        </section>
+
+        <section class="content-card toolbar-card">
+          <div class="section-heading" style="margin-bottom: 0;">
+            <div>
+              <h2>Directory overview</h2>
+              <p>All saved emergency contact records appear below with quick access to edit and delete actions.</p>
             </div>
           </div>
 
-          <div class="hero-panel">
-            <div class="hero-panel-label">Quick actions</div>
-            <strong>Ready to add a new contact?</strong>
-            <p>Create a new hotline entry for emergency response teams, support services, or local government contacts.</p>
-            <div class="hero-actions" style="margin-top: 18px;">
-              <a class="btn btn-primary" href="add.html">Add new hotline</a>
-            </div>
+          <div class="toolbar-metrics">
+            <div class="analytics-filter">Emergency Directory</div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="content-card toolbar-card">
-        <div class="section-heading" style="margin-bottom: 0;">
-          <div>
-            <h2>Directory overview</h2>
-            <p>All saved emergency contact records appear below with quick access to edit and delete actions.</p>
-          </div>
-        </div>
+        <div id="statusBanner" class="status-banner loading show">Loading hotline records...</div>
 
-        <div class="toolbar-metrics">
-          <div class="metric-pill">
-            <span>Listed contacts</span>
-            <strong id="summaryCount">0</strong>
-          </div>
-        </div>
-      </section>
-
-      <div id="statusBanner" class="status-banner loading show">Loading hotline records...</div>
-
-      <section class="data-table-card">
+        <section class="data-table-card">
         <div class="section-heading">
           <div>
             <h2>Hotline records</h2>
@@ -327,6 +505,7 @@
           </div>
         </div>
       </section>
+      </div>
     </div>
   </div>
 
@@ -336,9 +515,6 @@
     const { client: supabase } = await window.adminAuth.initializeAdminPage();
 
     const tableBody = document.getElementById('tableBody');
-    const recordCount = document.getElementById('recordCount');
-    const summaryCount = document.getElementById('summaryCount');
-    const categoryCount = document.getElementById('categoryCount');
     const statusBanner = document.getElementById('statusBanner');
     const refreshButton = document.getElementById('refreshButton');
 
@@ -364,13 +540,6 @@
       }
 
       return [];
-    }
-
-    function updateCounts(items) {
-      const categories = new Set(items.map((item) => (item.category || '').trim()).filter(Boolean));
-      recordCount.textContent = items.length;
-      summaryCount.textContent = items.length;
-      categoryCount.textContent = categories.size;
     }
 
     function renderEmptyState(title, description) {
@@ -436,7 +605,6 @@
         }
 
         const items = Array.isArray(data) ? data : [];
-        updateCounts(items);
 
         if (!items.length) {
           renderEmptyState('No hotline records yet', 'Add your first emergency hotline to start building the public directory.');
@@ -448,7 +616,6 @@
         setStatus(`Loaded ${items.length} hotline record${items.length === 1 ? '' : 's'}.`, 'loading', true);
         setTimeout(() => setStatus('', 'loading', false), 1800);
       } catch (error) {
-        updateCounts([]);
         renderEmptyState('Unable to load hotline records', error.message || 'Please check your Supabase connection and try again.');
         setStatus(error.message || 'Unable to load hotline records.', 'error', true);
       } finally {
@@ -499,3 +666,5 @@
   <script src="sidebar.js"></script>
 </body>
 </html>
+
+

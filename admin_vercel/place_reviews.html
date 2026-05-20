@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Place Reviews - ITIWI</title>
+  
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="admin-theme.css">
   <style>
     .page-stack {
@@ -259,14 +260,156 @@
       font-size: 14px;
     }
 
-    @media (max-width: 960px) {
+    @media (max-width: 1180px) {
+      table {
+        min-width: 1080px;
+      }
+
+      .review-text {
+        max-width: 260px;
+      }
+
+      .notes-text {
+        max-width: 220px;
+      }
+    }
+
+    @media (max-width: 1024px) {
       .toolbar-card {
         grid-template-columns: 1fr;
       }
 
+      .filter-group,
       .toolbar-actions,
       .table-actions {
+        width: 100%;
         justify-content: flex-start;
+      }
+
+      .toolbar-actions .btn,
+      .table-actions .btn {
+        flex: 1 1 180px;
+      }
+
+      table {
+        min-width: 0;
+      }
+
+      table thead {
+        display: none;
+      }
+
+      table,
+      table tbody,
+      table tr,
+      table td {
+        display: block;
+        width: 100%;
+      }
+
+      table tbody {
+        display: grid;
+        gap: 16px;
+      }
+
+      table tr {
+        padding: 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        background: #ffffff;
+        box-shadow: var(--shadow-sm);
+      }
+
+      table td {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+        background: transparent;
+      }
+
+      table tr td:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+      }
+
+      table td::before {
+        content: attr(data-label);
+        flex: 0 0 96px;
+        color: var(--text-muted);
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      table td > * {
+        min-width: 0;
+      }
+
+      .place-name,
+      .review-text,
+      .review-meta,
+      .action-stack {
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      .admin-notes-input {
+        min-width: 0;
+      }
+
+      .action-stack,
+      .action-buttons {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .hero-highlights {
+        flex-direction: column;
+      }
+
+      .hero-highlight,
+      .filter-group,
+      .toolbar-actions,
+      .table-actions,
+      .toolbar-actions .btn,
+      .table-actions .btn,
+      .action-buttons button {
+        width: 100%;
+      }
+
+      .action-buttons {
+        flex-direction: column;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .table-scroll {
+        overflow: visible;
+      }
+
+      .table-shell {
+        overflow: visible;
+        border: 0;
+        background: transparent;
+      }
+
+      table tr {
+        padding: 14px;
+      }
+
+      table td {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+
+      table td::before {
+        flex: none;
       }
     }
   </style>
@@ -446,6 +589,20 @@
       return '★'.repeat(safeRating) + '☆'.repeat(5 - safeRating);
     }
 
+    function maskReviewerName(value) {
+      const name = String(value ?? '').trim();
+
+      if (!name) {
+        return 'Anonymous reviewer';
+      }
+
+      if (name.length <= 2) {
+        return `${name.charAt(0)}*`;
+      }
+
+      return `${name.slice(0, 2)}${'*'.repeat(Math.max(1, name.length - 2))}`;
+    }
+
     function countByStatus(items, targetStatus) {
       return items.filter((item) => normalizeStatus(item.status) === targetStatus).length;
     }
@@ -475,39 +632,39 @@
 
         return `
           <tr>
-            <td>
+            <td data-label="Place">
               <div class="place-name">
                 <strong>${escapeHtml(item.place_name || 'Unknown place')}</strong>
                 <span class="meta-text">Place ID: ${escapeHtml(item.place_id || 'N/A')}</span>
               </div>
             </td>
-            <td>
+            <td data-label="Reviewer">
               <div class="place-name">
-                <strong class="reviewer-name">${escapeHtml(item.reviewer_name || 'Anonymous reviewer')}</strong>
+                <strong class="reviewer-name">${escapeHtml(maskReviewerName(item.reviewer_name || 'Anonymous reviewer'))}</strong>
                 <span class="meta-text">${escapeHtml(item.user_id || 'No linked user')}</span>
               </div>
             </td>
-            <td>
+            <td data-label="Rating">
               <div class="rating-block">
                 <span class="rating-stars">${escapeHtml(getStars(item.rating))}</span>
                 <span class="rating-value">${escapeHtml(String(Number(item.rating) || 0))}/5</span>
               </div>
             </td>
-            <td>
+            <td data-label="Review">
               <div class="review-text">${escapeHtml(item.review_text || 'No review text provided.')}</div>
             </td>
-            <td>
+            <td data-label="Status">
               <span class="status-chip ${escapeHtml(status)}">${escapeHtml(formatStatusLabel(status))}</span>
             </td>
-            <td>
+            <td data-label="Submitted">
               <div class="review-meta">
                 <span class="meta-text">${escapeHtml(formatDate(item.created_at))}</span>
               </div>
             </td>
-            <td>
+            <td data-label="Admin Notes">
               <textarea id="notes-${escapeAttribute(item.id)}" class="admin-notes-input" placeholder="Add internal admin notes">${escapeHtml(savedNotes)}</textarea>
             </td>
-            <td>
+            <td data-label="Actions">
               <div class="action-stack">
                 <div class="action-buttons">
                   <button class="btn-approve" type="button" onclick="updateReviewStatus('${escapeJsString(item.id)}', 'approved')">Approve</button>

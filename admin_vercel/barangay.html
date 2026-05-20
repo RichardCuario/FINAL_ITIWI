@@ -1,13 +1,27 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Barangay</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="admin-theme.css">
   <style>
     .page-stack {
       display: flex;
       flex-direction: column;
       gap: 24px;
+    }
+
+    .directory-body {
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(15, 23, 42, 0.06);
+      border-radius: 32px;
+      box-shadow: 0 28px 60px rgba(15, 23, 42, 0.08);
     }
 
     .toolbar-card {
@@ -52,16 +66,30 @@
       justify-content: flex-end;
     }
 
-    .metric-pill {
+    .analytics-filter {
       display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: 14px;
+      background: #ffffff;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      color: #4b5563;
+      font-weight: 600;
+      box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
+    }
+
+    .metric-pill {
+      min-height: 128px;
+      display: flex;
       flex-direction: column;
-      gap: 4px;
-      padding: 14px 16px;
+      gap: 14px;
+      padding: 18px;
       border-radius: 18px;
       min-width: 150px;
-      background: rgba(255, 255, 255, 0.72);
-      border: 1px solid rgba(255, 255, 255, 0.72);
-      box-shadow: var(--shadow-sm);
+      background: #ffffff;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.04);
     }
 
     .metric-pill span {
@@ -73,9 +101,10 @@
     }
 
     .metric-pill strong {
-      font-size: 26px;
+      font-size: 32px;
+      line-height: 1;
       color: var(--text);
-      letter-spacing: -0.03em;
+      letter-spacing: -0.04em;
     }
 
     .status-message {
@@ -113,7 +142,8 @@
       background: rgba(255, 255, 255, 0.5);
     }
 
-    table {
+    .barangay-table {
+      width: 100%;
       min-width: 1080px;
     }
 
@@ -156,13 +186,14 @@
     .coordinates-pill {
       display: inline-flex;
       align-items: center;
-      padding: 8px 12px;
+      padding: 9px 12px;
       border-radius: 999px;
-      background: rgba(37, 99, 235, 0.08);
-      color: var(--primary-alt);
+      background: rgba(16, 185, 129, 0.12);
+      color: #047857;
       font-weight: 700;
       font-size: 12px;
       white-space: nowrap;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
     }
 
     .officials-summary {
@@ -195,18 +226,11 @@
       margin-top: 6px;
     }
 
-    .btn-edit,
-    .btn-delete {
+    .action-stack .btn {
       padding: 10px 14px;
       border-radius: 12px;
       font-size: 12px;
       font-weight: 700;
-    }
-
-    .btn-edit {
-      color: #ffffff;
-      background: linear-gradient(135deg, var(--primary), var(--primary-alt));
-      box-shadow: 0 14px 22px rgba(79, 70, 229, 0.18);
     }
 
     .btn-delete {
@@ -229,6 +253,58 @@
       color: var(--text);
     }
 
+    .section-card-soft,
+    .data-table-card,
+    .content-card.toolbar-card {
+      background: #ffffff;
+      border-radius: 22px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.04);
+    }
+
+    .content-card.toolbar-card,
+    .data-table-card {
+      padding: 22px;
+    }
+
+    .page-hero {
+      padding: 0;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+    }
+
+    .page-hero-grid {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .hero-title {
+      margin: 0;
+      font-size: 48px;
+      line-height: 1;
+      letter-spacing: -0.05em;
+      color: #111827;
+    }
+
+    .hero-subtitle {
+      margin-top: 12px;
+      max-width: 760px;
+      color: #6b7280;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    @media (max-width: 1180px) {
+      .content-snippet,
+      .officials-fallback {
+        max-width: 220px;
+      }
+    }
+
     @media (max-width: 960px) {
       .toolbar-card {
         grid-template-columns: 1fr;
@@ -236,8 +312,186 @@
 
       .toolbar-meta,
       .table-actions,
-      .hero-actions {
+      .hero-actions,
+      .page-hero-grid {
         justify-content: flex-start;
+      }
+
+      .metric-pill {
+        min-width: 0;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .directory-body {
+        padding: 18px;
+      }
+
+      .hero-title {
+        font-size: 38px;
+      }
+
+      .analytics-filter,
+      .toolbar-meta,
+      .table-actions,
+      .page-hero-grid,
+      .search-box {
+        width: 100%;
+      }
+
+      .table-actions {
+        width: 100%;
+      }
+
+      .table-actions .btn {
+        flex: 1 1 180px;
+      }
+
+      .content-snippet,
+      .officials-fallback {
+        max-width: 100%;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .toolbar-card,
+      .section-heading {
+        gap: 14px;
+      }
+
+      .toolbar-meta,
+      .table-actions,
+      .hero-actions,
+      .action-stack {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .analytics-filter,
+      .metric-pill,
+      .table-actions .btn,
+      .action-stack .btn {
+        width: 100%;
+      }
+
+      .metric-pill {
+        min-height: auto;
+      }
+
+      .table-scroll {
+        overflow: visible;
+      }
+
+      .table-shell {
+        overflow: visible;
+        border: 0;
+        background: transparent;
+      }
+
+      .barangay-table {
+        min-width: 0;
+      }
+
+      .barangay-table thead {
+        display: none;
+      }
+
+      .barangay-table,
+      .barangay-table tbody,
+      .barangay-table tr,
+      .barangay-table td {
+        display: block;
+        width: 100%;
+      }
+
+      .barangay-table tbody {
+        display: grid;
+        gap: 14px;
+      }
+
+      .barangay-table tr {
+        padding: 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        background: #ffffff;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .barangay-table td {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+        background: transparent;
+      }
+
+      .barangay-table tr td:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+      }
+
+      .barangay-table td::before {
+        content: attr(data-label);
+        flex: 0 0 110px;
+        color: var(--text-muted);
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .barangay-table td > * {
+        min-width: 0;
+      }
+
+      .coordinates-pill {
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+
+      .action-stack {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .directory-body,
+      .content-card.toolbar-card,
+      .data-table-card {
+        padding: 16px;
+      }
+
+      .hero-title {
+        font-size: 32px;
+      }
+
+      .hero-subtitle {
+        font-size: 14px;
+      }
+
+      .search-box input {
+        padding-left: 42px;
+      }
+
+      .table-shell {
+        box-shadow: none;
+      }
+
+      .barangay-table tr {
+        padding: 14px;
+        border-radius: 16px;
+      }
+
+      .barangay-table td {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+
+      .barangay-table td::before {
+        flex: none;
       }
     }
   </style>
@@ -245,89 +499,85 @@
 <body>
   <div class="main">
     <div class="page-stack">
-      <section class="page-hero">
-        <div class="page-hero-grid">
-          <div>
-            <div class="hero-kicker">Barangay Directory</div>
-            <h1 class="hero-title">Barangay records and profiles</h1>
-            <p class="hero-subtitle">Review public-facing barangay information, maintain officials and descriptions, and keep mapped coordinates and geographic details accurate from one modern admin table.</p>
+      <div class="directory-body">
+        <section class="page-hero">
+          <div class="page-hero-grid">
+            <div>
+              <h1 class="hero-title">Barangay records and profiles</h1>
+              <p class="hero-subtitle">Review public-facing barangay information, maintain officials and descriptions, and keep mapped coordinates and geographic details accurate with the same clean layout used on the News and Announcement page.</p>
+            </div>
 
-            <div class="hero-highlights">
-              <div class="hero-highlight">
-                <strong id="recordCount">0</strong>
-                <span>Total barangay records</span>
-              </div>
-              <div class="hero-highlight">
-                <strong id="latestRecordLabel">No entries yet</strong>
-                <span>Latest update in directory</span>
-              </div>
+            <div class="analytics-filter">🏘️ Barangay directory</div>
+          </div>
+        </section>
+
+        <section class="content-card toolbar-card">
+          <div class="section-heading" style="margin-bottom: 0;">
+            <div>
+              <h2>Barangay directory</h2>
+              <p>Search local profiles, review mapped coordinates, and manage leadership details from one structured directory table.</p>
             </div>
           </div>
 
-          <div class="hero-panel">
-            <div class="hero-panel-label">Directory maintenance</div>
-            <strong>Manage local records with confidence.</strong>
-            <p>Add new barangay profiles, review geographic details, and update public-facing information without leaving this page.</p>
-            <div class="hero-actions" style="margin-top: 18px;">
-              <button class="btn btn-primary" type="button" onclick="goAdd()">Add new barangay</button>
+          <div class="toolbar-meta">
+            <div class="analytics-filter">Community records</div>
+          </div>
+        </section>
+
+        <section class="content-card toolbar-card">
+          <div class="search-box">
+            <input id="searchInput" type="text" placeholder="Search barangay, officials, coordinates, or geographic data">
+          </div>
+
+          <div class="toolbar-meta">
+            <div class="metric-pill">
+              <span>Visible records</span>
+              <strong id="toolbarCount">0</strong>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="content-card toolbar-card">
-        <div class="search-box">
-          <input id="searchInput" type="text" placeholder="Search barangay, officials, coordinates, or geographic data">
-        </div>
+        <div id="statusMessage" class="status-message"></div>
 
-        <div class="toolbar-meta">
-          <div class="metric-pill">
-            <span>Visible records</span>
-            <strong id="toolbarCount">0</strong>
-          </div>
-        </div>
-      </section>
+        <section class="data-table-card">
+          <div class="section-heading">
+            <div>
+              <h2>Barangay management table</h2>
+              <p>All saved barangay profiles, mapped coordinates, and leadership summaries in one unified list.</p>
+            </div>
 
-      <div id="statusMessage" class="status-message"></div>
-
-      <section class="data-table-card">
-        <div class="section-heading">
-          <div>
-            <h2>Barangay management table</h2>
-            <p>All saved barangay profiles, mapped coordinates, and leadership summaries in one unified list.</p>
+            <div class="table-actions">
+              <button class="btn btn-secondary" type="button" onclick="loadData()">Refresh list</button>
+              <button class="btn btn-primary" type="button" onclick="goAdd()">Add record</button>
+            </div>
           </div>
 
-          <div class="table-actions">
-            <button class="btn btn-secondary" type="button" onclick="loadData()">Refresh list</button>
-            <button class="btn btn-primary" type="button" onclick="goAdd()">Add record</button>
+          <div class="table-scroll">
+            <div class="table-shell">
+              <table class="barangay-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Geographic Data</th>
+                    <th>Coordinates</th>
+                    <th>Officials</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="tableBody">
+                  <tr>
+                    <td colspan="6" class="empty">
+                      <strong>Loading barangays</strong>
+                      Please wait while records are being fetched.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-
-        <div class="table-scroll">
-          <div class="table-shell">
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Description</th>
-                  <th>Geographic Data</th>
-                  <th>Coordinates</th>
-                  <th>Officials</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="tableBody">
-                <tr>
-                  <td colspan="6" class="empty">
-                    <strong>Loading barangays</strong>
-                    Please wait while records are being fetched.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
+        </section>
+      </div>
     </div>
   </div>
 
@@ -339,9 +589,7 @@
     const tableBody = document.getElementById('tableBody');
     const searchInput = document.getElementById('searchInput');
     const statusMessage = document.getElementById('statusMessage');
-    const recordCount = document.getElementById('recordCount');
     const toolbarCount = document.getElementById('toolbarCount');
-    const latestRecordLabel = document.getElementById('latestRecordLabel');
 
     let allBarangays = [];
     let isLoading = false;
@@ -466,16 +714,7 @@
 
     function updateSummary(items) {
       const count = items.length;
-      recordCount.textContent = String(count);
       toolbarCount.textContent = String(count);
-
-      if (!count) {
-        latestRecordLabel.textContent = 'No entries yet';
-        return;
-      }
-
-      const latest = [...items].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0];
-      latestRecordLabel.textContent = formatCreatedAt(latest.created_at);
     }
 
     function renderTable(items, emptyTitle, emptyText) {
@@ -498,21 +737,21 @@
 
         return `
           <tr>
-            <td>
+            <td data-label="Name">
               <div class="barangay-name">
                 <strong>${escapeHtml(item.name || 'Unnamed Barangay')}</strong>
                 <span class="name-badge">Barangay profile</span>
                 <div class="date-text">Created ${escapeHtml(formatCreatedAt(item.created_at))}</div>
               </div>
             </td>
-            <td><div class="content-snippet">${escapeHtml((item.description || '').substring(0, 150) || 'No description')}</div></td>
-            <td><div class="content-snippet">${escapeHtml((item.geographic_data || '').substring(0, 150) || 'No geographic data')}</div></td>
-            <td><span class="coordinates-pill">${escapeHtml(formatCoordinates(item))}</span></td>
-            <td>${officials.displayHtml}</td>
-            <td>
+            <td data-label="Description"><div class="content-snippet">${escapeHtml((item.description || '').substring(0, 150) || 'No description')}</div></td>
+            <td data-label="Geographic Data"><div class="content-snippet">${escapeHtml((item.geographic_data || '').substring(0, 150) || 'No geographic data')}</div></td>
+            <td data-label="Coordinates"><span class="coordinates-pill">${escapeHtml(formatCoordinates(item))}</span></td>
+            <td data-label="Officials">${officials.displayHtml}</td>
+            <td data-label="Actions">
               <div class="action-stack">
-                <button class="btn-edit" type="button" onclick="goEdit('${escapeJsString(item.id)}')">Edit</button>
-                <button class="btn-delete" type="button" onclick="deleteData('${escapeJsString(item.id)}')">Delete</button>
+                <button class="btn btn-primary" type="button" onclick="goEdit('${escapeJsString(item.id)}')">Edit</button>
+                <button class="btn btn-delete" type="button" onclick="deleteData('${escapeJsString(item.id)}')">Delete</button>
               </div>
             </td>
           </tr>

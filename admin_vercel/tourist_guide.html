@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tourist Guide | Admin Panel</title>
+  
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="admin-theme.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="sidebar.js" defer></script>
@@ -76,7 +77,12 @@
       line-height: 1.6;
     }
 
+    .table-wrapper {
+      overflow-x: auto;
+    }
+
     .tourist-guide-table {
+      width: 100%;
       min-width: 960px;
     }
 
@@ -157,6 +163,154 @@
       .review-entry-card {
         flex-direction: column;
         align-items: stretch;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .tourist-guide-shell {
+        padding: 20px;
+      }
+
+      .tourist-guide-title-wrap p {
+        font-size: 15px;
+      }
+
+      .tourist-guide-actions {
+        width: 100%;
+      }
+
+      .tourist-guide-actions .btn,
+      .review-entry-card .btn {
+        flex: 1 1 180px;
+      }
+
+      .tourist-guide-name-cell,
+      .tourist-guide-contact {
+        min-width: 0;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .tourist-guide-shell {
+        padding: 16px;
+      }
+
+      .tourist-guide-actions,
+      .table-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .tourist-guide-actions .btn,
+      .review-entry-card .btn,
+      .table-actions .btn,
+      .table-actions button {
+        width: 100%;
+      }
+
+      .table-wrapper {
+        overflow: visible;
+      }
+
+      .tourist-guide-table {
+        min-width: 0;
+      }
+
+      .tourist-guide-table thead {
+        display: none;
+      }
+
+      .tourist-guide-table,
+      .tourist-guide-table tbody,
+      .tourist-guide-table tr,
+      .tourist-guide-table td {
+        display: block;
+        width: 100%;
+      }
+
+      .tourist-guide-table tbody {
+        display: grid;
+        gap: 14px;
+      }
+
+      .tourist-guide-table tr {
+        padding: 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        background: #ffffff;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .tourist-guide-table td {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      }
+
+      .tourist-guide-table tr td:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+      }
+
+      .tourist-guide-table td::before {
+        content: attr(data-label);
+        flex: 0 0 92px;
+        color: var(--text-muted);
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .tourist-guide-table td > * {
+        min-width: 0;
+      }
+
+      .tourist-guide-description,
+      .tourist-guide-contact {
+        width: 100%;
+      }
+
+      .tourist-guide-image {
+        width: 100%;
+        max-width: 180px;
+        height: 120px;
+      }
+
+      .actions-col .table-actions {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .tourist-guide-title-wrap h1 {
+        font-size: 30px;
+      }
+
+      .review-entry-card {
+        padding: 16px;
+      }
+
+      .tourist-guide-table tr {
+        padding: 14px;
+        border-radius: 16px;
+      }
+
+      .tourist-guide-table td {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+
+      .tourist-guide-table td::before {
+        flex: none;
+      }
+
+      .tourist-guide-image {
+        max-width: 100%;
       }
     }
   </style>
@@ -287,22 +441,22 @@
 
           return `
             <tr>
-              <td>
+              <td data-label="Name">
                 <div class="tourist-guide-name-cell">
                   <strong>${escapeHtml(record.name || 'Untitled destination')}</strong>
                   <span>${escapeHtml(record.category || 'Tourist destination')}</span>
                 </div>
               </td>
-              <td>
+              <td data-label="Description">
                 <div class="tourist-guide-description">${escapeHtml(record.description || 'No description provided')}</div>
               </td>
-              <td>${buildContactCell(record)}</td>
-              <td>
+              <td data-label="Contact info">${buildContactCell(record)}</td>
+              <td data-label="Image">
                 <div class="tourist-guide-image">
                   ${imageMarkup}
                 </div>
               </td>
-              <td class="actions-col">
+              <td data-label="Actions" class="actions-col">
                 <div class="table-actions">
                   <a class="btn btn-secondary btn-small" href="edit_place.html?id=${encodeURIComponent(record.id)}">Edit</a>
                   <button class="btn btn-danger btn-small delete-btn" type="button" data-id="${escapeHtml(record.id)}">

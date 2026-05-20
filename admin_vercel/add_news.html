@@ -3,14 +3,70 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Add News - ITIWI</title>
+  
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="admin-theme.css">
   <style>
+    .page-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .directory-body {
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(15, 23, 42, 0.06);
+      border-radius: 32px;
+      box-shadow: 0 28px 60px rgba(15, 23, 42, 0.08);
+    }
+
+    .toolbar-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .toolbar-metrics {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+    }
+
+    .analytics-filter {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: 14px;
+      background: #ffffff;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      color: #4b5563;
+      font-weight: 600;
+      box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
+    }
+
     .page-layout {
       display: grid;
       grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
       gap: 24px;
       align-items: start;
+    }
+
+    .form-card,
+    .section-card,
+    .content-card.toolbar-card {
+      padding: 22px;
+      background: #ffffff;
+      border-radius: 22px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.04);
     }
 
     .form-grid {
@@ -22,7 +78,7 @@
     .field-card {
       padding: 18px;
       border-radius: 18px;
-      background: rgba(255, 255, 255, 0.72);
+      background: #ffffff;
       border: 1px solid rgba(148, 163, 184, 0.16);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
     }
@@ -137,7 +193,7 @@
     .insight-item {
       padding: 18px;
       border-radius: 18px;
-      background: rgba(255, 255, 255, 0.72);
+      background: #ffffff;
       border: 1px solid rgba(148, 163, 184, 0.16);
     }
 
@@ -210,6 +266,27 @@
       }
     }
 
+    @media (max-width: 960px) {
+      .toolbar-card {
+        grid-template-columns: 1fr;
+      }
+
+      .page-hero-grid {
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .directory-body {
+        padding: 18px;
+      }
+
+      .section-heading {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+
     @media (max-width: 720px) {
       .form-grid {
         grid-template-columns: 1fr;
@@ -223,37 +300,64 @@
         width: 100%;
       }
     }
+
+    @media (max-width: 560px) {
+      .directory-body,
+      .form-card,
+      .section-card,
+      .content-card.toolbar-card {
+        padding: 16px;
+      }
+
+      .hero-title {
+        font-size: 32px;
+      }
+
+      .hero-subtitle {
+        font-size: 14px;
+      }
+
+      .field-card,
+      .upload-dropzone {
+        padding: 16px;
+      }
+
+      .success-card {
+        padding: 24px 20px;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="main">
-    <section class="page-hero">
-      <div class="page-hero-grid">
-        <div>
-          <div class="hero-kicker">Community Updates</div>
-          <h1 class="hero-title">Create a news post</h1>
-          <p class="hero-subtitle">Publish timely announcements and community stories with clear titles, complete descriptions, and optional visual coverage.</p>
-          <div class="hero-highlights">
-            <div class="hero-highlight">
-              <strong>Fast publishing</strong>
-              <span>Post updates in just a few steps</span>
+    <div class="page-stack">
+      <div class="directory-body">
+        <section class="page-hero">
+          <div class="page-hero-grid">
+            <div>
+              <h1 class="hero-title">Create a news post</h1>
+              <p class="hero-subtitle">Publish timely announcements and community stories with clear titles, complete descriptions, and optional visual coverage.</p>
             </div>
-            <div class="hero-highlight">
-              <strong>Optional media</strong>
-              <span>Add an image when it strengthens the story</span>
+
+            <div class="analytics-filter">📰 Community updates</div>
+          </div>
+        </section>
+
+        <section class="content-card toolbar-card">
+          <div class="section-heading" style="margin-bottom: 0;">
+            <div>
+              <h2>Publishing overview</h2>
+              <p>Write a clear headline, add the full story details, and optionally upload a featured image before publishing.</p>
             </div>
           </div>
-        </div>
-        <div class="hero-panel">
-          <span class="hero-panel-label">New article</span>
-          <h3>Keep residents informed</h3>
-          <p>Use concise, complete messaging so important community updates are easy to understand and ready for public viewing.</p>
-        </div>
-      </div>
-    </section>
 
-    <div class="page-layout">
-      <section class="form-card">
+          <div class="toolbar-metrics">
+            <div class="analytics-filter">Official announcements</div>
+          </div>
+        </section>
+
+        <div class="page-layout">
+          <section class="form-card">
         <div class="section-heading">
           <div>
             <h2>News content</h2>
@@ -306,29 +410,31 @@
         </form>
       </section>
 
-      <aside class="section-card">
-        <div class="section-heading">
-          <div>
-            <h2>Publishing checklist</h2>
-            <p>Review these reminders before posting a public update.</p>
-          </div>
-        </div>
+          <aside class="section-card">
+            <div class="section-heading">
+              <div>
+                <h2>Publishing checklist</h2>
+                <p>Review these reminders before posting a public update.</p>
+              </div>
+            </div>
 
-        <div class="insight-list">
-          <div class="insight-item">
-            <strong>Write a useful headline</strong>
-            <span>Make the title direct and public-facing so readers know what the story is about immediately.</span>
-          </div>
-          <div class="insight-item">
-            <strong>Include complete details</strong>
-            <span>Use the description to add key dates, locations, and instructions when relevant.</span>
-          </div>
-          <div class="insight-item">
-            <strong>Upload only when needed</strong>
-            <span>An image can improve visibility, but the post should still make sense without one.</span>
-          </div>
+            <div class="insight-list">
+              <div class="insight-item">
+                <strong>Write a useful headline</strong>
+                <span>Make the title direct and public-facing so readers know what the story is about immediately.</span>
+              </div>
+              <div class="insight-item">
+                <strong>Include complete details</strong>
+                <span>Use the description to add key dates, locations, and instructions when relevant.</span>
+              </div>
+              <div class="insight-item">
+                <strong>Upload only when needed</strong>
+                <span>An image can improve visibility, but the post should still make sense without one.</span>
+              </div>
+            </div>
+          </aside>
         </div>
-      </aside>
+      </div>
     </div>
   </div>
 
@@ -424,7 +530,8 @@
       }
 
       if (!response.ok) {
-        throw new Error(responseJson?.error || 'Notification send failed.');
+        const message = responseJson?.details || responseJson?.error || 'Notification send failed.';
+        throw new Error(message);
       }
     }
 
@@ -469,18 +576,30 @@
           throw new Error(error.message);
         }
 
-        await sendNewsNotification({
-          newsId: data?.id ?? null,
-          title,
-          description,
-          imageUrl
-        });
+        let notificationWarning = '';
 
-        setStatus('News post published successfully and notification sent.', 'success');
+        try {
+          await sendNewsNotification({
+            newsId: data?.id ?? null,
+            title,
+            description,
+            imageUrl
+          });
+        } catch (notificationError) {
+          notificationWarning = notificationError?.message
+            ? ` News was published, but notification failed: ${notificationError.message}`
+            : ' News was published, but notification failed.';
+          console.error('News notification error:', notificationError);
+        }
+
+        setStatus(
+          `News post published successfully.${notificationWarning}`,
+          notificationWarning ? 'error' : 'success'
+        );
         successModal.style.display = 'flex';
         window.setTimeout(() => {
           window.location.href = 'news.html';
-        }, 1400);
+        }, 1800);
       } catch (err) {
         setStatus(err.message || 'Unable to publish the news post.', 'error');
         submitButton.disabled = false;
@@ -495,3 +614,5 @@
   <script src="sidebar.js"></script>
 </body>
 </html>
+
+

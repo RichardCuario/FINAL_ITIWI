@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="stylesheet" href="admin-theme.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="sidebar.js" defer></script>
+  <script src="auth.js" defer></script>
+  <style>
+    .transparency-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .transparency-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .transparency-title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-width: 760px;
+    }
+
+    .transparency-title-wrap h1 {
+      margin: 0;
+      color: var(--text);
+      font-size: clamp(32px, 4vw, 44px);
+      line-height: 1.05;
+    }
+
+    .transparency-title-wrap p {
+      margin: 0;
+      color: var(--text-soft);
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    .transparency-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(79, 70, 229, 0.12), rgba(37, 99, 235, 0.12));
+      border: 1px solid rgba(99, 102, 241, 0.14);
+      color: var(--primary);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    .transparency-highlight-card,
+    .transparency-form-card,
+    .transparency-list-card {
+      padding: 22px;
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      box-shadow: 0 18px 38px rgba(15, 23, 42, 0.05);
+    }
+
+    .transparency-highlight-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      flex-wrap: wrap;
+      background: linear-gradient(180deg, rgba(238, 242, 255, 0.96), rgba(224, 231, 255, 0.88));
+      border-color: rgba(99, 102, 241, 0.14);
+    }
+
+    .transparency-highlight-card strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text);
+      font-size: 16px;
+    }
+
+    .transparency-highlight-card p {
+      margin: 0;
+      color: var(--text-soft);
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .transparency-form-card {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .section-heading-inline {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .section-heading-inline h2 {
+      margin: 0 0 6px;
+      color: var(--text);
+      font-size: 22px;
+      line-height: 1.2;
+    }
+
+    .section-heading-inline p {
+      margin: 0;
+      color: var(--text-soft);
+      font-size: 14px;
+      line-height: 1.65;
+      max-width: 760px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(180px, 0.6fr);
+      gap: 16px;
+    }
+
+    .form-field,
+    .form-field-wide {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .form-field-wide {
+      grid-column: 1 / -1;
+    }
+
+    .form-field label,
+    .form-field-wide label {
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .form-input,
+    .form-textarea,
+    .form-select {
+      width: 100%;
+      min-height: 52px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: #ffffff;
+      color: var(--text);
+      font: inherit;
+      outline: none;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+    }
+
+    .form-textarea {
+      min-height: 132px;
+      resize: vertical;
+    }
+
+    .form-input:focus,
+    .form-textarea:focus,
+    .form-select:focus {
+      border-color: rgba(59, 130, 246, 0.72);
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+    }
+
+    .upload-helper {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .current-pdf-message {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 0;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(248, 250, 252, 0.88);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      color: var(--text-soft);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .current-pdf-message a {
+      color: var(--primary-alt);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .current-pdf-message a:hover {
+      text-decoration: underline;
+    }
+
+    .upload-status {
+      margin: 0;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      background: rgba(248, 250, 252, 0.8);
+      color: var(--text-soft);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .upload-status.info {
+      color: var(--text-soft);
+    }
+
+    .upload-status.success {
+      color: #047857;
+      background: rgba(236, 253, 245, 0.96);
+      border-color: rgba(16, 185, 129, 0.2);
+    }
+
+    .upload-status.error {
+      color: #b91c1c;
+      background: rgba(254, 242, 242, 0.96);
+      border-color: rgba(239, 68, 68, 0.2);
+    }
+
+    .form-meta-row,
+    .form-actions-row,
+    .record-meta,
+    .record-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .toggle-field {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 52px;
+      padding: 12px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      background: rgba(248, 250, 252, 0.85);
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .toggle-field input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary);
+    }
+
+    .helper-text {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .records-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+    }
+
+    .record-card {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 20px;
+      border-radius: 22px;
+      background: #ffffff;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.04);
+    }
+
+    .record-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .record-title {
+      margin: 0;
+      color: var(--text);
+      font-size: 20px;
+      line-height: 1.3;
+    }
+
+    .record-description {
+      margin: 8px 0 0;
+      color: var(--text-soft);
+      font-size: 14px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+    }
+
+    .state-chip,
+    .meta-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .state-chip.published {
+      background: rgba(16, 185, 129, 0.14);
+      color: #047857;
+    }
+
+    .state-chip.unpublished {
+      background: rgba(239, 68, 68, 0.12);
+      color: #b91c1c;
+    }
+
+    .meta-chip {
+      background: rgba(79, 70, 229, 0.1);
+      color: var(--primary);
+    }
+
+    .record-details-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .record-detail {
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(248, 250, 252, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    .record-detail span {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .record-detail strong,
+    .record-detail p,
+    .record-detail a {
+      margin: 0;
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+
+    .record-detail a {
+      color: var(--primary-alt);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .record-detail a:hover {
+      text-decoration: underline;
+    }
+
+    .record-detail.full-width {
+      grid-column: 1 / -1;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 46px 24px;
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(248, 250, 252, 0.92));
+      border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+
+    .empty-state strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--text);
+      font-size: 18px;
+    }
+
+    .empty-state p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 900px) {
+      .form-grid,
+      .record-details-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 840px) {
+      .transparency-header,
+      .transparency-highlight-card,
+      .section-heading-inline,
+      .record-card-header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .form-actions-row .btn,
+      .record-actions .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body class="admin-shell">
+  <div class="admin-background">
+    <div class="bg-gradient bg-gradient-1"></div>
+    <div class="bg-gradient bg-gradient-2"></div>
+    <div class="bg-pattern"></div>
+  </div>
+
+  <div id="sidebar-container"></div>
+
+  <main class="main">
+    <section class="content-card transparency-shell">
+      <div class="transparency-header">
+        <div class="transparency-title-wrap">
+          <h1>Transparency</h1>
+          <p>Manage the Program and Projects transparency records shown in the mobile app. Add new entries, update existing details, attach a PDF, and control publish visibility and display order.</p>
+        </div>
+
+        <div class="transparency-badge">Program and Projects</div>
+      </div>
+
+      <div class="transparency-highlight-card">
+        <div>
+          <strong>Public transparency content</strong>
+          <p>These records power the Program and Projects section in the transparency module. Keep titles clear, descriptions concise, and PDF files updated for public access.</p>
+        </div>
+        <button class="btn btn-secondary" type="button" id="refreshButton">Refresh list</button>
+      </div>
+
+      <p class="status-message" id="statusMessage" role="status" aria-live="polite"></p>
+
+      <section class="transparency-form-card">
+        <div class="section-heading-inline">
+          <div>
+            <h2 id="formHeading">Add transparency record</h2>
+            <p id="formSubheading">Create a new Program and Projects transparency item for the mobile app.</p>
+          </div>
+        </div>
+
+        <form id="transparencyForm">
+          <div class="form-grid">
+            <div class="form-field">
+              <label for="titleInput">Title</label>
+              <input class="form-input" type="text" id="titleInput" name="title" placeholder="Enter record title" maxlength="255" required />
+            </div>
+
+            <div class="form-field">
+              <label for="displayOrderInput">Display order</label>
+              <input class="form-input" type="number" id="displayOrderInput" name="display_order" placeholder="0" step="1" />
+            </div>
+
+            <div class="form-field-wide">
+              <label for="descriptionInput">Description</label>
+              <textarea class="form-textarea" id="descriptionInput" name="description" placeholder="Add a short description for this program or project"></textarea>
+            </div>
+
+            <div class="form-field-wide">
+              <label for="pdfFileInput">Upload PDF from computer</label>
+              <input class="form-input" type="file" id="pdfFileInput" name="pdfFile" accept="application/pdf,.pdf" />
+              <input type="hidden" id="pdfUrlInput" name="pdf_url" />
+              <p class="upload-helper">Choose a PDF file from the admin device. URL links are not entered manually here.</p>
+              <p class="current-pdf-message" id="currentPdfMessage" hidden>
+                <span>An existing PDF is currently attached.</span>
+                <a id="currentPdfLink" href="#" target="_blank" rel="noopener noreferrer">Open current PDF</a>
+              </p>
+              <p class="upload-status info" id="pdfUploadStatus">No PDF selected yet.</p>
+            </div>
+          </div>
+
+          <div class="form-meta-row">
+            <label class="toggle-field" for="publishedInput">
+              <input type="checkbox" id="publishedInput" name="is_published" checked />
+              <span>Published</span>
+            </label>
+            <p class="helper-text">Published records can be shown publicly. Unpublished records remain hidden from the public-facing view.</p>
+          </div>
+
+          <div class="form-actions-row">
+            <button class="btn btn-primary" type="submit" id="saveButton">Save transparency record</button>
+            <button class="btn btn-secondary" type="button" id="cancelEditButton" hidden>Cancel edit</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="transparency-list-card">
+        <div class="section-heading-inline">
+          <div>
+            <h2>Program and Projects records</h2>
+            <p>Review, edit, or remove transparency entries currently stored in <code>transparency_programs_projects</code>.</p>
+          </div>
+        </div>
+
+        <div id="recordsContainer" class="records-grid">
+          <div class="empty-state">
+            <strong>Loading transparency records</strong>
+            <p>Please wait while Program and Projects entries are being fetched.</p>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script type="module">
+    const { client: supabase } = await window.adminAuth.initializeAdminPage();
+
+    const statusMessage = document.getElementById('statusMessage');
+    const refreshButton = document.getElementById('refreshButton');
+    const transparencyForm = document.getElementById('transparencyForm');
+    const formHeading = document.getElementById('formHeading');
+    const formSubheading = document.getElementById('formSubheading');
+    const titleInput = document.getElementById('titleInput');
+    const descriptionInput = document.getElementById('descriptionInput');
+    const pdfFileInput = document.getElementById('pdfFileInput');
+    const pdfUrlInput = document.getElementById('pdfUrlInput');
+    const currentPdfMessage = document.getElementById('currentPdfMessage');
+    const currentPdfLink = document.getElementById('currentPdfLink');
+    const pdfUploadStatus = document.getElementById('pdfUploadStatus');
+    const displayOrderInput = document.getElementById('displayOrderInput');
+    const publishedInput = document.getElementById('publishedInput');
+    const saveButton = document.getElementById('saveButton');
+    const cancelEditButton = document.getElementById('cancelEditButton');
+    const recordsContainer = document.getElementById('recordsContainer');
+
+    let transparencyRecords = [];
+    let editingRecordId = null;
+    let isLoading = false;
+
+    function showStatus(message, tone = 'info') {
+      statusMessage.textContent = message || '';
+      statusMessage.dataset.state = tone;
+    }
+
+    function setPdfUploadStatus(message, tone = 'info') {
+      pdfUploadStatus.textContent = message;
+      pdfUploadStatus.className = `upload-status ${tone}`;
+    }
+
+    function showCurrentPdf(url) {
+      const normalizedUrl = String(url || '').trim();
+
+      if (!normalizedUrl) {
+        currentPdfMessage.hidden = true;
+        currentPdfLink.href = '#';
+        return;
+      }
+
+      currentPdfLink.href = normalizedUrl;
+      currentPdfMessage.hidden = false;
+    }
+
+    function escapeHtml(value) {
+      const div = document.createElement('div');
+      div.textContent = String(value ?? '');
+      return div.innerHTML;
+    }
+
+    function normalizeText(value) {
+      const text = String(value ?? '').trim();
+      return text || null;
+    }
+
+    function normalizeNumber(value, fallback = 0) {
+      const text = String(value ?? '').trim();
+      if (!text) return fallback;
+
+      const number = Number(text);
+      if (!Number.isFinite(number)) return fallback;
+
+      return Math.trunc(number);
+    }
+
+    function formatDateTime(value) {
+      if (!value) return 'Not available';
+
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return String(value);
+      }
+
+      return date.toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    }
+
+    function getPublishedLabel(value) {
+      return value ? 'Published' : 'Unpublished';
+    }
+
+    function resetForm() {
+      editingRecordId = null;
+      transparencyForm.reset();
+      pdfUrlInput.value = '';
+      publishedInput.checked = true;
+      displayOrderInput.value = '0';
+      formHeading.textContent = 'Add transparency record';
+      formSubheading.textContent = 'Create a new Program and Projects transparency item for the mobile app.';
+      saveButton.textContent = 'Save transparency record';
+      cancelEditButton.hidden = true;
+      showCurrentPdf('');
+      setPdfUploadStatus('No PDF selected yet.', 'info');
+    }
+
+    function populateForm(record) {
+      editingRecordId = record.id;
+      titleInput.value = record.title || '';
+      descriptionInput.value = record.description || '';
+      pdfUrlInput.value = record.pdf_url || '';
+      pdfFileInput.value = '';
+      displayOrderInput.value = String(record.display_order ?? 0);
+      publishedInput.checked = Boolean(record.is_published);
+      formHeading.textContent = 'Edit transparency record';
+      formSubheading.textContent = 'Update the selected Program and Projects entry and save your changes.';
+      saveButton.textContent = 'Update transparency record';
+      cancelEditButton.hidden = false;
+      showCurrentPdf(record.pdf_url || '');
+      setPdfUploadStatus(record.pdf_url ? 'Existing PDF will be kept unless you upload a new one.' : 'No PDF selected yet.', record.pdf_url ? 'success' : 'info');
+      titleInput.focus();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function getRecordById(recordId) {
+      return transparencyRecords.find((record) => String(record.id) === String(recordId)) || null;
+    }
+
+    function renderRecords(records) {
+      if (!records.length) {
+        recordsContainer.innerHTML = `
+          <div class="empty-state">
+            <strong>No transparency records found</strong>
+            <p>Add your first Program and Projects entry using the form above.</p>
+          </div>
+        `;
+        return;
+      }
+
+      recordsContainer.innerHTML = records.map((record) => {
+        const isPublished = Boolean(record.is_published);
+        const pdfMarkup = record.pdf_url
+          ? `<a class="btn btn-secondary btn-small" href="${escapeHtml(record.pdf_url)}" target="_blank" rel="noopener noreferrer">Open PDF</a>`
+          : `<span class="meta-chip">No PDF attached</span>`;
+
+        return `
+          <article class="record-card">
+            <div class="record-card-header">
+              <div>
+                <h3 class="record-title">${escapeHtml(record.title || 'Untitled transparency record')}</h3>
+                <p class="record-description">${escapeHtml(record.description || 'No description provided.')}</p>
+              </div>
+
+              <div class="record-meta">
+                <span class="state-chip ${isPublished ? 'published' : 'unpublished'}">${getPublishedLabel(isPublished)}</span>
+                <span class="meta-chip">Order ${escapeHtml(record.display_order ?? 0)}</span>
+              </div>
+            </div>
+
+            <div class="record-details-grid">
+              <div class="record-detail">
+                <span>Attached PDF</span>
+                <div>${pdfMarkup}</div>
+              </div>
+
+              <div class="record-detail">
+                <span>Visibility</span>
+                <strong>${escapeHtml(getPublishedLabel(isPublished))}</strong>
+              </div>
+
+              <div class="record-detail">
+                <span>Created</span>
+                <p>${escapeHtml(formatDateTime(record.created_at))}</p>
+              </div>
+
+              <div class="record-detail">
+                <span>Updated</span>
+                <p>${escapeHtml(formatDateTime(record.updated_at))}</p>
+              </div>
+            </div>
+
+            <div class="record-actions">
+              <button class="btn btn-secondary btn-small edit-btn" type="button" data-id="${escapeHtml(record.id)}">Edit</button>
+              <button class="btn btn-danger btn-small delete-btn" type="button" data-id="${escapeHtml(record.id)}">Delete</button>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    async function loadTransparencyRecords() {
+      if (isLoading) return;
+      isLoading = true;
+      showStatus('Loading transparency records...', 'info');
+
+      try {
+        const response = await fetch('/api/manage-transparency-programs', {
+          method: 'GET'
+        });
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok || !result?.success) {
+          const loadErrorDetails = typeof result?.details === 'string'
+            ? result.details
+            : (result?.details?.message || result?.details?.error || '');
+          throw new Error(loadErrorDetails || result?.error || 'Unable to load transparency records.');
+        }
+
+        transparencyRecords = Array.isArray(result.records) ? result.records : [];
+        renderRecords(transparencyRecords);
+
+        if (transparencyRecords.length) {
+          showStatus(`Loaded ${transparencyRecords.length} transparency record(s).`, 'success');
+        } else {
+          showStatus('No transparency records available yet.', 'info');
+        }
+      } catch (error) {
+        console.error('Failed to load transparency records:', error);
+        transparencyRecords = [];
+        renderRecords([]);
+        showStatus(error.message || 'Unable to load transparency records.', 'error');
+      } finally {
+        isLoading = false;
+      }
+    }
+
+    function buildPdfStoragePath(fileName) {
+      const sanitizedName = String(fileName || 'document.pdf')
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+
+      return `pdfs/${Date.now()}-${sanitizedName || 'document.pdf'}`;
+    }
+
+    async function uploadSelectedPdfIfNeeded() {
+      const file = pdfFileInput.files?.[0];
+
+      if (!file) {
+        return normalizeText(pdfUrlInput.value);
+      }
+
+      const mimeType = String(file.type || '').trim().toLowerCase();
+      const isPdfFile = mimeType === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+
+      if (!isPdfFile) {
+        throw new Error('Please select a valid PDF file.');
+      }
+
+      setPdfUploadStatus(`Uploading ${file.name}...`, 'info');
+
+      const bucketName = 'transparency-pdfs';
+      const objectPath = buildPdfStoragePath(file.name);
+
+      const { error: uploadError } = await supabase.storage
+        .from(bucketName)
+        .upload(objectPath, file, {
+          contentType: 'application/pdf',
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) {
+        throw new Error(uploadError.message || 'Unable to upload the selected PDF.');
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from(bucketName)
+        .getPublicUrl(objectPath);
+
+      const publicUrl = String(publicUrlData?.publicUrl || '').trim();
+
+      if (!publicUrl) {
+        throw new Error('PDF uploaded, but the public URL could not be generated.');
+      }
+
+      pdfUrlInput.value = publicUrl;
+      showCurrentPdf(publicUrl);
+      setPdfUploadStatus(`PDF uploaded successfully: ${file.name}`, 'success');
+
+      return publicUrl;
+    }
+
+    async function saveTransparencyRecord(payload) {
+      const endpoint = '/api/manage-transparency-programs';
+      const method = editingRecordId ? 'PATCH' : 'POST';
+      const body = editingRecordId ? { id: editingRecordId, ...payload } : payload;
+
+      const response = await fetch(endpoint, {
+        method,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || result?.message || 'Unable to save transparency record.');
+      }
+
+      return result.transparency;
+    }
+
+    async function deleteTransparencyRecord(recordId) {
+      const response = await fetch('/api/manage-transparency-programs', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id: recordId })
+      });
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || result?.message || 'Unable to delete transparency record.');
+      }
+
+      return result.transparency;
+    }
+
+    transparencyForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const title = normalizeText(titleInput.value);
+      if (!title) {
+        showStatus('Title is required.', 'error');
+        titleInput.focus();
+        return;
+      }
+
+      const hasExistingPdf = Boolean(normalizeText(pdfUrlInput.value));
+      const hasSelectedPdf = Boolean(pdfFileInput.files?.[0]);
+
+      if (!editingRecordId && !hasSelectedPdf) {
+        setPdfUploadStatus('Please select a PDF file from your computer before saving.', 'error');
+        showStatus('A PDF upload is required for new transparency records.', 'error');
+        pdfFileInput.focus();
+        return;
+      }
+
+      if (editingRecordId && !hasExistingPdf && !hasSelectedPdf) {
+        setPdfUploadStatus('Please select a PDF file from your computer before updating this record.', 'error');
+        showStatus('A PDF upload is required for this transparency record.', 'error');
+        pdfFileInput.focus();
+        return;
+      }
+
+      saveButton.disabled = true;
+      cancelEditButton.disabled = true;
+      pdfFileInput.disabled = true;
+      showStatus(editingRecordId ? 'Updating transparency record...' : 'Saving transparency record...', 'info');
+
+      try {
+        const uploadedPdfUrl = await uploadSelectedPdfIfNeeded();
+        const payload = {
+          title,
+          description: normalizeText(descriptionInput.value),
+          pdf_url: uploadedPdfUrl,
+          is_published: Boolean(publishedInput.checked),
+          display_order: normalizeNumber(displayOrderInput.value, 0)
+        };
+
+        const savedRecord = await saveTransparencyRecord(payload);
+        showStatus(`Transparency record "${savedRecord?.title || title}" saved successfully.`, 'success');
+        resetForm();
+        await loadTransparencyRecords();
+      } catch (error) {
+        console.error('Failed to save transparency record:', error);
+        setPdfUploadStatus(error.message || 'Unable to upload the selected PDF.', 'error');
+        showStatus(error.message || 'Unable to save transparency record.', 'error');
+      } finally {
+        saveButton.disabled = false;
+        cancelEditButton.disabled = false;
+        pdfFileInput.disabled = false;
+      }
+    });
+
+    cancelEditButton.addEventListener('click', () => {
+      resetForm();
+      showStatus('Edit cancelled.', 'info');
+    });
+
+    refreshButton.addEventListener('click', async () => {
+      await loadTransparencyRecords();
+    });
+
+    pdfFileInput.addEventListener('change', () => {
+      const file = pdfFileInput.files?.[0];
+
+      if (!file) {
+        setPdfUploadStatus(pdfUrlInput.value ? 'Existing PDF will be kept unless you upload a new one.' : 'No PDF selected yet.', pdfUrlInput.value ? 'success' : 'info');
+        return;
+      }
+
+      const mimeType = String(file.type || '').trim().toLowerCase();
+      const isPdfFile = mimeType === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+
+      if (!isPdfFile) {
+        setPdfUploadStatus('Please select a valid PDF file.', 'error');
+        return;
+      }
+
+      setPdfUploadStatus(`Selected PDF: ${file.name}`, 'info');
+    });
+
+    recordsContainer.addEventListener('click', async (event) => {
+      const editButton = event.target.closest('.edit-btn');
+      if (editButton) {
+        const record = getRecordById(editButton.dataset.id);
+        if (!record) {
+          showStatus('Unable to find the selected transparency record.', 'error');
+          return;
+        }
+
+        populateForm(record);
+        showStatus(`Editing "${record.title || 'transparency record'}".`, 'info');
+        return;
+      }
+
+      const deleteButton = event.target.closest('.delete-btn');
+      if (!deleteButton) return;
+
+      const record = getRecordById(deleteButton.dataset.id);
+      if (!record) {
+        showStatus('Unable to find the selected transparency record.', 'error');
+        return;
+      }
+
+      const confirmed = window.confirm(`Delete "${record.title || 'this transparency record'}"? This action cannot be undone.`);
+      if (!confirmed) return;
+
+      deleteButton.disabled = true;
+      showStatus(`Deleting "${record.title || 'transparency record'}"...`, 'info');
+
+      try {
+        await deleteTransparencyRecord(record.id);
+        if (editingRecordId && String(editingRecordId) === String(record.id)) {
+          resetForm();
+        }
+        showStatus(`"${record.title || 'Transparency record'}" deleted successfully.`, 'success');
+        await loadTransparencyRecords();
+      } catch (error) {
+        console.error('Failed to delete transparency record:', error);
+        showStatus(error.message || 'Unable to delete transparency record.', 'error');
+      } finally {
+        deleteButton.disabled = false;
+      }
+    });
+
+    resetForm();
+    loadTransparencyRecords();
+  </script>
+</body>
+</html>
+
+

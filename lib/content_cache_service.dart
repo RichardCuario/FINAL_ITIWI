@@ -23,6 +23,9 @@ class ContentCacheService {
   static const String _hotlinesUpdatedAtKey = 'cached_hotlines_updated_at';
   static const String _latestNewsMarkerKey = 'latest_news_marker';
   static const String _seenNewsMarkerKey = 'seen_news_marker';
+  static const String _dismissedNewsMarkerKey = 'dismissed_news_marker';
+  static const String _reportStatusSnapshotKey = 'report_status_snapshot';
+  static const String _reportNotificationsKey = 'report_notifications';
 
   const ContentCacheService();
 
@@ -89,6 +92,77 @@ class ContentCacheService {
   Future<String?> getSeenNewsMarker() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_seenNewsMarkerKey);
+  }
+
+  Future<void> saveDismissedNewsMarker(String marker) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_dismissedNewsMarkerKey, marker);
+  }
+
+  Future<String?> getDismissedNewsMarker() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_dismissedNewsMarkerKey);
+  }
+
+  Future<void> saveReportStatusSnapshot(Map<String, dynamic> snapshot) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_reportStatusSnapshotKey, jsonEncode(snapshot));
+  }
+
+  Future<Map<String, dynamic>> getReportStatusSnapshot() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_reportStatusSnapshotKey);
+
+    if (raw == null || raw.isEmpty) {
+      return {};
+    }
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) {
+        return {};
+      }
+
+      return Map<String, dynamic>.from(decoded);
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> saveReportNotifications(List<Map<String, dynamic>> items) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_reportNotificationsKey, jsonEncode(items));
+  }
+
+  Future<List<Map<String, dynamic>>> getReportNotifications() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_reportNotificationsKey);
+
+    if (raw == null || raw.isEmpty) {
+      return const [];
+    }
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) {
+        return const [];
+      }
+
+      return decoded
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> clearNewsCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_newsKey);
+    await prefs.remove(_newsUpdatedAtKey);
+    await prefs.remove(_latestNewsMarkerKey);
+    await prefs.remove(_seenNewsMarkerKey);
   }
 
   Future<void> _saveItems({

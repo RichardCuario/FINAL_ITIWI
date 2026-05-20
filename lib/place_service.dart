@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'place_models.dart';
@@ -13,7 +14,7 @@ class PlaceService {
       final response = await _client
           .from('places')
           .select(
-            'id, name, description, location, short_location, full_address, image_url, category, is_published',
+            'id, name, description, location, short_location, full_address, image_url, category, phone, website_url, latitude, longitude, distance_label, is_featured, is_published',
           )
           .eq('is_published', true)
           .order('name');
@@ -72,7 +73,8 @@ class PlaceService {
     required int rating,
     required String reviewText,
   }) async {
-    final user = _client.auth.currentUser;
+    final supabaseUser = _client.auth.currentUser;
+    final firebaseUser = firebase_auth.FirebaseAuth.instance.currentUser;
 
     final normalizedReviewText = reviewText.trim();
     if (normalizedReviewText.isEmpty) {
@@ -83,18 +85,47 @@ class PlaceService {
       throw Exception('Rating must be between 1 and 5.');
     }
 
+    final metadata = supabaseUser?.userMetadata ?? const <String, dynamic>{};
+    final firebaseDisplayName = firebaseUser?.displayName?.trim() ?? '';
+    final firebaseEmail = firebaseUser?.email?.trim() ?? '';
+    final supabaseEmail = supabaseUser?.email?.trim() ?? '';
+    final primaryEmail = firebaseEmail.isNotEmpty ? firebaseEmail : supabaseEmail;
+    final emailUsername = primaryEmail.contains('@')
+        ? primaryEmail.split('@').first.trim()
+        : '';
+    final reviewerName =
+        (firebaseDisplayName.isNotEmpty
+                    ? firebaseDisplayName
+                    : null) ??
+                (metadata['username']?.toString().trim().isNotEmpty == true
+                    ? metadata['username'].toString().trim()
+                    : null) ??
+                (metadata['user_name']?.toString().trim().isNotEmpty == true
+                    ? metadata['user_name'].toString().trim()
+                    : null) ??
+                (metadata['preferred_username']?.toString().trim().isNotEmpty ==
+                        true
+                    ? metadata['preferred_username'].toString().trim()
+                    : null) ??
+                (metadata['display_name']?.toString().trim().isNotEmpty == true
+                    ? metadata['display_name'].toString().trim()
+                    : null) ??
+                (metadata['full_name']?.toString().trim().isNotEmpty == true
+                    ? metadata['full_name'].toString().trim()
+                    : null) ??
+                (metadata['name']?.toString().trim().isNotEmpty == true
+                    ? metadata['name'].toString().trim()
+                    : null) ??
+                (emailUsername.isNotEmpty ? emailUsername : null) ??
+                (primaryEmail.isNotEmpty ? primaryEmail : null) ??
+                'Anonymous';
+
     await _client.from('place_reviews').insert({
       'place_id': placeId,
       'rating': rating,
       'review_text': normalizedReviewText,
       'status': 'pending',
-      'reviewer_name':
-          (user?.userMetadata?['full_name'] ??
-                  user?.userMetadata?['name'] ??
-                  user?.email ??
-                  'Anonymous')
-              .toString(),
-      if (user != null) 'user_id': user.id,
+      'reviewer_name': reviewerName,
     });
   }
 }

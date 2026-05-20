@@ -1,7 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'data_compliance_page.dart';
 import 'faq_page.dart';
+import 'privacy_policy_page.dart';
+import 'terms_of_use_page.dart';
 
 class ProfilePage extends StatefulWidget {
   final bool isDarkMode;
@@ -21,6 +24,21 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  late bool _isDarkMode;
+
+  @override
+  void initState() {
+    super.initState();
+    _isDarkMode = widget.isDarkMode;
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfilePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isDarkMode != widget.isDarkMode) {
+      _isDarkMode = widget.isDarkMode;
+    }
+  }
 
   void _handleBottomNavigation(int index) {
     if (index == 2) return;
@@ -539,6 +557,39 @@ class _ProfilePageState extends State<ProfilePage> {
             ).push(MaterialPageRoute(builder: (_) => const FaqPage()));
           },
         ),
+        const SizedBox(height: 14),
+        _ProfileOptionTile(
+          icon: Icons.privacy_tip_outlined,
+          title: 'Privacy Policy',
+          subtitle: 'Read how your information is collected and used',
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()),
+            );
+          },
+        ),
+        const SizedBox(height: 14),
+        _ProfileOptionTile(
+          icon: Icons.gavel_outlined,
+          title: 'Terms of Use',
+          subtitle: 'Review the rules and conditions for using the app',
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const TermsOfUsePage()),
+            );
+          },
+        ),
+        const SizedBox(height: 14),
+        _ProfileOptionTile(
+          icon: Icons.security_outlined,
+          title: 'Data & Compliance',
+          subtitle: 'Learn how data handling and compliance are managed',
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const DataCompliancePage()),
+            );
+          },
+        ),
       ],
     );
   }
@@ -575,9 +626,13 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
             Switch(
-              value: isDark,
-              onChanged: widget.onToggleDarkMode,
-              activeThumbColor: Colors.blue,
+              value: _isDarkMode,
+              onChanged: (value) {
+                setState(() {
+                  _isDarkMode = value;
+                });
+                widget.onToggleDarkMode(value);
+              },
             ),
           ],
         ),
