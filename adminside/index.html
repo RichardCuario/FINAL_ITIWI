@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>iTIWI Admin Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-logo">
+        <img src="assets/ITIWI-LOGO.png" alt="iTIWI Logo" class="sidebar-logo-icon" />
+      </div>
+      <div class="brand-text">
+        <img src="assets/TEXTLOGO.png" alt="iTIWI" class="sidebar-logo-text" />
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-page="dashboard">
+        <i class="fa-solid fa-gauge"></i>
+        <span>Dashboard</span>
+      </a>
+      <a href="#" class="nav-item" data-page="barangay">
+        <i class="fa-solid fa-building"></i>
+        <span>Manage Barangay</span>
+      </a>
+      <a href="#" class="nav-item" data-page="news">
+        <i class="fa-solid fa-newspaper"></i>
+        <span>Manage News</span>
+      </a>
+      <a href="#" class="nav-item" data-page="reports">
+        <i class="fa-solid fa-flag"></i>
+        <span>Reports</span>
+      </a>
+      <a href="#" class="nav-item" data-page="transparency">
+        <i class="fa-solid fa-file-lines"></i>
+        <span>Transparency</span>
+      </a>
+      <a href="#" class="nav-item" data-page="tourist">
+        <i class="fa-solid fa-map-location-dot"></i>
+        <span>Tourist Guide</span>
+      </a>
+      <a href="#" class="nav-item" data-page="services">
+        <i class="fa-solid fa-globe"></i>
+        <span>Online Services</span>
+      </a>
+      <a href="#" class="nav-item" data-page="hotline">
+        <i class="fa-solid fa-phone"></i>
+        <span>Manage Hotline</span>
+      </a>
+      <a href="#" class="nav-item" data-page="settings">
+        <i class="fa-solid fa-gear"></i>
+        <span>Settings</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-profile-sidebar">
+        <div class="user-avatar-sidebar">
+          <i class="fa-solid fa-user"></i>
+        </div>
+        <div class="user-info-sidebar">
+          <span class="user-name-sidebar">Admin User</span>
+          <span class="user-role-sidebar">Administrator</span>
+        </div>
+        <button class="logout-btn" title="Logout">
+          <i class="fa-solid fa-right-from-bracket"></i>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Top Header -->
+    <header class="top-header">
+      <div class="header-left">
+        <button class="menu-toggle" id="menuToggle">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" placeholder="Search here..." />
+        </div>
+      </div>
+      <div class="header-right">
+        <button class="icon-btn notification-btn" id="notificationBtn" title="Notifications">
+          <i class="fa-solid fa-bell"></i>
+          <span class="notification-badge" id="notificationBadge">0</span>
+        </button>
+
+        <!-- Notification Panel -->
+        <div class="notification-panel" id="notificationPanel">
+          <div class="notification-header">
+            <h3>Notifications</h3>
+            <button class="notification-clear-btn" id="clearNotificationsBtn" title="Clear all">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+          <div class="notification-list" id="notificationList">
+            <p class="notification-empty">No notifications yet</p>
+          </div>
+        </div>
+
+        <div class="header-user">
+          <div class="header-avatar">
+            <i class="fa-solid fa-user"></i>
+          </div>
+          <div class="header-user-info">
+            <span class="header-user-name">Admin User</span>
+            <span class="header-user-role">Administrator</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Page Content -->
+    <div class="page-content" id="pageContent">
+      <!-- Dashboard Page -->
+      <section class="page dashboard-page active" id="dashboardPage">
+        <div class="page-header">
+          <h1>Dashboard</h1>
+          <p class="page-subtitle">Welcome back, Admin! Here's what's happening today.</p>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon stat-icon-blue">
+              <i class="fa-solid fa-building"></i>
+            </div>
+            <div class="stat-info">
+              <span class="stat-label">Total Barangay</span>
+              <span class="stat-value" id="totalBarangay">0</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon stat-icon-green">
+              <i class="fa-solid fa-newspaper"></i>
+            </div>
+            <div class="stat-info">
+              <span class="stat-label">Total News</span>
+              <span class="stat-value" id="totalNews">0</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon stat-icon-orange">
+              <i class="fa-solid fa-flag"></i>
+            </div>
+            <div class="stat-info">
+              <span class="stat-label">Total Reports</span>
+              <span class="stat-value" id="totalReports">0</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon stat-icon-purple">
+              <i class="fa-solid fa-users"></i>
+            </div>
+            <div class="stat-info">
+              <span class="stat-label">Users</span>
+              <span class="stat-value" id="activeUsers">0</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon stat-icon-red">
+              <i class="fa-solid fa-circle-exclamation"></i>
+            </div>
+            <div class="stat-info">
+              <span class="stat-label">Pending Reports</span>
+              <span class="stat-value" id="pendingReports">0</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon stat-icon-yellow">
+              <i class="fa-solid fa-hourglass-end"></i>
+            </div>
+            <div class="stat-info">
+              <span class="stat-label">Pending Services</span>
+              <span class="stat-value" id="pendingServices">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Analytics Section -->
+        <div class="analytics-container">
+          <!-- Report Status Breakdown -->
+          <div class="card analytics-card">
+            <div class="card-header">
+              <h2>Report Status Breakdown</h2>
+            </div>
+            <div class="status-breakdown">
+              <div class="status-item">
+                <span class="status-label">Pending</span>
+                <div class="status-bar">
+                  <div class="status-fill pending-fill" id="reportPendingBar" style="width: 0%"></div>
+                </div>
+                <span class="status-count" id="reportPendingCount">0</span>
+              </div>
+              <div class="status-item">
+                <span class="status-label">Reviewing</span>
+                <div class="status-bar">
+                  <div class="status-fill reviewing-fill" id="reportReviewingBar" style="width: 0%"></div>
+                </div>
+                <span class="status-count" id="reportReviewingCount">0</span>
+              </div>
+              <div class="status-item">
+                <span class="status-label">Resolved</span>
+                <div class="status-bar">
+                  <div class="status-fill resolved-fill" id="reportResolvedBar" style="width: 0%"></div>
+                </div>
+                <span class="status-count" id="reportResolvedCount">0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Service Request Status Breakdown -->
+          <div class="card analytics-card">
+            <div class="card-header">
+              <h2>Service Request Status Breakdown</h2>
+            </div>
+            <div class="status-breakdown">
+              <div class="status-item">
+                <span class="status-label">Pending</span>
+                <div class="status-bar">
+                  <div class="status-fill pending-fill" id="servicePendingBar" style="width: 0%"></div>
+                </div>
+                <span class="status-count" id="servicePendingCount">0</span>
+              </div>
+              <div class="status-item">
+                <span class="status-label">Processing</span>
+                <div class="status-bar">
+                  <div class="status-fill processing-fill" id="serviceProcessingBar" style="width: 0%"></div>
+                </div>
+                <span class="status-count" id="serviceProcessingCount">0</span>
+              </div>
+              <div class="status-item">
+                <span class="status-label">Completed</span>
+                <div class="status-bar">
+                  <div class="status-fill resolved-fill" id="serviceCompletedBar" style="width: 0%"></div>
+                </div>
+                <span class="status-count" id="serviceCompletedCount">0</span>
+              </div>
+              <div class="status-item">
+                <span class="status-label">Rejected</span>
+                <div class="status-bar">
+                  <div class="status-fill rejected-fill" id="serviceRejectedBar" style="width: 0%"></div>
+                </div>
+                <span class="status-count" id="serviceRejectedCount">0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- News by Category -->
+          <div class="card analytics-card" style="display: none;">
+            <div class="card-header">
+              <h2>News by Category</h2>
+            </div>
+            <div class="category-list" id="newsByCategoryList">
+              <p class="loading-text">Loading...</p>
+            </div>
+          </div>
+
+          <!-- Reports by Category -->
+          <div class="card analytics-card" style="display: none;">
+            <div class="card-header">
+              <h2>Reports by Category</h2>
+            </div>
+            <div class="category-list" id="reportsByCategoryList">
+              <p class="loading-text">Loading...</p>
+            </div>
+          </div>
+
+          <!-- Service Requests by Type -->
+          <div class="card analytics-card" style="display: none;">
+            <div class="card-header">
+              <h2>Service Requests by Type</h2>
+            </div>
+            <div class="category-list" id="servicesByTypeList">
+              <p class="loading-text">Loading...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Manage Barangay Page -->
+      <section class="page barangay-page" id="barangayPage">
+        <div class="page-header">
+          <h1>Manage Barangay</h1>
+          <p class="page-subtitle">View, add, edit, and delete barangay records.</p>
+        </div>
+
+        <div class="card table-card">
+          <div class="card-header">
+            <h2>All Barangay Records</h2>
+            <div class="card-header-actions">
+              <div class="search-box table-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" placeholder="Search barangay..." id="barangaySearch" />
+              </div>
+              <button class="btn btn-primary" onclick="openAddModal()">
+                <i class="fa-solid fa-plus"></i>
+                Add Barangay
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Logo</th>
+                  <th>Barangay Name</th>
+                  <th>Description</th>
+                  <th>Geographic Data</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="barangayTableBody">
+                <tr>
+                  <td colspan="5" class="empty-state">Loading...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <span class="showing-text" id="barangayShowing">Showing 0 of 0 entries</span>
+            <div class="pagination" id="barangayPagination"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Manage News Page -->
+      <section class="page news-page" id="newsPage">
+        <div class="page-header">
+          <h1>Manage News</h1>
+          <p class="page-subtitle">Create and manage news articles.</p>
+        </div>
+        <div class="card table-card">
+          <div class="card-header">
+            <h2>All News Articles</h2>
+            <div class="card-header-actions">
+              <div class="search-box table-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" placeholder="Search news..." id="newsSearch" />
+              </div>
+              <button class="btn btn-primary" onclick="openNewsModal()">
+                <i class="fa-solid fa-plus"></i>
+                Add News
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Description</th>
+                  <th>Image</th>
+                  <th>Published</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="newsTableBody">
+                <tr>
+                  <td colspan="5" class="empty-state">Loading...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <span class="showing-text" id="newsShowing">Showing 0 of 0 entries</span>
+            <div class="pagination" id="newsPagination"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Reports Page -->
+      <section class="page reports-page" id="reportsPage">
+        <div class="page-header">
+          <h1>Reports</h1>
+          <p class="page-subtitle">View and manage all user-submitted reports.</p>
+        </div>
+        <div class="card table-card">
+          <div class="card-header">
+            <h2>All Reports</h2>
+            <div class="card-header-actions">
+              <div class="search-box table-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" placeholder="Search reports..." id="reportsSearch" />
+              </div>
+              <select id="reportStatusFilter" class="status-filter">
+                <option value="">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="reviewing">Under Review</option>
+                <option value="resolved">Resolved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Reporter Name</th>
+                  <th>Message</th>
+                  <th>Status</th>
+                  <th>Attachments</th>
+                  <th>Date Submitted</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="reportsTableBody">
+                <tr>
+                  <td colspan="6" class="empty-state">Loading...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <span class="showing-text" id="reportsShowing">Showing 0 of 0 entries</span>
+            <div class="pagination" id="reportsPagination"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Transparency Page -->
+      <section class="page transparency-page" id="transparencyPage">
+        <div class="page-header">
+          <h1>Transparency</h1>
+          <p class="page-subtitle">Manage and view all transparency documents and records.</p>
+        </div>
+        <div class="card table-card">
+          <div class="card-header">
+            <h2>Transparency Records</h2>
+            <div class="card-header-actions">
+              <select id="transparencyTypeFilter" class="status-filter">
+                <option value="">All Types</option>
+                <option value="annual_budget">Annual Budget</option>
+                <option value="bids">Bids</option>
+                <option value="executive_orders">Executive Orders</option>
+                <option value="financial_reports">Financial Reports</option>
+                <option value="legislative_ordinances">Legislative Ordinances</option>
+                <option value="programs">Programs</option>
+              </select>
+              <div class="search-box table-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" placeholder="Search records..." id="transparencySearch" />
+              </div>
+              <button class="btn btn-primary" onclick="openTransparencyModal()">
+                <i class="fa-solid fa-plus"></i>
+                Add Record
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Type</th>
+                  <th>Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="transparencyTableBody">
+                <tr>
+                  <td colspan="6" class="empty-state">Loading...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <span class="showing-text" id="transparencyShowing">Showing 0 of 0 entries</span>
+            <div class="pagination" id="transparencyPagination"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tourist Guide Page -->
+      <section class="page tourist-page" id="touristPage">
+        <div class="page-header">
+          <h1>Tourist Guide</h1>
+          <p class="page-subtitle">Manage tourist destinations, attractions, and local guides.</p>
+        </div>
+        <div class="card table-card">
+          <div class="card-header">
+            <h2>Tourist Destinations</h2>
+            <div class="card-header-actions">
+              <div class="search-box table-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" placeholder="Search destinations..." id="touristSearch" />
+              </div>
+              <button class="btn btn-primary" onclick="openTouristModal()">
+                <i class="fa-solid fa-plus"></i>
+                Add Destination
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Location</th>
+                  <th>Category</th>
+                  <th>Description</th>
+                  <th>Reviews</th>
+                  <th>Date Added</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="touristTableBody">
+                <tr>
+                  <td colspan="7" class="empty-state">Loading...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <span class="showing-text" id="touristShowing">Showing 0 of 0 entries</span>
+            <div class="pagination" id="touristPagination"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Online Services Page -->
+      <section class="page services-page" id="servicesPage">
+        <div class="page-header">
+          <h1>Online Services</h1>
+          <p class="page-subtitle">Manage online service requests, certificates, and bookings.</p>
+        </div>
+        <div class="card table-card">
+          <div class="card-header">
+            <h2>Service Requests</h2>
+            <div class="card-header-actions">
+              <select id="serviceStatusFilter" class="status-filter">
+                <option value="">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
+                <option value="completed">Completed</option>
+                <option value="rejected">Rejected</option>
+              </select>
+              <div class="search-box table-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" placeholder="Search services..." id="serviceSearch" />
+              </div>
+              <button class="btn btn-primary" onclick="openServiceModal()">
+                <i class="fa-solid fa-plus"></i>
+                Add Service
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Requested By</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>Date Requested</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="serviceTableBody">
+                <tr>
+                  <td colspan="5" class="empty-state">Loading...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <span class="showing-text" id="serviceShowing">Showing 0 of 0 entries</span>
+            <div class="pagination" id="servicePagination"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Manage Hotline Page -->
+      <section class="page hotline-page" id="hotlinePage">
+        <div class="page-header">
+          <h1>Manage Hotline</h1>
+          <p class="page-subtitle">View, add, edit, and delete hotline records.</p>
+        </div>
+        <div class="card table-card">
+          <div class="card-header">
+            <h2>All Hotline Records</h2>
+            <div class="card-header-actions">
+              <div class="search-box table-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" placeholder="Search hotlines..." id="hotlineSearch" />
+              </div>
+              <button class="btn btn-primary" onclick="openHotlineModal()">
+                <i class="fa-solid fa-plus"></i>
+                Add Hotline
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Logo</th>
+                  <th>Name</th>
+                  <th>Category</th>
+                  <th>Hotline Number</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="hotlineTableBody">
+                <tr>
+                  <td colspan="5" class="empty-state">Loading...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <span class="showing-text" id="hotlineShowing">Showing 0 of 0 entries</span>
+            <div class="pagination" id="hotlinePagination"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Settings Page -->
+      <section class="page settings-page" id="settingsPage">
+        <div class="page-header">
+          <h1>Settings</h1>
+          <p class="page-subtitle">Manage your account and application settings.</p>
+        </div>
+
+        <!-- Account Settings -->
+        <div class="card">
+          <div class="card-header">
+            <h2>Account Settings</h2>
+          </div>
+          <div class="form-section">
+            <div class="section-header">
+              <h3>Admin Account Information</h3>
+              <p class="section-subtitle">Update your admin account details.</p>
+            </div>
+            <div class="form-grid-2col">
+              <div class="form-group">
+                <label for="settingsEmail">Email Address <span class="required">*</span></label>
+                <input type="email" id="settingsEmail" placeholder="admin@example.com" readonly />
+              </div>
+              <div class="form-group">
+                <label for="settingsFullName">Full Name</label>
+                <input type="text" id="settingsFullName" placeholder="Enter your full name" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="settingsCurrentPassword">Current Password <span class="required">*</span></label>
+              <input type="password" id="settingsCurrentPassword" placeholder="Enter current password" />
+            </div>
+            <div class="form-group">
+              <label for="settingsNewPassword">New Password</label>
+              <input type="password" id="settingsNewPassword" placeholder="Leave blank to keep current password" />
+            </div>
+            <div class="form-group">
+              <label for="settingsConfirmPassword">Confirm New Password</label>
+              <input type="password" id="settingsConfirmPassword" placeholder="Confirm new password" />
+            </div>
+            <div class="form-group" style="margin-top: 20px;">
+              <button class="btn btn-primary" onclick="updateAccountSettings()">
+                <i class="fa-solid fa-floppy-disk"></i>
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- System Settings -->
+        <div class="card">
+          <div class="card-header">
+            <h2>System Settings</h2>
+          </div>
+          <div class="form-section">
+            <div class="section-header">
+              <h3>Application Preferences</h3>
+              <p class="section-subtitle">Configure system-wide preferences and behaviors.</p>
+            </div>
+            <div class="form-group">
+              <label for="settingsItemsPerPage" class="checkbox-label">
+                <span>Items Per Page</span>
+              </label>
+              <select id="settingsItemsPerPage">
+                <option value="10">10 items per page</option>
+                <option value="25">25 items per page</option>
+                <option value="50">50 items per page</option>
+                <option value="100">100 items per page</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="settingsThemeMode" class="checkbox-label">
+                <span>Theme Mode</span>
+              </label>
+              <select id="settingsThemeMode">
+                <option value="light">Light Mode</option>
+                <option value="dark">Dark Mode</option>
+                <option value="auto">Auto (System)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="settingsNotifications" class="checkbox-label">
+                <input type="checkbox" id="settingsNotifications" />
+                <span>Enable Browser Notifications</span>
+              </label>
+              <p class="form-help-text">Receive notifications for important system events</p>
+            </div>
+            <div class="form-group">
+              <label for="settingsAutoSave" class="checkbox-label">
+                <input type="checkbox" id="settingsAutoSave" />
+                <span>Auto-save Draft Changes</span>
+              </label>
+              <p class="form-help-text">Automatically save form drafts while editing</p>
+            </div>
+            <div class="form-group" style="margin-top: 20px;">
+              <button class="btn btn-primary" onclick="updateSystemSettings()">
+                <i class="fa-solid fa-floppy-disk"></i>
+                Save System Settings
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Data Management -->
+        <div class="card">
+          <div class="card-header">
+            <h2>Data Management</h2>
+          </div>
+          <div class="form-section">
+            <div class="section-header">
+              <h3>Backup & Export</h3>
+              <p class="section-subtitle">Manage your data backups and exports.</p>
+            </div>
+            <div class="action-group">
+              <button class="btn btn-secondary" onclick="exportDashboardData()">
+                <i class="fa-solid fa-download"></i>
+                Export Dashboard Data
+              </button>
+              <p class="form-help-text">Export all dashboard data as CSV</p>
+            </div>
+            <div class="action-group" style="margin-top: 15px;">
+              <button class="btn btn-secondary" onclick="backupDatabase()">
+                <i class="fa-solid fa-database"></i>
+                Create Database Backup
+              </button>
+              <p class="form-help-text">Create a backup of all system data</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="card danger-card">
+          <div class="card-header">
+            <h2>Danger Zone</h2>
+          </div>
+          <div class="form-section">
+            <div class="section-header">
+              <h3>Account Actions</h3>
+              <p class="section-subtitle">Irreversible actions - proceed with caution.</p>
+            </div>
+            <div class="action-group">
+              <button class="btn btn-danger" onclick="clearAllData()">
+                <i class="fa-solid fa-trash"></i>
+                Clear All Data
+              </button>
+              <p class="form-help-text">Delete all records from the system (cannot be undone)</p>
+            </div>
+            <div class="action-group" style="margin-top: 15px;">
+              <button class="btn btn-danger" onclick="resetSettings()">
+                <i class="fa-solid fa-redo"></i>
+                Reset All Settings
+              </button>
+              <p class="form-help-text">Reset all settings to defaults</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Add/Edit Barangay Modal -->
+  <div class="modal-overlay" id="barangayModal">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h2 id="barangayModalTitle">Add Barangay</h2>
+        <button class="modal-close" onclick="closeBarangayModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Section 1: Basic Information -->
+        <div class="form-section">
+          <div class="section-header">
+            <h3>Basic information</h3>
+            <p class="section-subtitle">Start with the barangay identity, overview, and geographic description.</p>
+          </div>
+          <div class="form-group">
+            <label for="barangayName">Barangay name <span class="required">*</span></label>
+            <input type="text" id="barangayName" placeholder="Enter barangay name" />
+          </div>
+          <div class="form-group">
+            <label for="barangayDescription">Description <span class="required">*</span></label>
+            <textarea id="barangayDescription" rows="3" placeholder="Enter barangay description"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="barangayLocation">Geographic data <span class="required">*</span></label>
+            <textarea id="barangayLocation" rows="2" placeholder="Enter geographic coordinates or address"></textarea>
+          </div>
+        </div>
+
+        <!-- Section 2: Barangay Officials -->
+        <div class="form-section">
+          <div class="section-header">
+            <h3>Barangay officials</h3>
+            <p class="section-subtitle">Required officials: 1 Punong Barangay, 7 Barangay Kagawad, 1 SK Chairman, 1 Barangay Secretary, and 1 Barangay Treasurer.</p>
+          </div>
+          <div class="form-grid-2col">
+            <div class="form-group">
+              <label for="punongBarangay">Punong Barangay <span class="required">*</span></label>
+              <input type="text" id="punongBarangay" placeholder="Enter name" />
+            </div>
+            <div class="form-group">
+              <label for="skChairman">SK Chairman <span class="required">*</span></label>
+              <input type="text" id="skChairman" placeholder="Enter name" />
+            </div>
+            <div class="form-group">
+              <label for="barangaySecretary">Barangay Secretary <span class="required">*</span></label>
+              <input type="text" id="barangaySecretary" placeholder="Enter name" />
+            </div>
+            <div class="form-group">
+              <label for="barangayTreasurer">Barangay Treasurer <span class="required">*</span></label>
+              <input type="text" id="barangayTreasurer" placeholder="Enter name" />
+            </div>
+          </div>
+
+          <div class="subsection">
+            <h4>Barangay Kagawad</h4>
+            <p class="subsection-subtitle">Add all seven kagawad names to complete the record.</p>
+            <div class="form-grid-2col">
+              <div class="form-group">
+                <label for="kagawad1">Kagawad 1 <span class="required">*</span></label>
+                <input type="text" id="kagawad1" placeholder="Enter name" />
+              </div>
+              <div class="form-group">
+                <label for="kagawad2">Kagawad 2 <span class="required">*</span></label>
+                <input type="text" id="kagawad2" placeholder="Enter name" />
+              </div>
+              <div class="form-group">
+                <label for="kagawad3">Kagawad 3 <span class="required">*</span></label>
+                <input type="text" id="kagawad3" placeholder="Enter name" />
+              </div>
+              <div class="form-group">
+                <label for="kagawad4">Kagawad 4 <span class="required">*</span></label>
+                <input type="text" id="kagawad4" placeholder="Enter name" />
+              </div>
+              <div class="form-group">
+                <label for="kagawad5">Kagawad 5 <span class="required">*</span></label>
+                <input type="text" id="kagawad5" placeholder="Enter name" />
+              </div>
+              <div class="form-group">
+                <label for="kagawad6">Kagawad 6 <span class="required">*</span></label>
+                <input type="text" id="kagawad6" placeholder="Enter name" />
+              </div>
+              <div class="form-group">
+                <label for="kagawad7">Kagawad 7 <span class="required">*</span></label>
+                <input type="text" id="kagawad7" placeholder="Enter name" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Map Coordinates -->
+        <div class="form-section">
+          <div class="section-header">
+            <h3>Map coordinates</h3>
+            <p class="section-subtitle">Enter the exact latitude and longitude of the barangay hall or center point used by the app preview.</p>
+          </div>
+          <div class="form-grid-2col">
+            <div class="form-group">
+              <label for="barangayLatitude">Latitude <span class="required">*</span></label>
+              <input type="text" id="barangayLatitude" placeholder="e.g. 13.458921" />
+            </div>
+            <div class="form-group">
+              <label for="barangayLongitude">Longitude <span class="required">*</span></label>
+              <input type="text" id="barangayLongitude" placeholder="e.g. 123.680214" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 4: Media Uploads -->
+        <div class="form-section">
+          <div class="section-header">
+            <h3>Media uploads</h3>
+            <p class="section-subtitle">Upload visual assets for the barangay seal and cover image.</p>
+          </div>
+          <div class="upload-area-container">
+            <div class="upload-area">
+              <label>Barangay Seal / Logo</label>
+              <p class="upload-helper-text">Upload a barangay seal or logo. </p>
+              <div class="logo-upload-wrapper">
+                <div class="logo-preview" id="logoPreview">
+                  <i class="fa-solid fa-image"></i>
+                  <span>No image selected</span>
+                </div>
+                <input type="file" id="barangayLogo" accept="image/*" style="display: none;" />
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('barangayLogo').click()">
+                  <i class="fa-solid fa-upload"></i>
+                  Choose File
+                </button>
+              </div>
+            </div>
+
+            <div class="upload-area">
+              <label>Barangay Cover Image</label>
+              <p class="upload-helper-text">Upload a cover image for the barangay. This will be used for preview thumbnails.</p>
+              <div class="logo-upload-wrapper">
+                <div class="logo-preview" id="coverImagePreview">
+                  <i class="fa-solid fa-image"></i>
+                  <span>No image selected</span>
+                </div>
+                <input type="file" id="barangayCoverImage" accept="image/*" style="display: none;" />
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('barangayCoverImage').click()">
+                  <i class="fa-solid fa-upload"></i>
+                  Choose File
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hidden inputs for state -->
+        <input type="hidden" id="barangayEditId" />
+        <input type="hidden" id="barangayLogoBase64" />
+        <input type="hidden" id="barangayCoverImageBase64" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeBarangayModal()">Cancel</button>
+        <button class="btn btn-primary" id="barangaySaveBtn" onclick="saveBarangay()">
+          <i class="fa-solid fa-floppy-disk"></i>
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit News Modal -->
+  <div class="modal-overlay" id="newsModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="newsModalTitle">Add News</h2>
+        <button class="modal-close" onclick="closeNewsModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="newsTitle">Title <span class="required">*</span></label>
+          <input type="text" id="newsTitle" placeholder="Enter news title" />
+        </div>
+        <div class="form-group">
+          <label for="newsContent">Description <span class="required">*</span></label>
+          <textarea id="newsContent" rows="5" placeholder="Enter news description"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="newsImage">Upload Image</label>
+          <div class="logo-upload-wrapper">
+            <div class="logo-preview" id="newsImagePreview">
+              <i class="fa-solid fa-image"></i>
+              <span>No image selected</span>
+            </div>
+            <input type="file" id="newsImage" accept="image/*" style="display: none;" />
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('newsImage').click()">
+              <i class="fa-solid fa-upload"></i>
+              Choose File
+            </button>
+          </div>
+        </div>
+        <input type="hidden" id="newsEditId" />
+        <input type="hidden" id="newsImageUrl" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeNewsModal()">Cancel</button>
+        <button class="btn btn-primary" id="newsSaveBtn" onclick="saveNews()">
+          <i class="fa-solid fa-floppy-disk"></i>
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal-overlay" id="deleteModal">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h2>Confirm Delete</h2>
+        <button class="modal-close" onclick="closeDeleteModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="delete-confirm">
+          <i class="fa-solid fa-triangle-exclamation delete-icon"></i>
+          <p id="deleteMessage">Are you sure you want to delete this record?</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+        <button class="btn btn-danger" id="deleteConfirmBtn" onclick="confirmDelete()">
+          <i class="fa-solid fa-trash"></i>
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Report Details Modal -->
+  <div class="modal-overlay" id="reportModal">
+    <div class="modal" style="max-width: 700px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h2 id="reportModalTitle">Report Details</h2>
+        <button class="modal-close" onclick="closeReportModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="reportReporterName">Reporter Name</label>
+          <input type="text" id="reportReporterName" placeholder="Reporter name" readonly />
+        </div>
+        <div class="form-group">
+          <label for="reportMessage">Message</label>
+          <textarea id="reportMessage" rows="5" placeholder="Report message" readonly></textarea>
+        </div>
+        <div class="form-group">
+          <label>Attachments</label>
+          <div id="reportAttachmentsContainer" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;">
+            <p style="color: #999; font-size: 13px;">No attachments</p>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="reportStatus">Status</label>
+          <select id="reportStatus">
+            <option value="pending">Pending</option>
+            <option value="reviewing">Under Review</option>
+            <option value="resolved">Resolved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+        <div class="form-group" id="rejectionReasonGroup" style="display: none;">
+          <label for="reportRejectionReason">Rejection Reason</label>
+          <textarea id="reportRejectionReason" rows="3" placeholder="Explain why the report is rejected..."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="reportSubmittedDate">Submitted Date</label>
+          <input type="text" id="reportSubmittedDate" placeholder="Date" readonly />
+        </div>
+        <input type="hidden" id="reportEditId" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeReportModal()">Close</button>
+        <button class="btn btn-delete" id="reportDeleteBtn" onclick="openDeleteReport(document.getElementById('reportEditId').value, 'this report')">
+          <i class="fa-solid fa-trash"></i>
+          Delete
+        </button>
+        <button class="btn btn-primary" id="reportSaveBtn" onclick="updateReportStatus()">
+          <i class="fa-solid fa-floppy-disk"></i>
+          Update Report
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Transparency Modal -->
+  <div class="modal-overlay" id="transparencyModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="transparencyModalTitle">Add Annual Budget Record</h2>
+        <button class="modal-close" onclick="closeTransparencyModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="transparencyTitle">Title <span class="required">*</span></label>
+          <input type="text" id="transparencyTitle" placeholder="e.g., FY 2024 Annual Budget" />
+        </div>
+        <div class="form-group">
+          <label for="transparencyDescription">Description <span class="required">*</span></label>
+          <textarea id="transparencyDescription" rows="3" placeholder="Enter description of the budget record"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="transparencyPdfUrl">PDF Document <span class="required">*</span></label>
+          <div class="logo-upload-wrapper">
+            <div class="logo-preview" id="transparencyPdfPreview">
+              <i class="fa-solid fa-file-pdf"></i>
+              <span>No PDF selected</span>
+            </div>
+            <input type="file" id="transparencyPdfUrl" accept=".pdf" style="display: none;" />
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('transparencyPdfUrl').click()">
+              <i class="fa-solid fa-upload"></i>
+              Choose PDF
+            </button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="transparencyDisplayOrder">Display Order <span class="required">*</span></label>
+          <input type="number" id="transparencyDisplayOrder" placeholder="Enter display order" min="0" />
+        </div>
+        <div class="form-group">
+          <label for="transparencyIsPublished" class="checkbox-label">
+            <input type="checkbox" id="transparencyIsPublished" />
+            <span>Publish Record</span>
+          </label>
+          <p class="form-help-text">Check to make this record visible to the public</p>
+        </div>
+        <input type="hidden" id="transparencyEditId" />
+        <input type="hidden" id="transparencyCurrentType" />
+        <input type="hidden" id="transparencyPdfBase64" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeTransparencyModal()">Cancel</button>
+        <button class="btn btn-primary" id="transparencySaveBtn" onclick="saveTransparency()">
+          <i class="fa-solid fa-floppy-disk"></i>
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Tourist Guide Modal -->
+  <div class="modal-overlay" id="touristModal">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h2 id="touristModalTitle">Add Tourist Destination</h2>
+        <button class="modal-close" onclick="closeTouristModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Section 1: Basic Information -->
+        <div class="form-section">
+          <div class="section-header">
+            <h3>Basic information</h3>
+            <p class="section-subtitle">Start with the destination name, category, and description.</p>
+          </div>
+          <div class="form-group">
+            <label for="touristName">Destination Name <span class="required">*</span></label>
+            <input type="text" id="touristName" placeholder="Enter destination name" />
+          </div>
+          <div class="form-grid-2col">
+            <div class="form-group">
+              <label for="touristCategory">Category <span class="required">*</span></label>
+              <select id="touristCategory">
+                <option value="">Select category</option>
+                <option value="Beach">Beach</option>
+                <option value="Mountain">Mountain</option>
+                <option value="Historical">Historical</option>
+                <option value="Cultural">Cultural</option>
+                <option value="Religious">Religious</option>
+                <option value="Nature">Nature</option>
+                <option value="Adventure">Adventure</option>
+                <option value="Resort">Resort</option>
+                <option value="Religious Site">Religious Site</option>
+                <option value="Entertainment">Entertainment</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="touristDistanceLabel">Distance Label</label>
+              <input type="text" id="touristDistanceLabel" placeholder="e.g., 3km" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="touristDescription">Description <span class="required">*</span></label>
+            <textarea id="touristDescription" rows="4" placeholder="Describe the destination in detail"></textarea>
+          </div>
+        </div>
+
+        <!-- Section 2: Location Information -->
+        <div class="form-section">
+          <div class="section-header">
+            <h3>Location information</h3>
+            <p class="section-subtitle">Provide location details and coordinates.</p>
+          </div>
+          <div class="form-group">
+            <label for="touristLocation">Short Location <span class="required">*</span></label>
+            <input type="text" id="touristLocation" placeholder="e.g., Barlis, Tiwi" />
+          </div>
+          <div class="form-group">
+            <label for="touristFullAddress">Full Address</label>
+            <input type="text" id="touristFullAddress" placeholder="Complete street address" />
+          </div>
+          <div class="form-grid-2col">
+            <div class="form-group">
+              <label for="touristLatitude">Latitude <span class="required">*</span></label>
+              <input type="text" id="touristLatitude" placeholder="e.g., 13.4573" />
+            </div>
+            <div class="form-group">
+              <label for="touristLongitude">Longitude <span class="required">*</span></label>
+              <input type="text" id="touristLongitude" placeholder="e.g., 123.6749" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Contact Information -->
+        <div class="form-section">
+          <div class="section-header">
+            <h3>Contact information</h3>
+            <p class="section-subtitle">Add phone number and website.</p>
+          </div>
+          <div class="form-group">
+            <label for="touristContactNumber">Contact Number</label>
+            <input type="text" id="touristContactNumber" placeholder="Phone number" />
+          </div>
+          <div class="form-group">
+            <label for="touristWebsiteUrl">Website URL</label>
+            <input type="url" id="touristWebsiteUrl" placeholder="https://example.com" />
+          </div>
+        </div>
+
+        <!-- Section 4: Media Upload -->
+        <div class="form-section">
+          <div class="section-header">
+            <h3>Media upload</h3>
+            <p class="section-subtitle">Upload an image for the destination.</p>
+          </div>
+          <div class="upload-area">
+            <label>Destination Image</label>
+            <p class="upload-helper-text">Upload a high-quality image of the destination.</p>
+            <div class="logo-upload-wrapper">
+              <div class="logo-preview" id="touristImagePreview">
+                <i class="fa-solid fa-image"></i>
+                <span>No image selected</span>
+              </div>
+              <input type="file" id="touristImage" accept="image/*" style="display: none;" />
+              <button type="button" class="btn btn-secondary" onclick="document.getElementById('touristImage').click()">
+                <i class="fa-solid fa-upload"></i>
+                Choose File
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 5: Publishing Options -->
+        <div class="form-section">
+          <div class="section-header">
+            <h3>Publishing options</h3>
+            <p class="section-subtitle">Control visibility and featured status.</p>
+          </div>
+          <div class="form-group">
+            <label for="touristIsFeatured" class="checkbox-label">
+              <input type="checkbox" id="touristIsFeatured" />
+              <span>Featured Destination</span>
+            </label>
+            <p class="form-help-text">Featured destinations will appear prominently in the app</p>
+          </div>
+          <div class="form-group">
+            <label for="touristIsPublished" class="checkbox-label">
+              <input type="checkbox" id="touristIsPublished" />
+              <span>Publish Destination</span>
+            </label>
+            <p class="form-help-text">Check to make this destination visible to the public</p>
+          </div>
+        </div>
+
+        <input type="hidden" id="touristEditId" />
+        <input type="hidden" id="touristImageBase64" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeTouristModal()">Cancel</button>
+        <button class="btn btn-primary" id="touristSaveBtn" onclick="saveTourist()">
+          <i class="fa-solid fa-floppy-disk"></i>
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Place Reviews Modal -->
+  <div class="modal-overlay" id="placeReviewsModal">
+    <div class="modal" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h2 id="placeReviewsModalTitle">Reviews</h2>
+        <button class="modal-close" onclick="closePlaceReviewsModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div id="reviewsList" style="max-height: 60vh; overflow-y: auto;">
+          <p style="text-align: center; color: #999;">Loading reviews...</p>
+        </div>
+        <input type="hidden" id="selectedPlaceId" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closePlaceReviewsModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Service Details Modal -->
+  <div class="modal-overlay" id="serviceDetailsModal">
+    <div class="modal" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h2 id="serviceDetailsTitle">Service Request Details</h2>
+        <button class="modal-close" onclick="closeServiceDetailsModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div id="serviceDetailsContent" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+          <!-- Details will be dynamically populated -->
+        </div>
+        <input type="hidden" id="serviceDetailsId" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeServiceDetailsModal()">Close</button>
+        <button class="btn btn-primary" onclick="openServiceDetailsEditModal()">
+          <i class="fa-solid fa-pen-to-square"></i>
+          Edit
+        </button>
+        <button class="btn btn-delete" onclick="openDeleteService(document.getElementById('serviceDetailsId').value, 'this service')">
+          <i class="fa-solid fa-trash"></i>
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Service Modal -->
+  <div class="modal-overlay" id="serviceModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="serviceModalTitle">Add Service Request</h2>
+        <button class="modal-close" onclick="closeServiceModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="serviceName">Service Name <span class="required">*</span></label>
+          <input type="text" id="serviceName" placeholder="Enter service name" />
+        </div>
+        <div class="form-group">
+          <label for="serviceType">Service Type <span class="required">*</span></label>
+          <select id="serviceType">
+            <option value="">Select type</option>
+            <option value="Birth Certificate">Birth Certificate</option>
+            <option value="Death Certificate">Death Certificate</option>
+            <option value="Marriage Certificate">Marriage Certificate</option>
+            <option value="Cenodeath Appointments">Cenodeath Appointments</option>
+            <option value="Cenomar Appointments">Cenomar Appointments</option>
+            <option value="Facility Borrow">Facility Borrow</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="serviceRequestedBy">Requested By <span class="required">*</span></label>
+          <input type="text" id="serviceRequestedBy" placeholder="Full name" />
+        </div>
+        <div class="form-group">
+          <label for="serviceStatus">Status <span class="required">*</span></label>
+          <select id="serviceStatus">
+            <option value="pending">Pending</option>
+            <option value="processing">Processing</option>
+            <option value="completed">Completed</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="serviceContactNumber">Contact Number</label>
+          <input type="text" id="serviceContactNumber" placeholder="Phone number" />
+        </div>
+        <div class="form-group">
+          <label for="serviceDescription">Description</label>
+          <textarea id="serviceDescription" rows="3" placeholder="Service details or notes"></textarea>
+        </div>
+        <input type="hidden" id="serviceEditId" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeServiceModal()">Cancel</button>
+        <button class="btn btn-primary" id="serviceSaveBtn" onclick="saveService()">
+          <i class="fa-solid fa-floppy-disk"></i>
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Hotline Modal -->
+  <div class="modal-overlay" id="hotlineModal">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h2 id="hotlineModalTitle">Add Hotline</h2>
+        <button class="modal-close" onclick="closeHotlineModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="hotlineName">Hotline Name <span class="required">*</span></label>
+          <input type="text" id="hotlineName" placeholder="Enter hotline name" />
+        </div>
+        <div class="form-group">
+          <label for="hotlineCategory">Category <span class="required">*</span></label>
+          <select id="hotlineCategory">
+            <option value="">Select category</option>
+            <option value="Emergency">Emergency</option>
+            <option value="Health">Health</option>
+            <option value="Public Safety">Public Safety</option>
+            <option value="Social Services">Social Services</option>
+            <option value="Infrastructure">Infrastructure</option>
+            <option value="Administrative">Administrative</option>
+            <option value="Support">Support</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="hotlineNumber">Hotline Number(s) <span class="required">*</span></label>
+          <input type="text" id="hotlineNumber" placeholder="Enter hotline number or multiple numbers separated by commas (e.g., +63-123-456, +63-789-012)" />
+        </div>
+        <div class="form-group">
+          <label for="hotlineDescription">Description</label>
+          <textarea id="hotlineDescription" rows="3" placeholder="Enter description or purpose"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="hotlineLogo">Logo</label>
+          <div class="logo-upload-wrapper">
+            <div class="logo-preview" id="hotlineLogoPreview">
+              <i class="fa-solid fa-image"></i>
+              <span>No image selected</span>
+            </div>
+            <input type="file" id="hotlineLogo" accept="image/*" style="display: none;" />
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('hotlineLogo').click()">
+              <i class="fa-solid fa-upload"></i>
+              Choose File
+            </button>
+          </div>
+          <input type="hidden" id="hotlineLogoBase64" />
+        </div>
+        <input type="hidden" id="hotlineEditId" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeHotlineModal()">Cancel</button>
+        <button class="btn btn-primary" id="hotlineSaveBtn" onclick="saveHotline()">
+          <i class="fa-solid fa-floppy-disk"></i>
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notifications Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>iTIWI Admin Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .login-container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 420px;
+      width: 100%;
+      padding: 50px 40px;
+      animation: slideUp 0.5s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .login-header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .login-logo {
+      height: 60px;
+      margin-bottom: 20px;
+    }
+
+    .login-logo img {
+      height: 100%;
+      width: auto;
+    }
+
+    .login-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-bottom: 8px;
+    }
+
+    .login-subtitle {
+      font-size: 14px;
+      color: #666;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.3s ease;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #667eea;
+      background-color: #f9f9ff;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .form-input::placeholder {
+      color: #999;
+    }
+
+    .password-toggle {
+      position: relative;
+    }
+
+    .password-toggle-btn {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: #667eea;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .form-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      font-size: 13px;
+    }
+
+    .remember-me {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .remember-me input {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    .remember-me label {
+      cursor: pointer;
+      color: #333;
+      font-weight: 500;
+    }
+
+    .forgot-password {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.3s ease;
+    }
+
+    .forgot-password:hover {
+      color: #764ba2;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-bottom: 15px;
+    }
+
+    .submit-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+      gap: 12px;
+      font-size: 13px;
+      color: #999;
+    }
+
+    .divider-line {
+      flex: 1;
+      height: 1px;
+      background: #e0e0e0;
+    }
+
+    .social-buttons {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .social-btn {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      background: white;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 18px;
+      transition: all 0.3s ease;
+    }
+
+    .social-btn:hover {
+      border-color: #667eea;
+      background: #f9f9ff;
+    }
+
+    .login-footer {
+      text-align: center;
+      font-size: 14px;
+      color: #666;
+    }
+
+    .login-footer a {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .login-footer a:hover {
+      text-decoration: underline;
+    }
+
+    .error-message {
+      background-color: #fee;
+      color: #c33;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      display: none;
+      border-left: 4px solid #c33;
+    }
+
+    .error-message.show {
+      display: block;
+    }
+
+    .success-message {
+      background-color: #efe;
+      color: #3c3;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      display: none;
+      border-left: 4px solid #3c3;
+    }
+
+    .success-message.show {
+      display: block;
+    }
+
+    .loader {
+      display: none;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading .loader {
+      display: block;
+    }
+
+    .loading .submit-btn {
+      opacity: 0.8;
+    }
+
+    @media (max-width: 480px) {
+      .login-container {
+        padding: 40px 24px;
+      }
+
+      .login-title {
+        font-size: 24px;
+      }
+
+      .social-buttons {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-header">
+      <div class="login-logo">
+        <img src="assets/ITIWI-LOGO.png" alt="iTIWI Logo" />
+      </div>
+      <h1 class="login-title">iTIWI Admin</h1>
+      <p class="login-subtitle">Sign in to your account</p>
+    </div>
+
+    <div id="errorMessage" class="error-message"></div>
+    <div id="successMessage" class="success-message"></div>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label class="form-label">Email Address</label>
+        <input
+          type="email"
+          id="email"
+          class="form-input"
+          placeholder="admin@example.com"
+          required
+          autocomplete="email"
+        />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <div class="password-toggle">
+          <input
+            type="password"
+            id="password"
+            class="form-input"
+            placeholder="Enter your password"
+            required
+            autocomplete="current-password"
+          />
+          <button type="button" class="password-toggle-btn" id="togglePassword">
+            <i class="fa-solid fa-eye"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="form-footer">
+        <label class="remember-me">
+          <input type="checkbox" id="rememberMe" />
+          <label for="rememberMe">Remember me</label>
+        </label>
+        <a href="#" class="forgot-password" id="forgotPasswordLink">Forgot password?</a>
+      </div>
+
+      <button type="submit" class="submit-btn" id="submitBtn">
+        <span>Sign In</span>
+        <div class="loader"></div>
+      </button>
+    </form>
+
+    <div class="divider">
+      <div class="divider-line"></div>
+      <span>or</span>
+      <div class="divider-line"></div>
+    </div>
+
+    <div class="login-footer">
+      Don't have an account? <a href="#" id="signupLink">Contact administrator</a>
+    </div>
+  </div>
+
+  <script>
+    // Supabase Configuration
+    const SUPABASE_URL = 'https://jbhlbukxankrtcwhqoll.supabase.co';
+    const SUPABASE_ANON_KEY =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpiaGxidWt4YW5rcnRjd2hxb2xsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NzAxODgsImV4cCI6MjA5MDA0NjE4OH0.DebtVdw7bF5nRaXQg8Ta2SsO2Qv42QnGSzoS8hT2vJc';
+
+    let supabaseClient = null;
+
+    // Initialize Supabase
+    function initSupabase() {
+      if (typeof window.supabase !== 'undefined' && typeof window.supabase.createClient === 'function') {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('Supabase client initialized');
+      } else {
+        console.error('Supabase library not loaded');
+      }
+    }
+
+    // DOM Elements
+    const loginForm = document.getElementById('loginForm');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const togglePasswordBtn = document.getElementById('togglePassword');
+    const submitBtn = document.getElementById('submitBtn');
+    const rememberMe = document.getElementById('rememberMe');
+    const errorMessage = document.getElementById('errorMessage');
+    const successMessage = document.getElementById('successMessage');
+    const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+    const signupLink = document.getElementById('signupLink');
+
+    // Initialize on page load
+    window.addEventListener('load', () => {
+      initSupabase();
+      checkExistingSession();
+      loadRememberedEmail();
+    });
+
+    // Check if user already has a session
+    async function checkExistingSession() {
+      if (!supabaseClient) return;
+
+      try {
+        const { data, error } = await supabaseClient.auth.getSession();
+        if (data?.session) {
+          redirectToDashboard();
+        }
+      } catch (error) {
+        console.error('Session check error:', error);
+      }
+    }
+
+    // Load remembered email
+    function loadRememberedEmail() {
+      const savedEmail = localStorage.getItem('rememberEmail');
+      if (savedEmail) {
+        emailInput.value = savedEmail;
+        rememberMe.checked = true;
+      }
+    }
+
+    // Toggle password visibility
+    togglePasswordBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const type = passwordInput.type === 'password' ? 'text' : 'password';
+      passwordInput.type = type;
+      togglePasswordBtn.innerHTML = type === 'password' ? '<i class="fa-solid fa-eye"></i>' : '<i class="fa-solid fa-eye-slash"></i>';
+    });
+
+    // Handle login form submission
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      if (!supabaseClient) {
+        showError('Supabase not initialized. Please refresh the page.');
+        return;
+      }
+
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+
+      if (!email || !password) {
+        showError('Please enter both email and password.');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.parentElement.classList.add('loading');
+      clearMessages();
+
+      try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          showError(error.message || 'Login failed. Please check your credentials.');
+          submitBtn.disabled = false;
+          submitBtn.parentElement.classList.remove('loading');
+          return;
+        }
+
+        if (data?.user) {
+          // Save email if remember me is checked
+          if (rememberMe.checked) {
+            localStorage.setItem('rememberEmail', email);
+          } else {
+            localStorage.removeItem('rememberEmail');
+          }
+
+          showSuccess('Login successful! Redirecting...');
+          setTimeout(() => {
+            redirectToDashboard();
+          }, 1500);
+        }
+      } catch (error) {
+        showError('An unexpected error occurred: ' + error.message);
+        submitBtn.disabled = false;
+        submitBtn.parentElement.classList.remove('loading');
+      }
+    });
+
+    // Forgot password
+    forgotPasswordLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      const email = emailInput.value.trim();
+
+      if (!email) {
+        showError('Please enter your email address first.');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.parentElement.classList.add('loading');
+      clearMessages();
+
+      supabaseClient.auth
+        .resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/adminside/reset-password.html`,
+        })
+        .then(({ error }) => {
+          if (error) {
+            showError('Failed to send reset email: ' + error.message);
+          } else {
+            showSuccess('Password reset link sent to your email!');
+          }
+          submitBtn.disabled = false;
+          submitBtn.parentElement.classList.remove('loading');
+        });
+    });
+
+    // Signup link
+    signupLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      alert('Please contact your administrator to create a new account.');
+    });
+
+    // Helper functions
+    function showError(message) {
+      errorMessage.textContent = message;
+      errorMessage.classList.add('show');
+      setTimeout(() => {
+        errorMessage.classList.remove('show');
+      }, 5000);
+    }
+
+    function showSuccess(message) {
+      successMessage.textContent = message;
+      successMessage.classList.add('show');
+    }
+
+    function clearMessages() {
+      errorMessage.classList.remove('show');
+      successMessage.classList.remove('show');
+    }
+
+    function redirectToDashboard() {
+      window.location.href = './index.html';
+    }
+
+    // Listen for auth state changes
+    if (supabaseClient) {
+      supabaseClient.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN') {
+          redirectToDashboard();
+        }
+      });
+    }
+  </script>
+</body>
+</html>
