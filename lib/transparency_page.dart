@@ -1002,24 +1002,6 @@ class _TransparencyRecordCard extends StatelessWidget {
   }
 }
 
-class _ProgramRecordCard extends StatelessWidget {
-  const _ProgramRecordCard({
-    required this.record,
-    required this.onTap,
-  });
-
-  final TransparencyProgramRecord record;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return _TransparencyRecordCard(
-      record: record,
-      onTap: onTap,
-    );
-  }
-}
-
 class _PdfActionBar extends StatelessWidget {
   const _PdfActionBar({
     required this.pdfUrl,

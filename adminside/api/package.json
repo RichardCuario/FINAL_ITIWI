@@ -1,0 +1,10 @@
+{
+  "name": "itiwi-api",
+  "version": "1.0.0",
+  "description": "Vercel serverless API for iTIWI admin dashboard",
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "@supabase/supabase-js": "^2.38.0"
+  }
+}

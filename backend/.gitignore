@@ -1,0 +1,7 @@
+node_modules/
+serviceAccountKey.json
+.env
+.env.local
+.DS_Store
+*.log
+.vscode/

@@ -141,7 +141,7 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
             padding: const EdgeInsets.all(16),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(
@@ -279,7 +279,7 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
                                             color: Colors.grey[200],
                                             boxShadow: [
                                               BoxShadow(
-                                                color: Colors.black.withOpacity(0.1),
+                                                color: Colors.black.withValues(alpha: 0.1),
                                                 blurRadius: 6,
                                                 offset: const Offset(0, 2),
                                               )
@@ -312,7 +312,7 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
                                                   gradient: LinearGradient(
                                                     colors: [
                                                       Colors.transparent,
-                                                      Colors.black.withOpacity(0.7)
+                                                      Colors.black.withValues(alpha: 0.7)
                                                     ],
                                                     begin: Alignment.topCenter,
                                                     end: Alignment.bottomCenter,
@@ -371,7 +371,7 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
                                   borderRadius: BorderRadius.circular(12),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.08),
+                                      color: Colors.black.withValues(alpha: 0.08),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     )

@@ -1364,178 +1364,47 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                             ],
                           ),
                         )
-                      else
-                        ...reviews.map(
+                      else ...[
+                        if (reviews.length > 2)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.tonalIcon(
+                                onPressed: () => _showAllReviewsModal(
+                                  context: context,
+                                  reviews: reviews,
+                                  theme: theme,
+                                  isDark: isDark,
+                                  softTextColor: softTextColor,
+                                ),
+                                icon: const Icon(Icons.reviews_rounded),
+                                label: Text(
+                                  'View all ${reviews.length} reviews',
+                                ),
+                              ),
+                            ),
+                          ),
+                        ...reviews.take(2).map(
                           (review) => Padding(
                             padding: const EdgeInsets.only(bottom: 12),
-                            child: Container(
-                              padding: const EdgeInsets.all(18),
-                              decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFF111827) : Colors.white,
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(
-                                  color: isDark
-                                      ? Colors.white10
-                                      : const Color(0xFFE2E8F0),
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.05),
-                                    blurRadius: 14,
-                                    offset: const Offset(0, 6),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        width: 48,
-                                        height: 48,
-                                        decoration: BoxDecoration(
-                                          gradient: isDark
-                                              ? const LinearGradient(
-                                                  colors: [
-                                                    Color(0xFF334155),
-                                                    Color(0xFF1E293B),
-                                                  ],
-                                                )
-                                              : const LinearGradient(
-                                                  colors: [
-                                                    Color(0xFF90CAF9),
-                                                    Color(0xFF1E88E5),
-                                                  ],
-                                                ),
-                                          borderRadius:
-                                              BorderRadius.circular(16),
-                                        ),
-                                        alignment: Alignment.center,
-                                        child: Text(
-                                          _reviewInitial(review.reviewerName),
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 14),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              _maskReviewerName(
-                                                review.reviewerName,
-                                              ),
-                                              style: theme.textTheme.titleMedium
-                                                  ?.copyWith(
-                                                    fontWeight:
-                                                        FontWeight.w800,
-                                                  ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 10,
-                                                    vertical: 6,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: isDark
-                                                    ? Colors.white.withValues(
-                                                        alpha: 0.06,
-                                                      )
-                                                    : const Color(0xFFF8FAFC),
-                                                borderRadius:
-                                                    BorderRadius.circular(999),
-                                                border: Border.all(
-                                                  color: isDark
-                                                      ? Colors.white10
-                                                      : const Color(
-                                                          0xFFE2E8F0,
-                                                        ),
-                                                ),
-                                              ),
-                                              child: Text(
-                                                _formatDate(review.createdAt),
-                                                style: theme.textTheme.bodySmall
-                                                    ?.copyWith(
-                                                      color: softTextColor,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 10,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: isDark
-                                              ? const Color(0xFF1F3A5F)
-                                              : const Color(0xFFDDEBFF),
-                                          borderRadius:
-                                              BorderRadius.circular(16),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(
-                                              Icons.star_rounded,
-                                              color: Color(0xFFF4B400),
-                                              size: 18,
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              review.rating.toString(),
-                                              style: theme.textTheme.bodyMedium
-                                                  ?.copyWith(
-                                                    fontWeight:
-                                                        FontWeight.w800,
-                                                    color: isDark
-                                                        ? Colors.white
-                                                        : const Color(
-                                                            0xFF163B63,
-                                                          ),
-                                                  ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 14),
-                                  RatingStars(
-                                    rating: review.rating.toDouble(),
-                                    size: 18,
-                                  ),
-                                  if (review.reviewText.isNotEmpty) ...[
-                                    const SizedBox(height: 14),
-                                    Text(
-                                      review.reviewText,
-                                      style:
-                                          theme.textTheme.bodyMedium?.copyWith(
-                                            height: 1.7,
-                                            color: isDark
-                                                ? Colors.white70
-                                                : const Color(0xFF3E4C59),
-                                          ),
-                                    ),
-                                  ],
-                                ],
+                            child: _ReviewCard(
+                              review: review,
+                              theme: theme,
+                              isDark: isDark,
+                              softTextColor: softTextColor,
+                              onTap: () => _showReviewDetailModal(
+                                context: context,
+                                review: review,
+                                placeName: place.name,
+                                theme: theme,
+                                isDark: isDark,
+                                softTextColor: softTextColor,
                               ),
                             ),
                           ),
                         ),
+                      ],
                     ],
                   );
                 },
@@ -1661,6 +1530,284 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
     }
 
     return words.first[0].toUpperCase();
+  }
+
+  void _showReviewDetailModal({
+    required BuildContext context,
+    required PlaceReview review,
+    required String placeName,
+    required ThemeData theme,
+    required bool isDark,
+    required Color softTextColor,
+  }) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        backgroundColor: isDark ? const Color(0xFF111827) : Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Review',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: softTextColor,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            placeName,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        gradient: isDark
+                            ? const LinearGradient(
+                                colors: [
+                                  Color(0xFF334155),
+                                  Color(0xFF1E293B),
+                                ],
+                              )
+                            : const LinearGradient(
+                                colors: [
+                                  Color(0xFF90CAF9),
+                                  Color(0xFF1E88E5),
+                                ],
+                              ),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        _reviewInitial(review.reviewerName),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 20,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _maskReviewerName(review.reviewerName),
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.06)
+                                  : const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white10
+                                    : const Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            child: Text(
+                              _formatDate(review.createdAt),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: softTextColor,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF1F3A5F)
+                            : const Color(0xFFDDEBFF),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.star_rounded,
+                            color: Color(0xFFF4B400),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            review.rating.toString(),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF163B63),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                RatingStars(
+                  rating: review.rating.toDouble(),
+                  size: 20,
+                ),
+                if (review.reviewText.isNotEmpty) ...[
+                  const SizedBox(height: 18),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.04)
+                          : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white10
+                            : const Color(0xFFE2E8F0),
+                      ),
+                    ),
+                    child: Text(
+                      review.reviewText,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        height: 1.7,
+                        color: isDark
+                            ? Colors.white70
+                            : const Color(0xFF3E4C59),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAllReviewsModal({
+    required BuildContext context,
+    required List<PlaceReview> reviews,
+    required ThemeData theme,
+    required bool isDark,
+    required Color softTextColor,
+  }) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        backgroundColor: isDark ? const Color(0xFF111827) : Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'All Reviews',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${reviews.length} visitor review${reviews.length == 1 ? '' : 's'}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: softTextColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: reviews.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final review = reviews[index];
+                    return _ReviewCard(
+                      review: review,
+                      theme: theme,
+                      isDark: isDark,
+                      softTextColor: softTextColor,
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _showReviewDetailModal(
+                          context: context,
+                          review: review,
+                          placeName: widget.place.name,
+                          theme: theme,
+                          isDark: isDark,
+                          softTextColor: softTextColor,
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -2082,6 +2229,190 @@ class _FeatureBadge extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ReviewCard extends StatelessWidget {
+  const _ReviewCard({
+    required this.review,
+    required this.theme,
+    required this.isDark,
+    required this.softTextColor,
+    required this.onTap,
+  });
+
+  final PlaceReview review;
+  final ThemeData theme;
+  final bool isDark;
+  final Color softTextColor;
+  final VoidCallback onTap;
+
+  String _maskReviewerName(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return 'Anonymous';
+
+    final normalized = trimmed.toLowerCase();
+    if (normalized == 'anonymous' || normalized == 'anonymous reviewer') {
+      return 'Anonymous';
+    }
+
+    if (trimmed.contains('@')) {
+      final parts = trimmed.split('@');
+      final localPart = parts.first.trim();
+      if (localPart.isEmpty) return 'Anonymous';
+
+      final visibleLocal = localPart.length <= 2
+          ? '${localPart[0]}*'
+          : '${localPart.substring(0, 2)}${'*' * (localPart.length - 2)}';
+      return visibleLocal;
+    }
+
+    final words = trimmed.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (words.length > 1) {
+      return words.map((w) => _maskWord(w)).join(' ');
+    }
+    return _maskWord(trimmed);
+  }
+
+  String _maskWord(String word) {
+    if (word.isEmpty) return 'Anonymous';
+    if (word.length == 1) return '*';
+    if (word.length == 2) return '${word[0]}*';
+    return '${word.substring(0, 2)}${'*' * (word.length - 2)}';
+  }
+
+  String _reviewInitial(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return 'A';
+
+    final normalized = trimmed.toLowerCase();
+    if (normalized == 'anonymous' || normalized == 'anonymous reviewer') {
+      return 'A';
+    }
+
+    if (trimmed.contains('@')) return trimmed[0].toUpperCase();
+
+    final words = trimmed.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    return words.isEmpty ? 'A' : words.first[0].toUpperCase();
+  }
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'Recently';
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppSectionCard(
+      padding: EdgeInsets.zero,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      gradient: isDark
+                          ? const LinearGradient(
+                              colors: [Color(0xFF334155), Color(0xFF1E293B)],
+                            )
+                          : const LinearGradient(
+                              colors: [Color(0xFF90CAF9), Color(0xFF1E88E5)],
+                            ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      _reviewInitial(review.reviewerName),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _maskReviewerName(review.reviewerName),
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _formatDate(review.createdAt),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: softTextColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFF1F3A5F)
+                          : const Color(0xFFDDEBFF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.star_rounded,
+                          color: Color(0xFFF4B400),
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          review.rating.toString(),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF163B63),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (review.reviewText.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  review.reviewText,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: isDark ? Colors.white70 : const Color(0xFF3E4C59),
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -122,9 +122,10 @@ class PlaceService {
 
     await _client.from('place_reviews').insert({
       'place_id': placeId,
+      'user_id': supabaseUser?.id,
       'rating': rating,
       'review_text': normalizedReviewText,
-      'status': 'pending',
+      'status': 'approved',
       'reviewer_name': reviewerName,
     });
   }

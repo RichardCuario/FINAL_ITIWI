@@ -397,7 +397,7 @@ class _AuthPageState extends State<AuthPage> {
                       style: TextStyle(
                         fontSize: extraCompact ? 11.5 : 12.5,
                         height: 1.3,
-                        color: titleColor.withOpacity(0.82),
+                        color: titleColor.withValues(alpha: 0.82),
                       ),
                       children: const [
                         TextSpan(text: 'I have read and agree to the '),
@@ -577,7 +577,7 @@ class _AuthPageState extends State<AuthPage> {
                                   ? Icons.visibility_off_rounded
                                   : Icons.visibility_rounded,
                               color: (isDark ? Colors.white : Colors.black)
-                                  .withOpacity(0.45),
+                                  .withValues(alpha: 0.45),
                             ),
                           ),
                         ),
@@ -858,7 +858,7 @@ class _AuthPageState extends State<AuthPage> {
                                   ? Icons.visibility_off_rounded
                                   : Icons.visibility_rounded,
                               color: (isDark ? Colors.white : Colors.black)
-                                  .withOpacity(0.45),
+                                  .withValues(alpha: 0.45),
                             ),
                           ),
                         ),
@@ -1241,7 +1241,7 @@ class _LegalChipButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFF0B4C8C).withOpacity(0.08),
+          color: const Color(0xFF0B4C8C).withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Text(

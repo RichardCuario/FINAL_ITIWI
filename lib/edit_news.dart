@@ -10,7 +10,7 @@ class EditNewsPage extends StatefulWidget {
   const EditNewsPage({super.key, required this.newsId});
 
   @override
-  _EditNewsPageState createState() => _EditNewsPageState();
+  State<EditNewsPage> createState() => _EditNewsPageState();
 }
 
 class _EditNewsPageState extends State<EditNewsPage> {
@@ -126,8 +126,10 @@ class _EditNewsPageState extends State<EditNewsPage> {
         );
 
         Future.delayed(const Duration(seconds: 2), () {
-          Navigator.pop(context); // Close dialog
-          Navigator.pop(context, true); // Return to news page
+          if (mounted && context.mounted) {
+            Navigator.pop(context); // Close dialog
+            Navigator.pop(context, true); // Return to news page
+          }
         });
       }
     } catch (e) {

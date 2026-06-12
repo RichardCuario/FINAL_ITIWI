@@ -8,7 +8,7 @@ class AddNewsPage extends StatefulWidget {
   const AddNewsPage({super.key});
 
   @override
-  _AddNewsPageState createState() => _AddNewsPageState();
+  State<AddNewsPage> createState() => _AddNewsPageState();
 }
 
 class _AddNewsPageState extends State<AddNewsPage> {
@@ -94,8 +94,10 @@ class _AddNewsPageState extends State<AddNewsPage> {
         );
 
         Future.delayed(const Duration(seconds: 2), () {
-          Navigator.pop(context); // Close dialog
-          Navigator.pop(context, true); // Return to news page
+          if (mounted && context.mounted) {
+            Navigator.pop(context); // Close dialog
+            Navigator.pop(context, true); // Return to news page
+          }
         });
       }
     } catch (e) {

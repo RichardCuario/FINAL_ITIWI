@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -52,27 +53,27 @@ class _MyReportsPageState extends State<MyReportsPage> {
       case 'reviewing':
       case 'processing':
       case 'in progress':
-        return 'processing';
-      case 'under review':
-      case 'pending':
         return 'under review';
+      case 'under review':
+        return 'under review';
+      case 'pending':
+        return 'pending';
+      case 'approved':
       case 'resolved':
-        return 'resolved';
+        return 'approved';
       case 'rejected':
         return 'rejected';
       default:
-        return normalized.isEmpty ? 'under review' : normalized;
+        return normalized.isEmpty ? 'pending' : normalized;
     }
   }
 
   String _buildReportNotificationTitle(String status) {
     switch (_normalizeReportStatus(status)) {
-      case 'resolved':
-        return 'Your report was resolved';
+      case 'approved':
+        return 'Your report was approved';
       case 'rejected':
         return 'Your report was rejected';
-      case 'processing':
-        return 'Your report is now processing';
       default:
         return 'Your report is under review';
     }
@@ -92,12 +93,8 @@ class _MyReportsPageState extends State<MyReportsPage> {
       return 'Admin updated "$trimmedMessage" to rejected.';
     }
 
-    if (normalizedStatus == 'resolved') {
-      return 'Admin marked "$trimmedMessage" as resolved.';
-    }
-
-    if (normalizedStatus == 'processing') {
-      return 'Admin started processing "$trimmedMessage".';
+    if (normalizedStatus == 'approved') {
+      return 'Admin approved "$trimmedMessage".';
     }
 
     return 'Admin updated "$trimmedMessage" to under review.';
@@ -176,7 +173,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
       final response = await _supabase
           .from('reports')
           .select(
-            'id, message, image_urls, status, rejection_reason, created_at, updated_at',
+            'id, message, image_urls, status, rejection_reason, created_at, updated_at, user_id',
           )
           .eq('user_id', user.uid)
           .order('created_at', ascending: false);
@@ -185,6 +182,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
           .map((item) => Map<String, dynamic>.from(item as Map))
           .toList();
 
+      await _fetchUserDisplayNames(reports);
       await _syncReportStatusNotifications(reports);
       _reports = reports;
 
@@ -198,7 +196,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
 
       final fallbackResponse = await _supabase
           .from('reports')
-          .select('id, message, image_urls, status, created_at, updated_at')
+          .select('id, message, image_urls, status, created_at, updated_at, user_id')
           .eq('user_id', user.uid)
           .order('created_at', ascending: false);
 
@@ -211,6 +209,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
           )
           .toList();
 
+      await _fetchUserDisplayNames(reports);
       await _syncReportStatusNotifications(reports);
       _reports = reports;
 
@@ -218,13 +217,57 @@ class _MyReportsPageState extends State<MyReportsPage> {
     }
   }
 
+  Future<void> _fetchUserDisplayNames(List<Map<String, dynamic>> reports) async {
+    final userIds = <String>{};
+    for (final report in reports) {
+      final userId = report['user_id']?.toString();
+      if (userId != null && userId.isNotEmpty) {
+        userIds.add(userId);
+      }
+    }
+
+    if (userIds.isEmpty) return;
+
+    try {
+      final userResponse = await _supabase
+          .from('users')
+          .select('id, display_name, email')
+          .inFilter('id', userIds.toList());
+
+      final userMap = <String, String>{};
+      for (final user in userResponse as List) {
+        final id = user['id']?.toString();
+        final displayName = user['display_name']?.toString();
+        final email = user['email']?.toString();
+        if (id != null) {
+          // Use display_name if available, otherwise use email
+          userMap[id] = (displayName != null && displayName.isNotEmpty) ? displayName : (email ?? 'Anonymous');
+        }
+      }
+
+      for (final report in reports) {
+        final userId = report['user_id']?.toString();
+        if (userId != null && userMap.containsKey(userId)) {
+          report['reporter_name'] = userMap[userId];
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) print('Error fetching user display names: $e');
+    }
+  }
+
   Color _statusColor(String status) {
     switch (status.toLowerCase()) {
+      case 'approved':
       case 'resolved':
         return const Color(0xFF16A34A);
       case 'reviewing':
+      case 'processing':
+      case 'in progress':
       case 'under review':
         return const Color(0xFFF59E0B);
+      case 'pending':
+        return const Color(0xFF3B82F6);
       case 'rejected':
         return const Color(0xFFDC2626);
       default:
@@ -236,19 +279,20 @@ class _MyReportsPageState extends State<MyReportsPage> {
     final normalized = status.trim().toLowerCase();
 
     switch (normalized) {
+      case 'pending':
+        return 'Pending';
       case 'reviewing':
       case 'processing':
       case 'in progress':
-        return 'Processing';
       case 'under review':
-      case 'pending':
         return 'Under review';
+      case 'approved':
       case 'resolved':
-        return 'Resolved';
+        return 'Approved';
       case 'rejected':
-        return 'Rejected by admin';
+        return 'Rejected';
       default:
-        if (status.isEmpty) return 'Under review';
+        if (status.isEmpty) return 'Pending';
         return status[0].toUpperCase() + status.substring(1);
     }
   }
@@ -258,39 +302,32 @@ class _MyReportsPageState extends State<MyReportsPage> {
     final createdAt = report['created_at']?.toString();
     final updatedAt = report['updated_at']?.toString();
 
-    final reviewReached = true;
-    final processingReached = status == 'reviewing' ||
-        status == 'processing' ||
-        status == 'in progress' ||
-        status == 'resolved' ||
-        status == 'rejected';
-    final resolvedReached = status == 'resolved' || status == 'rejected';
+    final reviewReached = status != 'pending';
+    final resolvedReached = status == 'approved' || status == 'resolved' || status == 'rejected';
 
     return [
       _ReportTimelineStep(
-        title: status == 'rejected' ? 'Rejected' : 'Resolved',
+        title: status == 'rejected' ? 'Rejected' : 'Approved',
         description: status == 'rejected'
             ? 'Your report was reviewed and rejected by the hotline team. See the reason below.'
-            : 'Your report is solved',
+            : 'Your report was approved',
         date: resolvedReached ? updatedAt : null,
         isReached: resolvedReached,
-        isDone: status == 'resolved',
-      ),
-      _ReportTimelineStep(
-        title: 'Processing',
-        description: status == 'rejected'
-            ? 'Your report was assessed during processing'
-            : 'Your report is processing',
-        date: processingReached ? updatedAt : null,
-        isReached: processingReached,
-        isDone: status == 'resolved',
+        isDone: status == 'approved' || status == 'resolved',
       ),
       _ReportTimelineStep(
         title: 'Under review',
         description: 'Your report is under review',
         date: reviewReached ? createdAt : null,
         isReached: reviewReached,
-        isDone: processingReached || resolvedReached,
+        isDone: resolvedReached,
+      ),
+      _ReportTimelineStep(
+        title: 'Pending',
+        description: 'Your report has been submitted',
+        date: createdAt,
+        isReached: true,
+        isDone: reviewReached,
       ),
     ];
   }
@@ -344,7 +381,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
 
   bool _canManageReport(String status) {
     final normalized = _normalizeReportStatus(status);
-    return normalized != 'resolved' && normalized != 'rejected';
+    return normalized != 'approved' && normalized != 'rejected';
   }
 
   Future<void> _editReport(Map<String, dynamic> report) async {
@@ -1020,10 +1057,10 @@ class _MyReportsPageState extends State<MyReportsPage> {
                                             ?.toString()
                                             .trim() ??
                                         '';
-                                final showRejectionReason = status.toLowerCase() ==
-                                        'rejected' &&
-                                    rejectionReason.isNotEmpty;
                                 final canManageReport = _canManageReport(status);
+
+                                final reporterName =
+                                    report['reporter_name']?.toString().trim() ?? 'Anonymous';
 
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 14),
@@ -1045,13 +1082,27 @@ class _MyReportsPageState extends State<MyReportsPage> {
                                       Row(
                                         children: [
                                           Expanded(
-                                            child: Text(
-                                              createdAt,
-                                              style: TextStyle(
-                                                color: subtitleColor,
-                                                fontSize: 12.5,
-                                                fontWeight: FontWeight.w600,
-                                              ),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  reporterName,
+                                                  style: TextStyle(
+                                                    color: titleColor,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  createdAt,
+                                                  style: TextStyle(
+                                                    color: subtitleColor,
+                                                    fontSize: 12.5,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                           Container(
@@ -1086,8 +1137,94 @@ class _MyReportsPageState extends State<MyReportsPage> {
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
+                                      if (imageUrls.isNotEmpty) ...[
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          'Attachments',
+                                          style: TextStyle(
+                                            color: titleColor,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        SizedBox(
+                                          height: 120,
+                                          child: ListView.separated(
+                                            scrollDirection: Axis.horizontal,
+                                            itemCount: imageUrls.length,
+                                            separatorBuilder: (context, index) =>
+                                                const SizedBox(width: 10),
+                                            itemBuilder: (context, index) {
+                                              final imageUrl =
+                                                  imageUrls[index]?.toString() ?? '';
+                                              return GestureDetector(
+                                                onTap: () {
+                                                  showDialog(
+                                                    context: context,
+                                                    builder: (dialogContext) =>
+                                                        Dialog(
+                                                      backgroundColor:
+                                                          Colors.transparent,
+                                                      child: GestureDetector(
+                                                        onTap: () =>
+                                                            Navigator.pop(
+                                                              dialogContext,
+                                                            ),
+                                                        child: Container(
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(20),
+                                                          ),
+                                                          child: ClipRRect(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(20),
+                                                            child: Image.network(
+                                                              imageUrl,
+                                                              fit: BoxFit.contain,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                                child: Container(
+                                                  decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        BorderRadius.circular(16),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.black
+                                                            .withValues(
+                                                              alpha: 0.10,
+                                                            ),
+                                                        blurRadius: 8,
+                                                        offset: const Offset(0, 3),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  child: ClipRRect(
+                                                    borderRadius:
+                                                        BorderRadius.circular(16),
+                                                    child: Image.network(
+                                                      imageUrl,
+                                                      width: 120,
+                                                      height: 120,
+                                                      fit: BoxFit.cover,
+                                                    ),
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      ],
                                       if (canManageReport) ...[
-                                        const SizedBox(height: 14),
+                                        const SizedBox(height: 16),
                                         Row(
                                           children: [
                                             Expanded(

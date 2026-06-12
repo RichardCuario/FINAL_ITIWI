@@ -211,7 +211,7 @@ class _BarangayPageState extends State<BarangayPage> {
                                     borderRadius: BorderRadius.circular(18),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.04),
+                                        color: Colors.black.withValues(alpha: 0.04),
                                         blurRadius: 12,
                                         offset: const Offset(0, 4),
                                       ),
@@ -431,9 +431,23 @@ class BarangayDetailPage extends StatelessWidget {
   ImageProvider _buildHeaderImageProvider(Map<String, dynamic> barangay) {
     final imageUrl = barangay['barangay_img']?.toString().trim() ?? '';
     if (imageUrl.isNotEmpty) {
+      if (imageUrl.startsWith('data:')) {
+        return _getImageProviderFromDataUrl(imageUrl);
+      }
       return NetworkImage(imageUrl);
     }
     return const AssetImage('assets/card.jpg');
+  }
+
+  ImageProvider _getImageProviderFromDataUrl(String dataUrl) {
+    try {
+      final base64String = dataUrl.split(',').last;
+      final bytes = base64Decode(base64String);
+      return MemoryImage(bytes);
+    } catch (e) {
+      if (kDebugMode) print('Error decoding base64 image: $e');
+      return const AssetImage('assets/card.jpg');
+    }
   }
 
   String _formatTitle(String name) {
@@ -471,11 +485,21 @@ class BarangayDetailPage extends StatelessWidget {
               children: [
                 Container(
                   height: 310,
-                  decoration: BoxDecoration(
-                    image: DecorationImage(
-                      image: _buildHeaderImageProvider(barangay),
-                      fit: BoxFit.cover,
-                    ),
+                  width: double.infinity,
+                  color: Colors.grey[300],
+                  child: Image(
+                    image: _buildHeaderImageProvider(barangay),
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: 310,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: Colors.grey[300],
+                        child: const Center(
+                          child: Icon(Icons.image_not_supported, size: 48),
+                        ),
+                      );
+                    },
                   ),
                 ),
                 Container(
@@ -483,9 +507,9 @@ class BarangayDetailPage extends StatelessWidget {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Colors.black.withOpacity(0.18),
+                        Colors.black.withValues(alpha: 0.18),
                         Colors.transparent,
-                        AppColors.primary.withOpacity(0.12),
+                        AppColors.primary.withValues(alpha: 0.12),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -693,6 +717,7 @@ class _BarangayHeroSection extends StatelessWidget {
       children: [
         Container(
           height: 310,
+          width: double.infinity,
           decoration: const BoxDecoration(
             image: DecorationImage(
               image: AssetImage('assets/municipal_hall.jpg'),
@@ -702,11 +727,12 @@ class _BarangayHeroSection extends StatelessWidget {
         ),
         Container(
           height: 310,
+          width: double.infinity,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                Colors.black.withOpacity(0.55),
-                AppColors.primary.withOpacity(0.28),
+                Colors.black.withValues(alpha: 0.55),
+                AppColors.primary.withValues(alpha: 0.28),
                 Colors.transparent,
               ],
               stops: const [0.0, 0.35, 0.85],
@@ -755,7 +781,7 @@ class _BarangayHeroSection extends StatelessWidget {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.16),
+                            color: Colors.black.withValues(alpha: 0.16),
                             blurRadius: 12,
                             offset: const Offset(0, 5),
                           ),
@@ -820,6 +846,9 @@ class _BarangayGridCard extends StatelessWidget {
 
   String? _getLogoUrl() {
     final raw = barangay['logo_url']?.toString().trim() ?? '';
+    if (kDebugMode) {
+      print('Logo URL for ${barangay['name']}: $raw');
+    }
     return raw.isEmpty ? null : raw;
   }
 
@@ -921,59 +950,91 @@ class _BarangaySeal extends StatelessWidget {
         border: Border.all(color: const Color(0xFFB7B7B7), width: 2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: hasImage
-              ? null
-              : const LinearGradient(
-                  colors: [
-                    Color(0xFF123E9B),
-                    Color(0xFFF6C33B),
-                    Color(0xFF2E7D32),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-          image: hasImage
-              ? DecorationImage(
-                  image: NetworkImage(imageUrl!),
-                  fit: BoxFit.cover,
-                  onError: (_, __) {},
-                )
-              : null,
-          color: hasImage ? Colors.white : null,
-        ),
+      child: ClipOval(
         child: hasImage
-            ? null
-            : Center(
-                child: Container(
-                  width: radius * 1.35,
-                  height: radius * 1.35,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                  ),
-                  child: Center(
-                    child: Text(
-                      initials.isEmpty ? 'BR' : initials,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: radius * 0.33,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.primary,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
-                ),
+            ? _buildLogoImage(imageUrl!, radius, initials)
+            : _buildFallbackLogo(radius, initials),
+      ),
+    );
+  }
+
+  Widget _buildLogoImage(String imageUrl, double radius, String initials) {
+    if (imageUrl.startsWith('data:')) {
+      return _buildMemoryImage(imageUrl, radius, initials);
+    }
+    return Image.network(
+      imageUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        if (kDebugMode) {
+          print('Image load failed for $imageUrl: $error');
+        }
+        return _buildFallbackLogo(radius, initials);
+      },
+    );
+  }
+
+  Widget _buildMemoryImage(String dataUrl, double radius, String initials) {
+    try {
+      final base64String = dataUrl.split(',').last;
+      final bytes = base64Decode(base64String);
+      return Image.memory(
+        bytes,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          if (kDebugMode) {
+            print('Memory image load failed: $error');
+          }
+          return _buildFallbackLogo(radius, initials);
+        },
+      );
+    } catch (e) {
+      if (kDebugMode) print('Error decoding base64: $e');
+      return _buildFallbackLogo(radius, initials);
+    }
+  }
+
+  Widget _buildFallbackLogo(double radius, String initials) {
+    return Container(
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF123E9B),
+            Color(0xFFF6C33B),
+            Color(0xFF2E7D32),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Container(
+          width: radius * 1.35,
+          height: radius * 1.35,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white,
+          ),
+          child: Center(
+            child: Text(
+              initials.isEmpty ? 'BR' : initials,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: radius * 0.33,
+                fontWeight: FontWeight.w900,
+                color: AppColors.primary,
+                letterSpacing: 1,
               ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1038,7 +1099,7 @@ class _GeographicMapSectionState extends State<_GeographicMapSection> {
             color: isDark ? const Color(0xFF1F2937) : Colors.white,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(isDark ? 0.16 : 0.05),
+                color: Colors.black.withValues(alpha: isDark ? 0.16 : 0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -1075,7 +1136,7 @@ class _GeographicMapSectionState extends State<_GeographicMapSection> {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            Colors.black.withOpacity(0.10),
+                            Colors.black.withValues(alpha: 0.10),
                             Colors.transparent,
                           ],
                           begin: Alignment.topCenter,
@@ -1097,12 +1158,12 @@ class _GeographicMapSectionState extends State<_GeographicMapSection> {
                               ),
                               decoration: BoxDecoration(
                                 color: isDark
-                                    ? const Color(0xFF0F172A).withOpacity(0.92)
-                                    : Colors.white.withOpacity(0.95),
+                                    ? const Color(0xFF0F172A).withValues(alpha: 0.92)
+                                    : Colors.white.withValues(alpha: 0.95),
                                 borderRadius: BorderRadius.circular(28),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.10),
+                                    color: Colors.black.withValues(alpha: 0.10),
                                     blurRadius: 8,
                                     offset: const Offset(0, 2),
                                   ),
@@ -1138,12 +1199,12 @@ class _GeographicMapSectionState extends State<_GeographicMapSection> {
                             height: 40,
                             decoration: BoxDecoration(
                               color: isDark
-                                  ? const Color(0xFF0F172A).withOpacity(0.92)
-                                  : Colors.white.withOpacity(0.95),
+                                  ? const Color(0xFF0F172A).withValues(alpha: 0.92)
+                                  : Colors.white.withValues(alpha: 0.95),
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.10),
+                                  color: Colors.black.withValues(alpha: 0.10),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -1171,8 +1232,8 @@ class _GeographicMapSectionState extends State<_GeographicMapSection> {
                         ),
                         decoration: BoxDecoration(
                           color: isDark
-                              ? const Color(0xFF0F172A).withOpacity(0.92)
-                              : Colors.white.withOpacity(0.95),
+                              ? const Color(0xFF0F172A).withValues(alpha: 0.92)
+                              : Colors.white.withValues(alpha: 0.95),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Text(
@@ -1438,7 +1499,7 @@ class _BarangayOfficialsData {
       r'"barangay_treasurer"\s*:\s*"([^"]*)"',
     ).firstMatch(text);
     final kagawadBlockMatch = RegExp(
-      r'"barangay_kagawad"\s*:\s*\[(.*?)\]',
+      r'"kagawad"\s*:\s*\[(.*?)\]',
     ).firstMatch(text);
 
     final kagawads = <String>[];
@@ -1457,7 +1518,7 @@ class _BarangayOfficialsData {
 
     final map = <String, dynamic>{
       'punong_barangay': punongMatch?.group(1)?.trim() ?? '',
-      'barangay_kagawad': kagawads,
+      'kagawad': kagawads,
       'sk_chairman': skMatch?.group(1)?.trim() ?? '',
       'barangay_secretary': secretaryMatch?.group(1)?.trim() ?? '',
       'barangay_treasurer': treasurerMatch?.group(1)?.trim() ?? '',
@@ -1500,7 +1561,7 @@ class _BarangayOfficialsData {
 
     addSingle('Punong Barangay', readString('punong_barangay'));
 
-    final kagawads = readList('barangay_kagawad');
+    final kagawads = readList('kagawad');
     for (var index = 0; index < kagawads.length; index++) {
       rows.add(
         _OfficialRow(

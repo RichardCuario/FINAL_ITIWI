@@ -129,6 +129,7 @@ class _ReportPageState extends State<ReportPage> {
       return;
     }
 
+    if (!mounted) return;
     FocusScope.of(context).unfocus();
 
     setState(() {
@@ -154,6 +155,18 @@ class _ReportPageState extends State<ReportPage> {
           'image_urls': imageUrls,
         }).eq('id', reportId);
       }
+
+      // Upsert user info in users table to ensure display_name is available
+      final displayName = (_currentUser!.displayName != null && _currentUser!.displayName!.isNotEmpty)
+          ? _currentUser!.displayName
+          : (_currentUser!.email ?? 'User');
+
+      await _supabase.from('users').upsert({
+        'id': _currentUser!.uid,
+        'email': _currentUser!.email ?? '',
+        'display_name': displayName,
+        'photo_url': _currentUser!.photoURL,
+      }, onConflict: 'id');
 
       if (!mounted) return;
 

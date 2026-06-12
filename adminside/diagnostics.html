@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporter Name Fix - Diagnostics</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #1E88E5;
+            padding-bottom: 10px;
+        }
+        .section {
+            margin: 24px 0;
+            padding: 16px;
+            background: #f9f9f9;
+            border-left: 4px solid #1E88E5;
+            border-radius: 4px;
+        }
+        .section h2 {
+            margin-top: 0;
+            color: #1E88E5;
+        }
+        button {
+            background: #1E88E5;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1565c0;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        pre {
+            background: #f0f0f0;
+            padding: 12px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #4CAF50;
+            color: white;
+        }
+        .status.error {
+            background: #f44336;
+            color: white;
+        }
+        .status.warning {
+            background: #ff9800;
+            color: white;
+        }
+        .status.info {
+            background: #2196F3;
+            color: white;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #f0f0f0;
+            font-weight: bold;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #1E88E5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #output {
+            margin-top: 10px;
+            min-height: 50px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Reporter Name Fix - Diagnostics</h1>
+        <p>This page helps you diagnose and fix the "Anonymous" reporter names issue.</p>
+
+        <div class="section">
+            <h2>Step 1: Check Backend Sync Service</h2>
+            <p>Verify the backend server is running and can sync users.</p>
+            <button onclick="checkBackendHealth()">Check Backend Health</button>
+            <button onclick="checkFirebaseUsers()">Check Firebase Users</button>
+            <div id="backendOutput"></div>
+        </div>
+
+        <div class="section">
+            <h2>Step 2: Check Supabase Data</h2>
+            <p>Verify users and reports data in Supabase.</p>
+            <button onclick="checkSupabaseUsers()">Check Supabase Users</button>
+            <button onclick="checkReportsData()">Check Reports Data</button>
+            <div id="supabaseOutput"></div>
+        </div>
+
+        <div class="section">
+            <h2>Step 3: Sync Users (One-Time Fix)</h2>
+            <p>Sync all Firebase Auth users to Supabase users table.</p>
+            <button onclick="syncUsers()">🔄 Sync All Users Now</button>
+            <div id="syncOutput"></div>
+        </div>
+
+        <div class="section">
+            <h2>Step 4: Verify Report Display</h2>
+            <p>Check if reports now show correct reporter names.</p>
+            <button onclick="checkReportDisplay()">Check Report Display in Admin</button>
+            <div id="verifyOutput"></div>
+        </div>
+
+        <div class="section">
+            <h2>Troubleshooting</h2>
+            <div id="troubleshooting"></div>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'http://localhost:5000';
+
+        function updateOutput(elementId, content, status = 'info') {
+            const el = document.getElementById(elementId);
+            el.innerHTML = `
+                <div style="margin-top: 10px;">
+                    <span class="status ${status}">${status.toUpperCase()}</span>
+                    <pre>${content}</pre>
+                </div>
+            `;
+        }
+
+        async function checkBackendHealth() {
+            const output = document.getElementById('backendOutput');
+            output.innerHTML = '<div class="loading"></div> Checking backend...';
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/health`);
+                if (response.ok) {
+                    const data = await response.json();
+                    updateOutput('backendOutput', JSON.stringify(data, null, 2), 'success');
+                } else {
+                    updateOutput('backendOutput', `Backend returned status ${response.status}`, 'error');
+                }
+            } catch (error) {
+                updateOutput('backendOutput',
+                    `❌ Cannot reach backend at ${BACKEND_URL}\n\nError: ${error.message}\n\nMake sure:\n1. Backend server is running: npm start (in backend folder)\n2. It's running on port 5000\n3. CORS is enabled`,
+                    'error');
+            }
+        }
+
+        async function checkFirebaseUsers() {
+            const output = document.getElementById('backendOutput');
+            output.innerHTML = '<div class="loading"></div> Fetching Firebase users...';
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/users`);
+                const data = await response.json();
+                let content = `✅ Found ${data.total} Firebase users\n\n`;
+                content += data.users.map(u =>
+                    `UID: ${u.uid}\nEmail: ${u.email}\nDisplay Name: ${u.displayName}`
+                ).join('\n---\n');
+                updateOutput('backendOutput', content, 'success');
+            } catch (error) {
+                updateOutput('backendOutput', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkSupabaseUsers() {
+            const output = document.getElementById('supabaseOutput');
+            output.innerHTML = '<div class="loading"></div> Checking Supabase users...';
+
+            try {
+                // This will use the supabaseClient from the page context
+                if (typeof supabaseClient === 'undefined') {
+                    updateOutput('supabaseOutput',
+                        'Supabase client not available. This script should be run from the admin dashboard page.',
+                        'error');
+                    return;
+                }
+
+                const { data, error } = await supabaseClient
+                    .from('users')
+                    .select('id, email, display_name')
+                    .limit(10);
+
+                if (error) throw error;
+
+                let content = `✅ Found ${data.length} users in Supabase\n\n`;
+                content += 'ID\tEMAIL\tDISPLAY_NAME\n';
+                content += '─'.repeat(80) + '\n';
+                data.forEach(u => {
+                    content += `${u.id.substring(0, 12)}...\t${u.email || 'N/A'}\t${u.display_name || 'N/A'}\n`;
+                });
+                updateOutput('supabaseOutput', content, 'success');
+            } catch (error) {
+                updateOutput('supabaseOutput', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkReportsData() {
+            const output = document.getElementById('supabaseOutput');
+            output.innerHTML = '<div class="loading"></div> Checking reports...';
+
+            try {
+                if (typeof supabaseClient === 'undefined') {
+                    updateOutput('supabaseOutput',
+                        'Supabase client not available. This script should be run from the admin dashboard page.',
+                        'error');
+                    return;
+                }
+
+                const { data, error } = await supabaseClient
+                    .from('reports')
+                    .select('id, user_id, message, created_at')
+                    .limit(10);
+
+                if (error) throw error;
+
+                let content = `✅ Found ${data.length} reports in Supabase\n\n`;
+                content += 'REPORT_ID\tUSER_ID\tMESSAGE\tCREATED\n';
+                content += '─'.repeat(100) + '\n';
+                data.forEach(r => {
+                    const msg = (r.message || '').substring(0, 30);
+                    content += `${r.id.substring(0, 8)}...\t${r.user_id.substring(0, 12)}...\t${msg}...\t${new Date(r.created_at).toLocaleDateString()}\n`;
+                });
+                updateOutput('supabaseOutput', content, 'success');
+            } catch (error) {
+                updateOutput('supabaseOutput', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function syncUsers() {
+            const output = document.getElementById('syncOutput');
+            output.innerHTML = '<div class="loading"></div> Syncing users...';
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/sync-users`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                updateOutput('syncOutput', JSON.stringify(data, null, 2), data.success ? 'success' : 'error');
+            } catch (error) {
+                updateOutput('syncOutput', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkReportDisplay() {
+            const output = document.getElementById('verifyOutput');
+            output.innerHTML = '<div class="loading"></div> Checking report display...';
+
+            try {
+                if (typeof supabaseClient === 'undefined') {
+                    updateOutput('verifyOutput',
+                        'Supabase client not available. This script should be run from the admin dashboard page.',
+                        'error');
+                    return;
+                }
+
+                // Get reports with user data
+                const { data: reports, error: reportsError } = await supabaseClient
+                    .from('reports')
+                    .select('id, user_id, message')
+                    .limit(5);
+
+                if (reportsError) throw reportsError;
+
+                // Get user data
+                const userIds = [...new Set(reports.map(r => r.user_id))];
+                const { data: users, error: usersError } = await supabaseClient
+                    .from('users')
+                    .select('id, display_name, email')
+                    .in('id', userIds);
+
+                if (usersError) throw usersError;
+
+                const userMap = {};
+                users.forEach(u => {
+                    userMap[u.id] = u.display_name || u.email || 'Anonymous';
+                });
+
+                let content = `✅ Sample Report Display:\n\n`;
+                content += 'REPORTER\tMESSAGE\n';
+                content += '─'.repeat(80) + '\n';
+                reports.forEach(r => {
+                    const reporter = userMap[r.user_id] || 'Anonymous';
+                    const msg = (r.message || '').substring(0, 40);
+                    content += `${reporter}\t${msg}...\n`;
+                });
+                updateOutput('verifyOutput', content, 'success');
+            } catch (error) {
+                updateOutput('verifyOutput', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Run diagnostics on page load
+        window.addEventListener('load', () => {
+            const troubleshooting = document.getElementById('troubleshooting');
+            troubleshooting.innerHTML = `
+                <h3>📋 Checklist:</h3>
+                <ul>
+                    <li>✓ Backend server running? Run: <code>cd backend && npm start</code></li>
+                    <li>✓ Backend dependency installed? Run: <code>cd backend && npm install @supabase/supabase-js</code></li>
+                    <li>✓ Supabase credentials correct in backend/server.js?</li>
+                    <li>✓ Clicked "Sync All Users Now" button after backend is running?</li>
+                    <li>✓ Reloaded admin dashboard after sync?</li>
+                    <li>✓ Checked browser console (F12) for errors?</li>
+                </ul>
+            `;
+        });
+    </script>
+</body>
+</html>

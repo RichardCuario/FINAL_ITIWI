@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "1042831270933",
+    "project_id": "itiwi-c7340",
+    "storage_bucket": "itiwi-c7340.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1042831270933:android:b7b0343d00b9b1c4d59a1c",
+        "android_client_info": {
+          "package_name": "com.example.hotline_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1042831270933-4931e0u5ceje4rd92ukj6tdtenlf0ih9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.hotline_app",
+            "certificate_hash": "604d1a3cd3e623c52b2a08680a06e4b54d1f75ab"
+          }
+        },
+        {
+          "client_id": "1042831270933-h3jm10jj46801ajcfa4q4e4c4iuuq7qu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDv3EHmMmqIH7MScN2vGhQVOSz3DVIY2zE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1042831270933-h3jm10jj46801ajcfa4q4e4c4iuuq7qu.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

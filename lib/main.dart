@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
+import 'dart:async';
 import 'auth_page.dart';
 import 'home_page.dart';
 import 'news_feed_page.dart';
@@ -110,14 +111,49 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   bool _isDarkMode = false;
   late final Stream<User?> _authStateStream;
+  User? _currentUser;
+  StreamSubscription<User?>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
-    _authStateStream = FirebaseAuth.instance.authStateChanges();
-    _authStateStream.listen((user) {
+    _authStateStream = _buildAuthStateStream();
+    _authSubscription = _authStateStream.listen((user) {
+      _currentUser = user;
       NewsNotificationService.instance.syncUser(user?.uid);
+      if (user != null) {
+        _syncUserToDatabase(user);
+      }
     });
+  }
+
+  Future<void> _syncUserToDatabase(User user) async {
+    try {
+      final supabase = Supabase.instance.client;
+      // Use email as display name if no displayName is set
+      final displayName = (user.displayName != null && user.displayName!.isNotEmpty)
+          ? user.displayName
+          : (user.email ?? 'User');
+
+      await supabase.from('users').upsert({
+        'id': user.uid,
+        'email': user.email ?? '',
+        'display_name': displayName,
+        'photo_url': user.photoURL,
+      }, onConflict: 'id');
+
+      debugPrint('✅ User synced: $displayName');
+    } catch (e) {
+      debugPrint('Error syncing user to database: $e');
+    }
+  }
+
+  Stream<User?> _buildAuthStateStream() {
+    if (Firebase.apps.isEmpty) {
+      return const Stream<User?>.empty();
+    }
+
+    return FirebaseAuth.instance.authStateChanges();
   }
 
   ThemeData _buildLightTheme() {
@@ -244,6 +280,12 @@ class _MyAppState extends State<MyApp> {
   }
 
   @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Hotline App',
@@ -264,9 +306,9 @@ class _MyAppState extends State<MyApp> {
       },
       home: StreamBuilder<User?>(
         stream: _authStateStream,
-        initialData: FirebaseAuth.instance.currentUser,
+        initialData: _currentUser,
         builder: (context, snapshot) {
-          final user = snapshot.data ?? FirebaseAuth.instance.currentUser;
+          final user = snapshot.data ?? _currentUser;
           if (user != null) {
             return HomePage(
               isDarkMode: _isDarkMode,

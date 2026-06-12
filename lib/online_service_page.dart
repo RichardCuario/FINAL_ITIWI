@@ -16,35 +16,35 @@ class OnlineServicePage extends StatelessWidget {
       icon: Icons.description_rounded,
       iconColor: Color(0xFF42A5F5),
       services: [
-        _OnlineServiceItem(
+        OnlineServiceItem(
           title: 'Birth Certificate',
           icon: Icons.child_friendly_rounded,
           iconColor: Color(0xFF4FC3F7),
           target: OnlineServiceTarget.birthCertificate,
           opensBirthCertificateAppointmentForm: true,
         ),
-        _OnlineServiceItem(
+        OnlineServiceItem(
           title: 'Marriage Certificate',
           icon: Icons.favorite_rounded,
           iconColor: Color(0xFFE91E63),
           target: OnlineServiceTarget.marriageCertificate,
           opensMarriageCertificateAppointmentForm: true,
         ),
-        _OnlineServiceItem(
+        OnlineServiceItem(
           title: 'Death Certificate',
           icon: Icons.local_florist_rounded,
           iconColor: Color(0xFF7E57C2),
           target: OnlineServiceTarget.deathCertificate,
           opensDeathCertificateAppointmentForm: true,
         ),
-        _OnlineServiceItem(
+        OnlineServiceItem(
           title: 'CENOMAR (Certificate of No Marriage Record)',
           icon: Icons.verified_user_rounded,
           iconColor: Color(0xFFFFB300),
           target: OnlineServiceTarget.cenomar,
           opensCenomarAppointmentForm: true,
         ),
-        _OnlineServiceItem(
+        OnlineServiceItem(
           title: 'CENODEATH (Certificate of No Death)',
           icon: Icons.fact_check_rounded,
           iconColor: Color(0xFF26A69A),
@@ -58,14 +58,14 @@ class OnlineServicePage extends StatelessWidget {
       icon: Icons.apartment_rounded,
       iconColor: Color(0xFF43A047),
       services: [
-        _OnlineServiceItem(
+        OnlineServiceItem(
           title: 'Tiwi Gymnasium',
           icon: Icons.apartment_rounded,
           iconColor: Color(0xFF43A047),
           target: OnlineServiceTarget.tiwiGymnasium,
           opensBorrowForm: true,
         ),
-        _OnlineServiceItem(
+        OnlineServiceItem(
           title: 'Libjo Facilities',
           icon: Icons.location_city_rounded,
           iconColor: Color(0xFF00897B),
@@ -76,7 +76,7 @@ class OnlineServicePage extends StatelessWidget {
     ),
   ];
 
-  static _OnlineServiceItem? findServiceByTarget(OnlineServiceTarget target) {
+  static OnlineServiceItem? findServiceByTarget(OnlineServiceTarget target) {
     for (final category in _categories) {
       for (final service in category.services) {
         if (service.target == target) {
@@ -113,7 +113,7 @@ class OnlineServicePage extends StatelessWidget {
 
   static void _openServiceItem(
     BuildContext context,
-    _OnlineServiceItem item,
+    OnlineServiceItem item,
   ) {
     if (item.opensBorrowForm) {
       Navigator.of(context).push(
@@ -427,7 +427,7 @@ class _OnlineServiceCategoryDetailsPage extends StatelessWidget {
 class _OnlineServiceCard extends StatelessWidget {
   const _OnlineServiceCard({required this.item});
 
-  final _OnlineServiceItem item;
+  final OnlineServiceItem item;
 
   @override
   Widget build(BuildContext context) {
@@ -499,7 +499,7 @@ class _OnlineServiceCard extends StatelessWidget {
 class _BirthCertificateAppointmentPage extends StatefulWidget {
   const _BirthCertificateAppointmentPage({required this.item});
 
-  final _OnlineServiceItem item;
+  final OnlineServiceItem item;
 
   @override
   State<_BirthCertificateAppointmentPage> createState() =>
@@ -1220,7 +1220,7 @@ class _BirthCertificateAppointmentPageState
 class _MarriageCertificateAppointmentPage extends StatefulWidget {
   const _MarriageCertificateAppointmentPage({required this.item});
 
-  final _OnlineServiceItem item;
+  final OnlineServiceItem item;
 
   @override
   State<_MarriageCertificateAppointmentPage> createState() =>
@@ -1956,7 +1956,7 @@ class _MarriageCertificateAppointmentPageState
 class _DeathCertificateAppointmentPage extends StatefulWidget {
   const _DeathCertificateAppointmentPage({required this.item});
 
-  final _OnlineServiceItem item;
+  final OnlineServiceItem item;
 
   @override
   State<_DeathCertificateAppointmentPage> createState() =>
@@ -2704,7 +2704,7 @@ class _DeathCertificateAppointmentPageState
 class _CenomarAppointmentPage extends StatefulWidget {
   const _CenomarAppointmentPage({required this.item});
 
-  final _OnlineServiceItem item;
+  final OnlineServiceItem item;
 
   @override
   State<_CenomarAppointmentPage> createState() =>
@@ -3421,7 +3421,7 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
 class _CenodeathAppointmentPage extends StatefulWidget {
   const _CenodeathAppointmentPage({required this.item});
 
-  final _OnlineServiceItem item;
+  final OnlineServiceItem item;
 
   @override
   State<_CenodeathAppointmentPage> createState() =>
@@ -4138,7 +4138,7 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
 class _FacilityBorrowRequestPage extends StatefulWidget {
   const _FacilityBorrowRequestPage({required this.item});
 
-  final _OnlineServiceItem item;
+  final OnlineServiceItem item;
 
   @override
   State<_FacilityBorrowRequestPage> createState() =>
@@ -5035,7 +5035,7 @@ class _OnlineServiceCategory {
   final String title;
   final IconData icon;
   final Color iconColor;
-  final List<_OnlineServiceItem> services;
+  final List<OnlineServiceItem> services;
 }
 
 enum OnlineServiceTarget {
@@ -5049,8 +5049,8 @@ enum OnlineServiceTarget {
   libjoFacilities,
 }
 
-class _OnlineServiceItem {
-  const _OnlineServiceItem({
+class OnlineServiceItem {
+  const OnlineServiceItem({
     required this.title,
     required this.icon,
     required this.iconColor,

@@ -205,8 +205,6 @@ class _NewsPageState extends State<NewsPage> {
     final isDark = theme.brightness == Brightness.dark;
     final pageBackground =
         isDark ? const Color(0xFF0B1220) : const Color(0xFFEAEAEA);
-    final sectionBackground =
-        isDark ? const Color(0xFF172033) : AppColors.cardBackground;
     final inputBackground =
         isDark ? const Color(0xFF0F172A) : AppColors.background;
     final cardBackground = theme.cardColor;
