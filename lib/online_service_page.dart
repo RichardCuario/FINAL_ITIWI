@@ -573,7 +573,7 @@ class _BirthCertificateAppointmentPageState
     final response = await Supabase.instance.client
         .from('birth_certificate_appointments')
         .select(
-          'id, full_name, contact_number, email, relationship_to_owner, purpose, appointment_date, appointment_time, notes, status, created_at, updated_at',
+          'id, full_name, contact_number, email, relationship_to_owner, purpose, appointment_date, appointment_time, notes, status, remarks, rejection_reason, approval_reason, created_at, updated_at',
         )
         .eq('user_id', user.uid)
         .order('created_at', ascending: false);
@@ -1182,6 +1182,81 @@ class _BirthCertificateAppointmentPageState
                                                   height: 1.5,
                                                 ),
                                               ),
+                                              if (appointment['remarks']
+                                                      ?.toString()
+                                                      .trim()
+                                                      .isNotEmpty ==
+                                                  true) ...[
+                                                const SizedBox(height: 10),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.all(12),
+                                                  decoration: BoxDecoration(
+                                                    color: status == 'rejected'
+                                                        ? Colors.red
+                                                            .withValues(
+                                                              alpha: 0.1,
+                                                            )
+                                                        : Colors.green
+                                                            .withValues(
+                                                              alpha: 0.1,
+                                                            ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: status ==
+                                                              'rejected'
+                                                          ? Colors.red
+                                                              .withValues(
+                                                                alpha: 0.3,
+                                                              )
+                                                          : Colors.green
+                                                              .withValues(
+                                                                alpha: 0.3,
+                                                              ),
+                                                    ),
+                                                  ),
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        status == 'rejected'
+                                                            ? 'Rejection Reason'
+                                                            : 'Approval Notes',
+                                                        style: TextStyle(
+                                                          color: status ==
+                                                                  'rejected'
+                                                              ? Colors.red
+                                                              : Colors.green,
+                                                          fontSize: 12.5,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(
+                                                        height: 6,
+                                                      ),
+                                                      Text(
+                                                        appointment['remarks']
+                                                            .toString(),
+                                                        style: TextStyle(
+                                                          color: isDark
+                                                              ? Colors.white
+                                                              : const Color(
+                                                                  0xFF20242C,
+                                                                ),
+                                                          fontSize: 13,
+                                                          height: 1.5,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
                                               const SizedBox(height: 6),
                                               Text(
                                                 'Updated: ${_formatDateTimeUpdated(appointment['updated_at']?.toString())}',
@@ -1918,6 +1993,81 @@ class _MarriageCertificateAppointmentPageState
                                                   height: 1.5,
                                                 ),
                                               ),
+                                              if (appointment['remarks']
+                                                      ?.toString()
+                                                      .trim()
+                                                      .isNotEmpty ==
+                                                  true) ...[
+                                                const SizedBox(height: 10),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.all(12),
+                                                  decoration: BoxDecoration(
+                                                    color: status == 'rejected'
+                                                        ? Colors.red
+                                                            .withValues(
+                                                              alpha: 0.1,
+                                                            )
+                                                        : Colors.green
+                                                            .withValues(
+                                                              alpha: 0.1,
+                                                            ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: status ==
+                                                              'rejected'
+                                                          ? Colors.red
+                                                              .withValues(
+                                                                alpha: 0.3,
+                                                              )
+                                                          : Colors.green
+                                                              .withValues(
+                                                                alpha: 0.3,
+                                                              ),
+                                                    ),
+                                                  ),
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        status == 'rejected'
+                                                            ? 'Rejection Reason'
+                                                            : 'Approval Notes',
+                                                        style: TextStyle(
+                                                          color: status ==
+                                                                  'rejected'
+                                                              ? Colors.red
+                                                              : Colors.green,
+                                                          fontSize: 12.5,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(
+                                                        height: 6,
+                                                      ),
+                                                      Text(
+                                                        appointment['remarks']
+                                                            .toString(),
+                                                        style: TextStyle(
+                                                          color: isDark
+                                                              ? Colors.white
+                                                              : const Color(
+                                                                  0xFF20242C,
+                                                                ),
+                                                          fontSize: 13,
+                                                          height: 1.5,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
                                               const SizedBox(height: 6),
                                               Text(
                                                 'Updated: ${_formatDateTimeUpdated(appointment['updated_at']?.toString())}',
@@ -2666,6 +2816,81 @@ class _DeathCertificateAppointmentPageState
                                                   height: 1.5,
                                                 ),
                                               ),
+                                              if (appointment['remarks']
+                                                      ?.toString()
+                                                      .trim()
+                                                      .isNotEmpty ==
+                                                  true) ...[
+                                                const SizedBox(height: 10),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.all(12),
+                                                  decoration: BoxDecoration(
+                                                    color: status == 'rejected'
+                                                        ? Colors.red
+                                                            .withValues(
+                                                              alpha: 0.1,
+                                                            )
+                                                        : Colors.green
+                                                            .withValues(
+                                                              alpha: 0.1,
+                                                            ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: status ==
+                                                              'rejected'
+                                                          ? Colors.red
+                                                              .withValues(
+                                                                alpha: 0.3,
+                                                              )
+                                                          : Colors.green
+                                                              .withValues(
+                                                                alpha: 0.3,
+                                                              ),
+                                                    ),
+                                                  ),
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        status == 'rejected'
+                                                            ? 'Rejection Reason'
+                                                            : 'Approval Notes',
+                                                        style: TextStyle(
+                                                          color: status ==
+                                                                  'rejected'
+                                                              ? Colors.red
+                                                              : Colors.green,
+                                                          fontSize: 12.5,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(
+                                                        height: 6,
+                                                      ),
+                                                      Text(
+                                                        appointment['remarks']
+                                                            .toString(),
+                                                        style: TextStyle(
+                                                          color: isDark
+                                                              ? Colors.white
+                                                              : const Color(
+                                                                  0xFF20242C,
+                                                                ),
+                                                          fontSize: 13,
+                                                          height: 1.5,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
                                               const SizedBox(height: 6),
                                               Text(
                                                 'Updated: ${_formatDateTimeUpdated(appointment['updated_at']?.toString())}',
@@ -3383,6 +3608,81 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
                                                   height: 1.5,
                                                 ),
                                               ),
+                                              if (appointment['remarks']
+                                                      ?.toString()
+                                                      .trim()
+                                                      .isNotEmpty ==
+                                                  true) ...[
+                                                const SizedBox(height: 10),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.all(12),
+                                                  decoration: BoxDecoration(
+                                                    color: status == 'rejected'
+                                                        ? Colors.red
+                                                            .withValues(
+                                                              alpha: 0.1,
+                                                            )
+                                                        : Colors.green
+                                                            .withValues(
+                                                              alpha: 0.1,
+                                                            ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: status ==
+                                                              'rejected'
+                                                          ? Colors.red
+                                                              .withValues(
+                                                                alpha: 0.3,
+                                                              )
+                                                          : Colors.green
+                                                              .withValues(
+                                                                alpha: 0.3,
+                                                              ),
+                                                    ),
+                                                  ),
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        status == 'rejected'
+                                                            ? 'Rejection Reason'
+                                                            : 'Approval Notes',
+                                                        style: TextStyle(
+                                                          color: status ==
+                                                                  'rejected'
+                                                              ? Colors.red
+                                                              : Colors.green,
+                                                          fontSize: 12.5,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(
+                                                        height: 6,
+                                                      ),
+                                                      Text(
+                                                        appointment['remarks']
+                                                            .toString(),
+                                                        style: TextStyle(
+                                                          color: isDark
+                                                              ? Colors.white
+                                                              : const Color(
+                                                                  0xFF20242C,
+                                                                ),
+                                                          fontSize: 13,
+                                                          height: 1.5,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
                                               const SizedBox(height: 6),
                                               Text(
                                                 'Updated: ${_formatDateTimeUpdated(appointment['updated_at']?.toString())}',
@@ -4100,6 +4400,81 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
                                                   height: 1.5,
                                                 ),
                                               ),
+                                              if (appointment['remarks']
+                                                      ?.toString()
+                                                      .trim()
+                                                      .isNotEmpty ==
+                                                  true) ...[
+                                                const SizedBox(height: 10),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.all(12),
+                                                  decoration: BoxDecoration(
+                                                    color: status == 'rejected'
+                                                        ? Colors.red
+                                                            .withValues(
+                                                              alpha: 0.1,
+                                                            )
+                                                        : Colors.green
+                                                            .withValues(
+                                                              alpha: 0.1,
+                                                            ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: status ==
+                                                              'rejected'
+                                                          ? Colors.red
+                                                              .withValues(
+                                                                alpha: 0.3,
+                                                              )
+                                                          : Colors.green
+                                                              .withValues(
+                                                                alpha: 0.3,
+                                                              ),
+                                                    ),
+                                                  ),
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        status == 'rejected'
+                                                            ? 'Rejection Reason'
+                                                            : 'Approval Notes',
+                                                        style: TextStyle(
+                                                          color: status ==
+                                                                  'rejected'
+                                                              ? Colors.red
+                                                              : Colors.green,
+                                                          fontSize: 12.5,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(
+                                                        height: 6,
+                                                      ),
+                                                      Text(
+                                                        appointment['remarks']
+                                                            .toString(),
+                                                        style: TextStyle(
+                                                          color: isDark
+                                                              ? Colors.white
+                                                              : const Color(
+                                                                  0xFF20242C,
+                                                                ),
+                                                          fontSize: 13,
+                                                          height: 1.5,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
                                               const SizedBox(height: 6),
                                               Text(
                                                 'Updated: ${_formatDateTimeUpdated(appointment['updated_at']?.toString())}',

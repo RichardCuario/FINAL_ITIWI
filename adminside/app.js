@@ -40,6 +40,59 @@ function updateUserProfile(user) {
     const name = user.user_metadata?.full_name || user.email.split('@')[0];
     userNameElement.textContent = name;
   }
+
+  // Update sidebar role
+  const userRoleElement = document.querySelector('.user-role-sidebar');
+  if (userRoleElement && user?.user_metadata?.role) {
+    userRoleElement.textContent = user.user_metadata.role;
+  }
+
+  // Update sidebar avatar with initials
+  const sidebarAvatar = document.querySelector('.user-avatar-sidebar');
+  if (sidebarAvatar && user?.email) {
+    const fullName = user.user_metadata?.full_name || user.email.split('@')[0];
+    const initials = fullName
+      .split(' ')
+      .map(name => name[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+
+    // Clear the icon and add initials
+    sidebarAvatar.innerHTML = '';
+    sidebarAvatar.textContent = initials;
+    sidebarAvatar.title = fullName;
+  }
+
+  // Update header user profile
+  const headerUserName = document.querySelector('.header-user-name');
+  const headerUserRole = document.querySelector('.header-user-role');
+  const headerAvatar = document.querySelector('.header-avatar');
+
+  if (headerUserName && user?.email) {
+    const fullName = user.user_metadata?.full_name || user.email.split('@')[0];
+    headerUserName.textContent = fullName;
+  }
+
+  if (headerUserRole && user?.user_metadata?.role) {
+    headerUserRole.textContent = user.user_metadata.role;
+  } else if (headerUserRole) {
+    headerUserRole.textContent = 'Administrator';
+  }
+
+  // Update avatar with initials
+  if (headerAvatar && user?.email) {
+    const fullName = user.user_metadata?.full_name || user.email.split('@')[0];
+    const initials = fullName
+      .split(' ')
+      .map(name => name[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+
+    headerAvatar.textContent = initials;
+    headerAvatar.title = fullName;
+  }
 }
 
 async function handleLogout() {
@@ -63,10 +116,21 @@ function setupNotifications() {
   const notificationPanel = document.getElementById('notificationPanel');
   const clearNotificationsBtn = document.getElementById('clearNotificationsBtn');
 
+  // Initialize badge on page load
+  updateNotificationUI();
+
   // Toggle notification panel
   notificationBtn.addEventListener('click', (e) => {
     e.stopPropagation();
+    const isOpening = !notificationPanel.classList.contains('active');
+
     notificationPanel.classList.toggle('active');
+
+    // Mark all notifications as read when opening the panel
+    if (isOpening && notifications.length > 0) {
+      notifications.forEach(n => n.read = true);
+      updateNotificationUI();
+    }
   });
 
   // Close panel when clicking outside
@@ -93,6 +157,76 @@ function setupLogoutButton() {
       }
     });
   }
+}
+
+function setupRealtimeListeners() {
+  if (!supabaseClient) return;
+
+  // Service tables to listen to
+  const serviceTables = [
+    'birth_certificate_appointments',
+    'cenodeath_appointments',
+    'cenomar_appointments',
+    'death_certificate_appointments',
+    'marriage_certificate_appointments',
+    'facility_borrow_requests'
+  ];
+
+  // Listen to each service table
+  serviceTables.forEach(table => {
+    supabaseClient
+      .channel(`public:${table}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: table
+        },
+        (payload) => {
+          const data = payload.new;
+          const serviceName = data.name || data.appointment_type || 'Service Request';
+          const requesterName = data.requested_by || data.applicant_name || 'User';
+          addNotification(
+            'New Service Request',
+            `${requesterName} requested ${serviceName}`,
+            'warning'
+          );
+          // Reload services if on services page
+          if (document.querySelector('.services-page.active')) {
+            loadServices();
+          }
+        }
+      )
+      .subscribe();
+  });
+
+  // Listen to reports table
+  supabaseClient
+    .channel('public:reports')
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'reports'
+      },
+      (payload) => {
+        const data = payload.new;
+        const reporterName = data.reporter_name || 'User';
+        const message = data.message || 'No message';
+        addNotification(
+          'New Report Submitted',
+          `${reporterName} submitted a report: "${message.substring(0, 50)}${message.length > 50 ? '...' : ''}"`,
+          'danger'
+        );
+        // Reload reports if on reports page
+        if (document.querySelector('.reports-page.active')) {
+          loadReports();
+        }
+      }
+    )
+    .subscribe();
 }
 
 function addNotification(title, message, type = 'info') {
@@ -213,190 +347,6 @@ let notifications = [];
 // ============================================================
 // SETTINGS
 // ============================================================
-function loadSettings() {
-  loadSettingsUI();
-}
-
-function loadSettingsUI() {
-  try {
-    const settings = localStorage.getItem('adminSettings');
-    const parsedSettings = settings ? JSON.parse(settings) : {};
-
-    document.getElementById('settingsItemsPerPage').value = parsedSettings.itemsPerPage || '25';
-    document.getElementById('settingsThemeMode').value = parsedSettings.themeMode || 'light';
-    document.getElementById('settingsNotifications').checked = parsedSettings.notifications !== false;
-    document.getElementById('settingsAutoSave').checked = parsedSettings.autoSave === true;
-
-    if (supabaseClient?.auth) {
-      supabaseClient.auth.getSession().then(({ data }) => {
-        if (data?.session?.user?.email) {
-          document.getElementById('settingsEmail').value = data.session.user.email;
-        }
-        if (data?.session?.user?.user_metadata?.full_name) {
-          document.getElementById('settingsFullName').value = data.session.user.user_metadata.full_name;
-        }
-      });
-    }
-  } catch (error) {
-    console.error('Error loading settings:', error);
-  }
-}
-
-function updateAccountSettings() {
-  const currentPassword = document.getElementById('settingsCurrentPassword').value;
-  const newPassword = document.getElementById('settingsNewPassword').value;
-  const confirmPassword = document.getElementById('settingsConfirmPassword').value;
-  const fullName = document.getElementById('settingsFullName').value;
-
-  if (!currentPassword) {
-    showToast('Current password is required', 'error');
-    return;
-  }
-
-  if (newPassword && newPassword !== confirmPassword) {
-    showToast('New passwords do not match', 'error');
-    return;
-  }
-
-  if (newPassword && newPassword.length < 6) {
-    showToast('Password must be at least 6 characters', 'error');
-    return;
-  }
-
-  updateAccountAsync(currentPassword, newPassword, fullName);
-}
-
-async function updateAccountAsync(currentPassword, newPassword, fullName) {
-  try {
-    if (!supabaseClient) {
-      showToast('Authentication client not initialized', 'error');
-      return;
-    }
-
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user) {
-      showToast('User not authenticated', 'error');
-      return;
-    }
-
-    let updateData = {};
-    if (fullName) {
-      updateData.data = { full_name: fullName };
-    }
-
-    if (newPassword) {
-      updateData.password = newPassword;
-    }
-
-    if (Object.keys(updateData).length > 0) {
-      const { error } = await supabaseClient.auth.updateUser(updateData);
-      if (error) {
-        showToast(`Error updating account: ${error.message}`, 'error');
-      } else {
-        showToast('Account updated successfully', 'success');
-        document.getElementById('settingsCurrentPassword').value = '';
-        document.getElementById('settingsNewPassword').value = '';
-        document.getElementById('settingsConfirmPassword').value = '';
-      }
-    } else {
-      showToast('No changes to save', 'info');
-    }
-  } catch (error) {
-    console.error('Error updating account:', error);
-    showToast('Error updating account', 'error');
-  }
-}
-
-function updateSystemSettings() {
-  const settings = {
-    itemsPerPage: document.getElementById('settingsItemsPerPage').value,
-    themeMode: document.getElementById('settingsThemeMode').value,
-    notifications: document.getElementById('settingsNotifications').checked,
-    autoSave: document.getElementById('settingsAutoSave').checked
-  };
-
-  localStorage.setItem('adminSettings', JSON.stringify(settings));
-  applyTheme(settings.themeMode);
-  showToast('System settings updated successfully', 'success');
-}
-
-function applyTheme(theme) {
-  const html = document.documentElement;
-  if (theme === 'dark') {
-    html.style.colorScheme = 'dark';
-    document.body.style.backgroundColor = '#1f2937';
-  } else if (theme === 'light') {
-    html.style.colorScheme = 'light';
-    document.body.style.backgroundColor = '#f9fafb';
-  }
-}
-
-function exportDashboardData() {
-  try {
-    const timestamp = new Date().toLocaleString();
-    let csv = `iTIWI Admin Dashboard Export\nExported: ${timestamp}\n\n`;
-
-    csv += 'SUMMARY\n';
-    csv += `Total Barangay,${document.getElementById('totalBarangay')?.textContent || '0'}\n`;
-    csv += `Total News,${document.getElementById('totalNews')?.textContent || '0'}\n`;
-    csv += `Total Reports,${document.getElementById('totalReports')?.textContent || '0'}\n`;
-    csv += `Active Users,${document.getElementById('activeUsers')?.textContent || '0'}\n`;
-    csv += `Pending Reports,${document.getElementById('pendingReports')?.textContent || '0'}\n`;
-    csv += `Pending Services,${document.getElementById('pendingServices')?.textContent || '0'}\n`;
-
-    downloadCSV(csv, `dashboard-export-${Date.now()}.csv`);
-    showToast('Dashboard data exported successfully', 'success');
-  } catch (error) {
-    console.error('Error exporting data:', error);
-    showToast('Error exporting data', 'error');
-  }
-}
-
-function convertToCSV(data) {
-  let csv = 'Dashboard Export Report\n';
-  csv += `Export Date: ${new Date().toLocaleString()}\n`;
-  return csv;
-}
-
-function downloadCSV(csv, filename) {
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  window.URL.revokeObjectURL(url);
-  document.body.removeChild(a);
-}
-
-function backupDatabase() {
-  showToast('Database backup feature coming soon', 'info');
-}
-
-function clearAllData() {
-  if (!confirm('Are you sure you want to delete ALL data? This action cannot be undone!')) {
-    return;
-  }
-
-  if (!confirm('This will permanently delete all records. Are you absolutely certain?')) {
-    return;
-  }
-
-  showToast('Data clearing feature coming soon', 'info');
-}
-
-function resetSettings() {
-  if (!confirm('Reset all settings to defaults?')) {
-    return;
-  }
-
-  localStorage.removeItem('adminSettings');
-  applyTheme('light');
-  loadSettingsUI();
-  showToast('Settings reset to defaults', 'success');
-}
-
 
 // ---------- INIT ----------
 document.addEventListener('DOMContentLoaded', () => {
@@ -407,10 +357,11 @@ document.addEventListener('DOMContentLoaded', () => {
   setupNotifications();
   setupNewsImagePreview();
   setupLogoutButton();
-  loadDashboardStats();
-  loadBarangayTable();
-  loadNews();
-  loadReports();
+  setupRealtimeListeners();
+
+  // Restore the last visited page
+  const lastPage = localStorage.getItem('lastVisitedPage') || 'dashboard';
+  navigateTo(lastPage);
 });
 
 // ============================================================
@@ -429,6 +380,15 @@ function setupNavigation() {
 function navigateTo(page) {
   currentPage = page;
 
+  // Save current page to localStorage for persistence on refresh
+  localStorage.setItem('lastVisitedPage', page);
+
+  // Clear header search when navigating to a new page
+  const headerSearch = document.getElementById('headerSearch');
+  if (headerSearch) {
+    headerSearch.value = '';
+  }
+
   document.querySelectorAll('.nav-item').forEach(item => {
     item.classList.toggle('active', item.dataset.page === page);
   });
@@ -441,6 +401,8 @@ function navigateTo(page) {
 
   if (page === 'dashboard') {
     loadDashboardStats();
+    loadDashboardReport();
+    loadDashboardService();
   } else if (page === 'barangay') {
     loadBarangayTable();
   } else if (page === 'news') {
@@ -455,8 +417,6 @@ function navigateTo(page) {
     loadServices();
   } else if (page === 'hotline') {
     loadHotline();
-  } else if (page === 'settings') {
-    loadSettings();
   }
 
   document.getElementById('sidebar').classList.remove('open');
@@ -565,6 +525,7 @@ async function loadDashboardStats() {
 
   // Load additional analytics
   loadAnalytics();
+  loadPerformanceTrend();
 }
 
 // ============================================================
@@ -818,6 +779,255 @@ function getCategoryColor(category) {
   return colors[category] || '#6b7280';
 }
 
+async function loadPerformanceTrend() {
+  if (!supabaseClient) return;
+
+  try {
+    const months = 6;
+    const now = new Date();
+
+    // Initialize data structure for last 6 months
+    const monthLabels = [];
+    const monthData = {};
+
+    for (let i = months - 1; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = date.toLocaleString('default', { month: 'short' });
+      monthLabels.push(monthKey);
+      monthData[monthKey] = {
+        reports: 0,
+        news: 0,
+        requests: 0,
+        reviews: 0
+      };
+    }
+
+    // Fetch reports
+    try {
+      const { data: reportsData } = await supabaseClient
+        .from('reports')
+        .select('created_at');
+
+      (reportsData || []).forEach(r => {
+        const date = new Date(r.created_at);
+        const monthKey = date.toLocaleString('default', { month: 'short' });
+        if (monthData[monthKey]) {
+          monthData[monthKey].reports++;
+        }
+      });
+    } catch (e) {
+      console.warn('Could not fetch reports:', e);
+    }
+
+    // Fetch news
+    try {
+      const { data: newsData } = await supabaseClient
+        .from('news')
+        .select('created_at');
+
+      (newsData || []).forEach(n => {
+        const date = new Date(n.created_at);
+        const monthKey = date.toLocaleString('default', { month: 'short' });
+        if (monthData[monthKey]) {
+          monthData[monthKey].news++;
+        }
+      });
+    } catch (e) {
+      console.warn('Could not fetch news:', e);
+    }
+
+    // Fetch service requests from all service tables
+    const serviceTables = [
+      'birth_certificate_appointments',
+      'cenodeath_appointments',
+      'cenomar_appointments',
+      'death_certificate_appointments',
+      'facility_borrow_requests',
+      'marriage_certificate_appointments'
+    ];
+
+    for (const table of serviceTables) {
+      try {
+        const { data: serviceData } = await supabaseClient
+          .from(table)
+          .select('created_at');
+
+        (serviceData || []).forEach(s => {
+          const date = new Date(s.created_at);
+          const monthKey = date.toLocaleString('default', { month: 'short' });
+          if (monthData[monthKey]) {
+            monthData[monthKey].requests++;
+          }
+        });
+      } catch (e) {
+        // Table might not exist
+      }
+    }
+
+    // Fetch place reviews
+    try {
+      const { data: placesData } = await supabaseClient
+        .from('places')
+        .select('created_at');
+
+      (placesData || []).forEach(p => {
+        const date = new Date(p.created_at);
+        const monthKey = date.toLocaleString('default', { month: 'short' });
+        if (monthData[monthKey]) {
+          monthData[monthKey].reviews++;
+        }
+      });
+    } catch (e) {
+      console.warn('Could not fetch places:', e);
+    }
+
+    // Prepare data for chart
+    const reportsCounts = monthLabels.map(m => monthData[m].reports);
+    const newsCounts = monthLabels.map(m => monthData[m].news);
+    const requestsCounts = monthLabels.map(m => monthData[m].requests);
+    const reviewsCounts = monthLabels.map(m => monthData[m].reviews);
+
+    console.log('Chart data:', { monthLabels, reportsCounts, newsCounts, requestsCounts, reviewsCounts });
+
+    // Wait for Chart.js to be available
+    if (typeof Chart === 'undefined') {
+      console.error('Chart.js is not loaded');
+      return;
+    }
+
+    const ctx = document.getElementById('performanceTrendChart');
+    if (!ctx) {
+      console.error('Canvas element not found');
+      return;
+    }
+
+    // Destroy existing chart if it exists
+    if (window.performanceTrendChart instanceof Chart) {
+      window.performanceTrendChart.destroy();
+    }
+
+    // Create chart
+    window.performanceTrendChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: monthLabels,
+        datasets: [
+          {
+            label: 'Place Review',
+            data: reviewsCounts,
+            borderColor: '#9C27B0',
+            backgroundColor: 'rgba(156, 39, 176, 0.05)',
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#9C27B0',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 5,
+            pointHoverRadius: 7
+          },
+          {
+            label: 'Request',
+            data: requestsCounts,
+            borderColor: '#4CAF50',
+            backgroundColor: 'rgba(76, 175, 80, 0.05)',
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#4CAF50',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 5,
+            pointHoverRadius: 7
+          },
+          {
+            label: 'Reports',
+            data: reportsCounts,
+            borderColor: '#FF9800',
+            backgroundColor: 'rgba(255, 152, 0, 0.05)',
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#FF9800',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 5,
+            pointHoverRadius: 7
+          },
+          {
+            label: 'Users',
+            data: newsCounts,
+            borderColor: '#2196F3',
+            backgroundColor: 'rgba(33, 150, 243, 0.05)',
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#2196F3',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 5,
+            pointHoverRadius: 7
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            labels: {
+              font: {
+                size: 12,
+                weight: '500'
+              },
+              padding: 15,
+              usePointStyle: true,
+              color: '#6b7280'
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: {
+              drawBorder: false,
+              color: 'rgba(0, 0, 0, 0.05)'
+            },
+            ticks: {
+              font: {
+                size: 12
+              },
+              color: '#6b7280'
+            }
+          },
+          x: {
+            grid: {
+              display: false,
+              drawBorder: false
+            },
+            ticks: {
+              font: {
+                size: 12
+              },
+              color: '#6b7280'
+            }
+          }
+        },
+        interaction: {
+          intersect: false,
+          mode: 'index'
+        }
+      }
+    });
+
+    console.log('Chart created successfully');
+  } catch (error) {
+    console.error('Error loading performance trend:', error);
+  }
+}
+
 // ============================================================
 // BARANGAY CRUD — Real Supabase Data
 // ============================================================
@@ -825,6 +1035,250 @@ async function loadDashboardBarangay() {
   const tbody = document.getElementById('dashboardBarangayTableBody');
   if (!tbody) return;
   await renderBarangayTable(tbody, 5);
+}
+
+async function loadDashboardReport() {
+  const tbody = document.getElementById('dashboardReportTableBody');
+  if (!tbody) return;
+  await renderDashboardReportTable(tbody);
+}
+
+async function loadDashboardService() {
+  const tbody = document.getElementById('dashboardServiceTableBody');
+  if (!tbody) return;
+  await renderDashboardServiceTable(tbody);
+}
+
+async function renderDashboardReportTable(tbody) {
+  if (!supabaseClient) {
+    const colSpan = tbody.closest('table').querySelectorAll('th').length;
+    tbody.innerHTML = `<tr><td colspan="${colSpan}" class="empty-state">No reports found</td></tr>`;
+    return;
+  }
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('reports')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (error) throw error;
+
+    let reports = data || [];
+
+    // Fetch user display names for enrichment
+    if (reports.length > 0) {
+      const userIds = [...new Set(reports.map(r => r.user_id).filter(Boolean))];
+
+      if (userIds.length > 0) {
+        const { data: users } = await supabaseClient
+          .from('users')
+          .select('id, display_name, email')
+          .in('id', userIds);
+
+        const userMap = {};
+        (users || []).forEach(u => {
+          const name = (u.display_name && u.display_name.trim())
+            ? u.display_name
+            : (u.email && u.email.trim()
+              ? u.email
+              : u.id.substring(0, 12));
+          userMap[u.id] = name;
+        });
+
+        reports = reports.map(r => ({
+          ...r,
+          reporter_name: userMap[r.user_id] || r.user_id.substring(0, 12) || 'Anonymous'
+        }));
+      }
+    }
+
+    const colSpan = tbody.closest('table').querySelectorAll('th').length;
+    if (!reports || reports.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="${colSpan}" class="empty-state">No reports found</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = '';
+    reports.forEach(report => {
+      const tr = document.createElement('tr');
+
+      const tdReporterName = document.createElement('td');
+      tdReporterName.textContent = report.reporter_name || 'Anonymous';
+
+      const tdMessage = document.createElement('td');
+      tdMessage.textContent = report.message || '';
+      tdMessage.style.maxWidth = '250px';
+      tdMessage.style.overflow = 'hidden';
+      tdMessage.style.textOverflow = 'ellipsis';
+      tdMessage.style.whiteSpace = 'nowrap';
+
+      const tdStatus = document.createElement('td');
+      const statusBadge = document.createElement('span');
+      statusBadge.className = `status-badge ${getStatusClass(report.status)}`;
+      statusBadge.textContent = (report.status || 'pending').charAt(0).toUpperCase() + (report.status || 'pending').slice(1);
+      tdStatus.appendChild(statusBadge);
+
+      const tdAttachment = document.createElement('td');
+      if (report.image_urls && Array.isArray(report.image_urls)) {
+        const count = report.image_urls.length;
+        tdAttachment.textContent = `${count} image${count !== 1 ? 's' : ''}`;
+      } else {
+        tdAttachment.textContent = '0 images';
+      }
+
+      const tdDate = document.createElement('td');
+      const date = new Date(report.created_at);
+      tdDate.textContent = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+      const tdAction = document.createElement('td');
+      const actionBtn = document.createElement('button');
+      actionBtn.className = 'btn btn-sm btn-info btn-icon';
+      actionBtn.title = 'View';
+      actionBtn.innerHTML = '<i class="fa-solid fa-eye"></i>';
+      actionBtn.addEventListener('click', () => openReportModal(report.id));
+      tdAction.appendChild(actionBtn);
+
+      tr.appendChild(tdReporterName);
+      tr.appendChild(tdMessage);
+      tr.appendChild(tdStatus);
+      tr.appendChild(tdAttachment);
+      tr.appendChild(tdDate);
+      tr.appendChild(tdAction);
+
+      tbody.appendChild(tr);
+    });
+  } catch (error) {
+    console.error('Error loading dashboard reports:', error);
+    const colSpan = tbody.closest('table').querySelectorAll('th').length;
+    tbody.innerHTML = `<tr><td colspan="${colSpan}" class="empty-state">Error loading reports</td></tr>`;
+  }
+}
+
+async function renderDashboardServiceTable(tbody) {
+  if (!supabaseClient) {
+    const colSpan = tbody.closest('table').querySelectorAll('th').length;
+    tbody.innerHTML = `<tr><td colspan="${colSpan}" class="empty-state">No requests found</td></tr>`;
+    return;
+  }
+
+  try {
+    let combinedData = [];
+
+    const serviceTables = [
+      { name: 'birth_certificate_appointments', label: 'Birth Certificate' },
+      { name: 'cenodeath_appointments', label: 'Cenodeath Appointments' },
+      { name: 'cenomar_appointments', label: 'Cenomar Appointments' },
+      { name: 'death_certificate_appointments', label: 'Death Certificate' },
+      { name: 'facility_borrow_requests', label: 'Facility Borrow' },
+      { name: 'marriage_certificate_appointments', label: 'Marriage Certificate' }
+    ];
+
+    for (const table of serviceTables) {
+      try {
+        const { data } = await supabaseClient
+          .from(table.name)
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (data) {
+          const mappedData = data.map(item => ({
+            id: item.id,
+            requested_by: item.requested_by || item.applicant_name || item.customer_name || item.client_name || item.submitted_by || item.first_name || 'N/A',
+            status: item.status || item.appointment_status || 'pending',
+            created_at: item.created_at || new Date().toISOString(),
+            _table: table.name,
+            _label: table.label,
+            user_id: item.user_id,
+            ...item
+          }));
+          combinedData = [...combinedData, ...mappedData];
+        }
+      } catch (e) {
+        // Table might not exist
+      }
+    }
+
+    // Fetch display names for unique user IDs
+    const userIds = [...new Set(combinedData.map(item => item.user_id).filter(id => id))];
+    const userDisplayNames = {};
+
+    if (userIds.length > 0) {
+      try {
+        const { data: users } = await supabaseClient
+          .from('users')
+          .select('id, display_name')
+          .in('id', userIds);
+
+        if (users) {
+          users.forEach(user => {
+            userDisplayNames[user.id] = user.display_name;
+          });
+        }
+      } catch (e) {
+        // Could not fetch user names
+      }
+    }
+
+    // Add display_name and sort
+    combinedData = combinedData
+      .map(item => ({
+        ...item,
+        display_name: item.user_id ? userDisplayNames[item.user_id] : null
+      }))
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, 5);
+
+    const colSpan = tbody.closest('table').querySelectorAll('th').length;
+    if (combinedData.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="${colSpan}" class="empty-state">No service requests found</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = '';
+    combinedData.forEach(service => {
+      const tr = document.createElement('tr');
+
+      const tdRequestedBy = document.createElement('td');
+      tdRequestedBy.textContent = service.display_name || service.requested_by || 'N/A';
+
+      const tdType = document.createElement('td');
+      tdType.textContent = service._label || 'Service';
+
+      const tdStatus = document.createElement('td');
+      const statusBadge = document.createElement('span');
+      statusBadge.className = `status-badge ${getStatusClass(service.status)}`;
+      statusBadge.textContent = (service.status || 'pending').charAt(0).toUpperCase() + (service.status || 'pending').slice(1);
+      tdStatus.appendChild(statusBadge);
+
+      const tdDate = document.createElement('td');
+      const date = new Date(service.created_at);
+      tdDate.textContent = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+      const tdAction = document.createElement('td');
+      const actionBtn = document.createElement('button');
+      actionBtn.className = 'btn btn-sm btn-info btn-icon';
+      actionBtn.title = 'View';
+      actionBtn.innerHTML = '<i class="fa-solid fa-eye"></i>';
+      actionBtn.addEventListener('click', () => {
+        openServiceDetailsModal(service.id);
+      });
+      tdAction.appendChild(actionBtn);
+
+      tr.appendChild(tdRequestedBy);
+      tr.appendChild(tdType);
+      tr.appendChild(tdStatus);
+      tr.appendChild(tdDate);
+      tr.appendChild(tdAction);
+
+      tbody.appendChild(tr);
+    });
+  } catch (error) {
+    console.error('Error loading dashboard services:', error);
+    const colSpan = tbody.closest('table').querySelectorAll('th').length;
+    tbody.innerHTML = `<tr><td colspan="${colSpan}" class="empty-state">Error loading service requests</td></tr>`;
+  }
 }
 
 async function loadBarangayTable() {
@@ -3401,31 +3855,25 @@ function renderServicePagination(totalItems) {
 function openServiceModal() {
   document.getElementById('serviceModalTitle').textContent = 'Add Service Request';
   document.getElementById('serviceEditId').value = '';
-  document.getElementById('serviceName').value = '';
-  document.getElementById('serviceType').value = '';
-  document.getElementById('serviceRequestedBy').value = '';
   document.getElementById('serviceStatus').value = 'pending';
-  document.getElementById('serviceContactNumber').value = '';
-  document.getElementById('serviceDescription').value = '';
+  document.getElementById('serviceReason').value = '';
+  document.getElementById('reasonFieldGroup').style.display = 'none';
   document.getElementById('serviceSaveBtn').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save';
   document.getElementById('serviceModal').classList.add('active');
 }
 
 async function openEditServiceModal(id) {
-  document.getElementById('serviceModalTitle').textContent = 'Edit Service Request';
+  document.getElementById('serviceModalTitle').textContent = 'Update Service Request Status';
   document.getElementById('serviceEditId').value = id;
-  document.getElementById('serviceSaveBtn').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update';
+  document.getElementById('serviceReason').value = '';
+  document.getElementById('serviceSaveBtn').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update Status';
 
   try {
     const record = allServices.find(s => s.id === id);
 
     if (record) {
-      document.getElementById('serviceName').value = record.name || '';
-      document.getElementById('serviceType').value = record.type || record.service_type || '';
-      document.getElementById('serviceRequestedBy').value = record.requested_by || record.requester || '';
       document.getElementById('serviceStatus').value = record.status || 'pending';
-      document.getElementById('serviceContactNumber').value = record.contact_number || record.phone || '';
-      document.getElementById('serviceDescription').value = record.description || record.notes || '';
+      toggleReasonField();
     } else {
       throw new Error('Record not found');
     }
@@ -3527,98 +3975,97 @@ function openServiceDetailsEditModal() {
 
 async function saveService() {
   const editId = document.getElementById('serviceEditId').value;
-  const name = document.getElementById('serviceName').value.trim();
-  const type = document.getElementById('serviceType').value;
-  const requestedBy = document.getElementById('serviceRequestedBy').value.trim();
   const status = document.getElementById('serviceStatus').value;
-  const contactNumber = document.getElementById('serviceContactNumber').value.trim();
-  const description = document.getElementById('serviceDescription').value.trim();
+  const reason = document.getElementById('serviceReason').value.trim();
+  const reasonFieldGroup = document.getElementById('reasonFieldGroup');
 
-  if (!name || !type || !requestedBy || !status) {
-    showToast('Please fill all required fields', 'error');
+  // Check if reason is required but empty
+  if (reasonFieldGroup.style.display !== 'none' && !reason) {
+    showToast('Please provide a reason for this status change', 'error');
     return;
   }
 
-  const saveBtn = document.getElementById('serviceSaveBtn');
-  saveBtn.innerHTML = '<span class="loading-spinner"></span> Saving...';
-  saveBtn.disabled = true;
+  // If editing, only allow status update
+  if (editId) {
+    const saveBtn = document.getElementById('serviceSaveBtn');
+    saveBtn.innerHTML = '<span class="loading-spinner"></span> Updating...';
+    saveBtn.disabled = true;
 
-  try {
-    if (!supabaseClient) {
-      showToast('Database connection unavailable', 'error');
-      saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save';
-      saveBtn.disabled = false;
-      return;
-    }
+    try {
+      if (!supabaseClient) {
+        showToast('Database connection unavailable', 'error');
+        saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update Status';
+        saveBtn.disabled = false;
+        return;
+      }
 
-    const payload = {
-      name,
-      appointment_type: type,
-      requested_by: requestedBy,
-      applicant_name: requestedBy,
-      status,
-      contact_number: contactNumber,
-      phone: contactNumber,
-      description,
-      purpose: description
-    };
-
-    // Find which table this record belongs to or use the selected type to determine it
-    let targetTable = null;
-
-    if (editId) {
       // Find the original table for this record
       const originalRecord = allServices.find(s => s.id === editId);
-      if (originalRecord && originalRecord.table_name) {
-        targetTable = originalRecord.table_name;
+      if (!originalRecord || !originalRecord.table_name) {
+        showToast('Could not find service record', 'error');
+        saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update Status';
+        saveBtn.disabled = false;
+        return;
       }
-    } else {
-      // Map service type to table name for new records
-      const typeToTable = {
-        'Birth Certificate': 'birth_certificate_appointments',
-        'Cenodeath Appointments': 'cenodeath_appointments',
-        'Cenomar Appointments': 'cenomar_appointments',
-        'Death Certificate': 'death_certificate_appointments',
-        'Facility Borrow': 'facility_borrow_requests',
-        'Marriage Certificate': 'marriage_certificate_appointments'
-      };
-      targetTable = typeToTable[type];
-    }
 
-    if (!targetTable) {
-      showToast('Invalid service type selected', 'error');
-      saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save';
-      saveBtn.disabled = false;
-      return;
-    }
+      const updatePayload = { status };
 
-    if (editId) {
+      // Add reason to notes/remarks based on status
+      if (reason) {
+        if (status === 'rejected') {
+          updatePayload.rejection_reason = reason;
+          updatePayload.remarks = `Rejected: ${reason}`;
+        } else if (status === 'completed') {
+          updatePayload.approval_reason = reason;
+          updatePayload.remarks = `Approved: ${reason}`;
+        } else {
+          updatePayload.notes = reason;
+          updatePayload.remarks = reason;
+        }
+      }
+
       const { error } = await supabaseClient
-        .from(targetTable)
-        .update(payload)
+        .from(originalRecord.table_name)
+        .update(updatePayload)
         .eq('id', editId);
-      if (error) throw error;
-      showToast('Service updated successfully!', 'success');
-      addNotification('Service Updated', `Service request has been updated`, 'success');
-      console.log(`Updated in table: ${targetTable}`);
-    } else {
-      const { error } = await supabaseClient
-        .from(targetTable)
-        .insert([payload]);
-      if (error) throw error;
-      showToast('Service added successfully!', 'success');
-      addNotification('Service Added', `Service request created for "${name}"`, 'success');
-      console.log(`Inserted into table: ${targetTable}`);
-    }
 
-    closeServiceModal();
-    loadServices();
-  } catch (error) {
-    console.error('Error saving service:', error);
-    showToast('Failed to save service: ' + error.message, 'error');
-  } finally {
-    saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save';
-    saveBtn.disabled = false;
+      if (error) throw error;
+      showToast('Service status updated successfully!', 'success');
+      addNotification('Service Updated', `Service request status has been updated to ${status}`, 'success');
+      closeServiceModal();
+      loadServices();
+    } catch (error) {
+      console.error('Error updating service:', error);
+      showToast('Error updating service status', 'error');
+      const saveBtn = document.getElementById('serviceSaveBtn');
+      saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update Status';
+      saveBtn.disabled = false;
+    }
+    return;
+  }
+
+  // If creating new service (this should not be used since "Add Service" button was removed)
+  showToast('Service requests can only be created by app users', 'info');
+}
+
+function toggleReasonField() {
+  const status = document.getElementById('serviceStatus').value;
+  const reasonFieldGroup = document.getElementById('reasonFieldGroup');
+  const reasonLabel = document.getElementById('reasonLabel');
+
+  if (status === 'rejected') {
+    reasonFieldGroup.style.display = 'block';
+    reasonLabel.textContent = 'Rejection Reason *';
+  } else if (status === 'completed') {
+    reasonFieldGroup.style.display = 'block';
+    reasonLabel.textContent = 'Approval Notes *';
+  } else {
+    reasonFieldGroup.style.display = 'none';
+  }
+
+  // Clear reason when hiding
+  if (reasonFieldGroup.style.display === 'none') {
+    document.getElementById('serviceReason').value = '';
   }
 }
 
@@ -3631,7 +4078,7 @@ function openDeleteService(id, name) {
 
 function getStatusClass(status) {
   const s = (status || '').toLowerCase();
-  if (s === 'resolved' || s === 'done') return 'status-resolved';
+  if (s === 'resolved' || s === 'done' || s === 'completed' || s === 'approved') return 'status-approved';
   if (s === 'reviewing' || s === 'under review' || s === 'in progress') return 'status-reviewing';
   if (s === 'rejected') return 'status-rejected';
   return 'status-pending';
@@ -4059,6 +4506,30 @@ function setupSearchListeners() {
   const hotlineSearch = document.getElementById('hotlineSearch');
   if (hotlineSearch) {
     hotlineSearch.addEventListener('input', debounce(() => {
+      filterHotline();
+    }, 300));
+  }
+
+  const headerSearch = document.getElementById('headerSearch');
+  if (headerSearch) {
+    headerSearch.addEventListener('input', debounce(() => {
+      const searchTerm = headerSearch.value;
+
+      // Clear header search from individual page search boxes
+      ['barangaySearch', 'newsSearch', 'reportsSearch', 'transparencySearch', 'touristSearch', 'serviceSearch', 'hotlineSearch'].forEach(id => {
+        const searchBox = document.getElementById(id);
+        if (searchBox) {
+          searchBox.value = searchTerm;
+        }
+      });
+
+      // Apply search to each page's data
+      loadBarangayTable();
+      loadNews();
+      filterReports();
+      filterTransparency();
+      filterTourist();
+      filterService();
       filterHotline();
     }, 300));
   }

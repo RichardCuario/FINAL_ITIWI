@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>iTIWI Admin Login</title>
+  <title>iTIWI — Admin Login | Municipality of Tiwi</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -18,28 +18,61 @@
 
     body {
       font-family: 'Inter', sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
       padding: 20px;
+      background: #0f1a2e;
+      background-image: url('assets/municipal_hall.jpg');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      position: relative;
     }
 
-    .login-container {
-      background: white;
-      border-radius: 20px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      max-width: 420px;
+    /* Dark overlay with Philippine flag gradient accent */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background:
+        linear-gradient(135deg,
+          rgba(15, 26, 46, 0.88) 0%,
+          rgba(15, 26, 46, 0.75) 50%,
+          rgba(33, 150, 243, 0.35) 100%
+        );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Top stripe — Philippine flag colors */
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 5px;
+      background: linear-gradient(90deg, #0038A8 0%, #0038A8 33%, #CE1126 33%, #CE1126 66%, #FCD116 66%, #FCD116 100%);
+      z-index: 10;
+    }
+
+    .login-wrapper {
+      position: relative;
+      z-index: 2;
       width: 100%;
-      padding: 50px 40px;
-      animation: slideUp 0.5s ease-out;
+      max-width: 480px;
+      animation: fadeIn 0.6s ease-out;
     }
 
-    @keyframes slideUp {
+    @keyframes fadeIn {
       from {
         opacity: 0;
-        transform: translateY(30px);
+        transform: translateY(20px);
       }
       to {
         opacity: 1;
@@ -47,207 +80,127 @@
       }
     }
 
-    .login-header {
-      text-align: center;
-      margin-bottom: 40px;
-    }
-
-    .login-logo {
-      height: 60px;
-      margin-bottom: 20px;
-    }
-
-    .login-logo img {
-      height: 100%;
-      width: auto;
-    }
-
-    .login-title {
-      font-size: 28px;
-      font-weight: 700;
-      color: #1a1a1a;
-      margin-bottom: 8px;
-    }
-
-    .login-subtitle {
-      font-size: 14px;
-      color: #666;
-    }
-
-    .form-group {
-      margin-bottom: 20px;
-    }
-
-    .form-label {
-      display: block;
-      font-size: 13px;
-      font-weight: 600;
-      color: #333;
-      margin-bottom: 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .form-input {
-      width: 100%;
-      padding: 12px 16px;
-      border: 2px solid #e0e0e0;
-      border-radius: 10px;
-      font-size: 14px;
-      font-family: 'Inter', sans-serif;
-      transition: all 0.3s ease;
-    }
-
-    .form-input:focus {
-      outline: none;
-      border-color: #667eea;
-      background-color: #f9f9ff;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    }
-
-    .form-input::placeholder {
-      color: #999;
-    }
-
-    .password-toggle {
-      position: relative;
-    }
-
-    .password-toggle-btn {
-      position: absolute;
-      right: 16px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: none;
-      border: none;
-      color: #667eea;
-      cursor: pointer;
-      font-size: 16px;
-    }
-
-    .form-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 30px;
-      font-size: 13px;
-    }
-
-    .remember-me {
+    /* Government seal bar */
+    .gov-seal-bar {
       display: flex;
       align-items: center;
-      gap: 6px;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 24px;
     }
 
-    .remember-me input {
-      width: 16px;
-      height: 16px;
-      cursor: pointer;
-    }
-
-    .remember-me label {
-      cursor: pointer;
-      color: #333;
-      font-weight: 500;
-    }
-
-    .forgot-password {
-      color: #667eea;
-      text-decoration: none;
-      font-weight: 600;
-      transition: color 0.3s ease;
-    }
-
-    .forgot-password:hover {
-      color: #764ba2;
-    }
-
-    .submit-btn {
-      width: 100%;
-      padding: 14px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      border-radius: 10px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      margin-bottom: 15px;
-    }
-
-    .submit-btn:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
-    }
-
-    .submit-btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .divider {
-      display: flex;
-      align-items: center;
-      margin-bottom: 20px;
-      gap: 12px;
-      font-size: 13px;
-      color: #999;
-    }
-
-    .divider-line {
+    .gov-seal-bar .line {
       flex: 1;
       height: 1px;
-      background: #e0e0e0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
     }
 
-    .social-buttons {
+    .gov-seal-bar .seal-icon {
+      width: 40px;
+      height: 40px;
       display: flex;
-      gap: 12px;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255,255,255,0.6);
+      font-size: 32px;
+    }
+
+    .login-card {
+      background: linear-gradient(180deg,
+        rgba(20, 35, 60, 0.95) 0%,
+        rgba(15, 26, 46, 0.92) 100%
+      );
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow:
+        0 24px 80px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(20px);
+      padding: 48px 40px 40px;
+    }
+
+    /* Branding Header */
+    .brand-header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    .brand-logos {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
       margin-bottom: 20px;
     }
 
-    .social-btn {
-      flex: 1;
-      padding: 12px;
-      border: 2px solid #e0e0e0;
-      background: white;
-      border-radius: 10px;
-      cursor: pointer;
-      font-size: 18px;
-      transition: all 0.3s ease;
+    .brand-logos .logo-item {
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    .social-btn:hover {
-      border-color: #667eea;
-      background: #f9f9ff;
+    .brand-logos .logo-item img {
+      height: 52px;
+      width: auto;
+      object-fit: contain;
     }
 
-    .login-footer {
+    .brand-logos .logo-divider {
+      width: 1px;
+      height: 40px;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .brand-title {
+      font-size: 24px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+
+    .brand-subtitle {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.5);
+      font-weight: 500;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .brand-subtitle .highlight {
+      color: #64B5F6;
+    }
+
+    .sign-in-label {
       text-align: center;
-      font-size: 14px;
-      color: #666;
+      margin-bottom: 28px;
+      padding-bottom: 28px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     }
 
-    .login-footer a {
-      color: #667eea;
-      text-decoration: none;
-      font-weight: 600;
+    .sign-in-label h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 4px;
     }
 
-    .login-footer a:hover {
-      text-decoration: underline;
+    .sign-in-label p {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.45);
     }
 
+    /* Messages */
     .error-message {
-      background-color: #fee;
-      color: #c33;
+      background: rgba(206, 17, 38, 0.12);
+      color: #EF9A9A;
       padding: 12px 16px;
       border-radius: 8px;
       margin-bottom: 20px;
       font-size: 13px;
       display: none;
-      border-left: 4px solid #c33;
+      border-left: 3px solid #CE1126;
+      line-height: 1.5;
     }
 
     .error-message.show {
@@ -255,123 +208,429 @@
     }
 
     .success-message {
-      background-color: #efe;
-      color: #3c3;
+      background: rgba(76, 175, 80, 0.12);
+      color: #A5D6A7;
       padding: 12px 16px;
       border-radius: 8px;
       margin-bottom: 20px;
       font-size: 13px;
       display: none;
-      border-left: 4px solid #3c3;
+      border-left: 3px solid #4CAF50;
+      line-height: 1.5;
     }
 
     .success-message.show {
       display: block;
     }
 
-    .loader {
+    /* Form */
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .form-label i {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.3);
+    }
+
+    .input-wrapper {
+      position: relative;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: rgba(255, 255, 255, 0.25);
+      font-size: 15px;
+      pointer-events: none;
+      transition: color 0.3s ease;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 14px 16px 14px 42px;
+      border: 1.5px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.04);
+      transition: all 0.3s ease;
+      outline: none;
+    }
+
+    .form-input::placeholder {
+      color: rgba(255, 255, 255, 0.25);
+    }
+
+    .form-input:focus {
+      border-color: #2196F3;
+      background: rgba(33, 150, 243, 0.06);
+      box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.12);
+    }
+
+    .form-input:focus ~ .input-icon {
+      color: #64B5F6;
+    }
+
+    .password-toggle-btn {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: rgba(255, 255, 255, 0.3);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 4px;
+      transition: color 0.3s ease;
+    }
+
+    .password-toggle-btn:hover {
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .form-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .remember-me {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .remember-me input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: #2196F3;
+      cursor: pointer;
+    }
+
+    .remember-me label {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.55);
+      cursor: pointer;
+      font-weight: 500;
+      user-select: none;
+    }
+
+    .forgot-password {
+      font-size: 13px;
+      color: #64B5F6;
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.3s ease;
+    }
+
+    .forgot-password:hover {
+      color: #90CAF9;
+    }
+
+    /* Submit Button */
+    .submit-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #1565C0 0%, #1976D2 50%, #1E88E5 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      letter-spacing: 0.3px;
+      box-shadow: 0 4px 20px rgba(21, 101, 192, 0.35);
+    }
+
+    .submit-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(21, 101, 192, 0.5);
+      background: linear-gradient(135deg, #1976D2 0%, #1E88E5 50%, #2196F3 100%);
+    }
+
+    .submit-btn:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn-loader {
       display: none;
-      width: 20px;
-      height: 20px;
-      border: 3px solid rgba(255, 255, 255, 0.3);
-      border-top-color: white;
+      width: 18px;
+      height: 18px;
+      border: 2.5px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #ffffff;
       border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto;
+      animation: spin 0.7s linear infinite;
+    }
+
+    .loading .btn-loader {
+      display: inline-block;
+    }
+
+    .loading .btn-text {
+      opacity: 0.7;
     }
 
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
 
-    .loading .loader {
-      display: block;
+    /* Divider */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 24px 0 20px;
     }
 
-    .loading .submit-btn {
-      opacity: 0.8;
+    .divider-line {
+      flex: 1;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.08);
     }
 
+    .divider-text {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.3);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* Footer */
+    .login-footer {
+      text-align: center;
+    }
+
+    .login-footer p {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    .login-footer a {
+      color: #64B5F6;
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.3s ease;
+    }
+
+    .login-footer a:hover {
+      color: #90CAF9;
+    }
+
+    /* Bottom government branding */
+    .gov-footer {
+      text-align: center;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .gov-footer p {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.25);
+      letter-spacing: 0.5px;
+    }
+
+    .gov-footer .republic {
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.35);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      font-size: 10px;
+      margin-bottom: 2px;
+    }
+
+    /* Responsive */
     @media (max-width: 480px) {
-      .login-container {
-        padding: 40px 24px;
+      .login-card {
+        padding: 36px 24px 28px;
       }
 
-      .login-title {
-        font-size: 24px;
+      .brand-logos .logo-item img {
+        height: 40px;
       }
 
-      .social-buttons {
-        display: none;
+      .brand-title {
+        font-size: 20px;
+      }
+
+      .brand-subtitle {
+        font-size: 11px;
+      }
+
+      .login-wrapper {
+        max-width: 100%;
+      }
+
+      .form-input {
+        padding: 12px 14px 12px 38px;
+        font-size: 13px;
+      }
+
+      .submit-btn {
+        padding: 14px;
+        font-size: 14px;
+      }
+
+      .form-footer {
+        flex-direction: column;
+        gap: 12px;
+        align-items: flex-start;
+      }
+    }
+
+    @media (max-width: 360px) {
+      .login-card {
+        padding: 28px 16px 20px;
+      }
+
+      .brand-logos .logo-item img {
+        height: 32px;
+      }
+
+      .brand-logos .logo-divider {
+        height: 28px;
       }
     }
   </style>
 </head>
 <body>
-  <div class="login-container">
-    <div class="login-header">
-      <div class="login-logo">
-        <img src="assets/ITIWI-LOGO.png" alt="iTIWI Logo" />
+  <div class="login-wrapper">
+    <!-- Government seal bar -->
+    <div class="gov-seal-bar">
+      <div class="line"></div>
+      <div class="seal-icon">
+        <i class="fa-solid fa-building-columns"></i>
       </div>
-      <h1 class="login-title">iTIWI Admin</h1>
-      <p class="login-subtitle">Sign in to your account</p>
+      <div class="line"></div>
     </div>
 
-    <div id="errorMessage" class="error-message"></div>
-    <div id="successMessage" class="success-message"></div>
-
-    <form id="loginForm">
-      <div class="form-group">
-        <label class="form-label">Email Address</label>
-        <input
-          type="email"
-          id="email"
-          class="form-input"
-          placeholder="admin@example.com"
-          required
-          autocomplete="email"
-        />
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Password</label>
-        <div class="password-toggle">
-          <input
-            type="password"
-            id="password"
-            class="form-input"
-            placeholder="Enter your password"
-            required
-            autocomplete="current-password"
-          />
-          <button type="button" class="password-toggle-btn" id="togglePassword">
-            <i class="fa-solid fa-eye"></i>
-          </button>
+    <div class="login-card">
+      <!-- Branding -->
+      <div class="brand-header">
+        <div class="brand-logos">
+          <div class="logo-item">
+            <img src="assets/ITIWI-LOGO.png" alt="iTIWI Logo" />
+          </div>
+          <div class="logo-divider"></div>
+          <div class="logo-item">
+            <img src="assets/TEXTLOGO.png" alt="iTIWI" />
+          </div>
         </div>
       </div>
 
-      <div class="form-footer">
-        <label class="remember-me">
-          <input type="checkbox" id="rememberMe" />
-          <label for="rememberMe">Remember me</label>
-        </label>
-        <a href="#" class="forgot-password" id="forgotPasswordLink">Forgot password?</a>
+      <!-- Sign in label -->
+      <div class="sign-in-label">
+        <h2>Admin Portal</h2>
+        <p>Sign in to manage your municipality's digital services</p>
       </div>
 
-      <button type="submit" class="submit-btn" id="submitBtn">
-        <span>Sign In</span>
-        <div class="loader"></div>
-      </button>
-    </form>
+      <!-- Messages -->
+      <div id="errorMessage" class="error-message"></div>
+      <div id="successMessage" class="success-message"></div>
 
-    <div class="divider">
-      <div class="divider-line"></div>
-      <span>or</span>
-      <div class="divider-line"></div>
-    </div>
+      <!-- Form -->
+      <form id="loginForm" autocomplete="on">
+        <div class="form-group">
+          <label class="form-label">
+            <i class="fa-regular fa-envelope"></i>
+            Email Address
+          </label>
+          <div class="input-wrapper">
+            <input
+              type="email"
+              id="email"
+              class="form-input"
+              placeholder="admin@tiwi.gov.ph"
+              required
+              autocomplete="email"
+            />
+            <i class="fa-regular fa-envelope input-icon"></i>
+          </div>
+        </div>
 
-    <div class="login-footer">
-      Don't have an account? <a href="#" id="signupLink">Contact administrator</a>
+        <div class="form-group">
+          <label class="form-label">
+            <i class="fa-solid fa-lock"></i>
+            Password
+          </label>
+          <div class="input-wrapper">
+            <input
+              type="password"
+              id="password"
+              class="form-input"
+              placeholder="Enter your password"
+              required
+              autocomplete="current-password"
+            />
+            <i class="fa-solid fa-lock input-icon"></i>
+            <button type="button" class="password-toggle-btn" id="togglePassword" tabindex="-1">
+              <i class="fa-regular fa-eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-footer">
+          <label class="remember-me">
+            <input type="checkbox" id="rememberMe" />
+            <label for="rememberMe">Remember me</label>
+          </label>
+          <a href="#" class="forgot-password" id="forgotPasswordLink">
+            Forgot password?
+          </a>
+        </div>
+
+        <button type="submit" class="submit-btn" id="submitBtn">
+          <span class="btn-text">Sign In</span>
+          <div class="btn-loader"></div>
+        </button>
+      </form>
+
+      <div class="divider">
+        <div class="divider-line"></div>
+        <span class="divider-text">Access</span>
+        <div class="divider-line"></div>
+      </div>
+
+      <div class="login-footer">
+        <p>Need an account? <a href="#" id="signupLink">Contact your administrator</a></p>
+      </div>
+
+      <div class="gov-footer">
+        <p class="republic">Republic of the Philippines</p>
+        <p>Province of Albay &bull; Municipality of Tiwi</p>
+        <p>&copy; 2026 iTIWI System &bull; All rights reserved</p>
+      </div>
     </div>
   </div>
 
@@ -440,7 +699,9 @@
       e.preventDefault();
       const type = passwordInput.type === 'password' ? 'text' : 'password';
       passwordInput.type = type;
-      togglePasswordBtn.innerHTML = type === 'password' ? '<i class="fa-solid fa-eye"></i>' : '<i class="fa-solid fa-eye-slash"></i>';
+      togglePasswordBtn.innerHTML = type === 'password'
+        ? '<i class="fa-regular fa-eye"></i>'
+        : '<i class="fa-regular fa-eye-slash"></i>';
     });
 
     // Handle login form submission
@@ -461,7 +722,7 @@
       }
 
       submitBtn.disabled = true;
-      submitBtn.parentElement.classList.add('loading');
+      submitBtn.classList.add('loading');
       clearMessages();
 
       try {
@@ -471,9 +732,9 @@
         });
 
         if (error) {
-          showError(error.message || 'Login failed. Please check your credentials.');
+          showError(error.message || 'Invalid credentials. Please check your email and password.');
           submitBtn.disabled = false;
-          submitBtn.parentElement.classList.remove('loading');
+          submitBtn.classList.remove('loading');
           return;
         }
 
@@ -485,7 +746,7 @@
             localStorage.removeItem('rememberEmail');
           }
 
-          showSuccess('Login successful! Redirecting...');
+          showSuccess('Authentication successful. Redirecting to dashboard...');
           setTimeout(() => {
             redirectToDashboard();
           }, 1500);
@@ -493,7 +754,7 @@
       } catch (error) {
         showError('An unexpected error occurred: ' + error.message);
         submitBtn.disabled = false;
-        submitBtn.parentElement.classList.remove('loading');
+        submitBtn.classList.remove('loading');
       }
     });
 
@@ -508,12 +769,12 @@
       }
 
       submitBtn.disabled = true;
-      submitBtn.parentElement.classList.add('loading');
+      submitBtn.classList.add('loading');
       clearMessages();
 
       supabaseClient.auth
         .resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/adminside/reset-password.html`,
+          redirectTo: window.location.origin + '/adminside/reset-password.html',
         })
         .then(({ error }) => {
           if (error) {
@@ -522,7 +783,7 @@
             showSuccess('Password reset link sent to your email!');
           }
           submitBtn.disabled = false;
-          submitBtn.parentElement.classList.remove('loading');
+          submitBtn.classList.remove('loading');
         });
     });
 

@@ -10,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <!-- Sidebar -->
@@ -56,10 +57,6 @@
         <i class="fa-solid fa-phone"></i>
         <span>Manage Hotline</span>
       </a>
-      <a href="#" class="nav-item" data-page="settings">
-        <i class="fa-solid fa-gear"></i>
-        <span>Settings</span>
-      </a>
     </nav>
 
     <div class="sidebar-footer">
@@ -88,7 +85,7 @@
         </button>
         <div class="search-box">
           <i class="fa-solid fa-magnifying-glass"></i>
-          <input type="text" placeholder="Search here..." />
+          <input type="text" id="headerSearch" placeholder="Search here..." autocomplete="off" />
         </div>
       </div>
       <div class="header-right">
@@ -189,8 +186,68 @@
           </div>
         </div>
 
-        <!-- Analytics Section -->
-        <div class="analytics-container">
+        <!-- Row 1: Recent Report and Recent Request -->
+        <div class="dashboard-grid-2col">
+          <!-- Recent Report -->
+          <div class="card">
+            <div class="card-header">
+              <h2>Recent Report</h2>
+              <button class="btn btn-sm btn-secondary" onclick="navigateTo('reports')">
+                View All <i class="fa-solid fa-arrow-right"></i>
+              </button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table data-table-compact">
+                <thead>
+                  <tr>
+                    <th>Reporter Name</th>
+                    <th>Message</th>
+                    <th>Status</th>
+                    <th>Attachments</th>
+                    <th>Date Submitted</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="dashboardReportTableBody">
+                  <tr>
+                    <td colspan="6" class="empty-state">Loading...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Recent Request -->
+          <div class="card">
+            <div class="card-header">
+              <h2>Recent Request</h2>
+              <button class="btn btn-sm btn-secondary" onclick="navigateTo('services')">
+                View All <i class="fa-solid fa-arrow-right"></i>
+              </button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table data-table-compact">
+                <thead>
+                  <tr>
+                    <th>Requested By</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Date Requested</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="dashboardServiceTableBody">
+                  <tr>
+                    <td colspan="5" class="empty-state">Loading...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 2: Status Breakdowns (Equal Size) -->
+        <div class="dashboard-grid-2col">
           <!-- Report Status Breakdown -->
           <div class="card analytics-card">
             <div class="card-header">
@@ -202,21 +259,21 @@
                 <div class="status-bar">
                   <div class="status-fill pending-fill" id="reportPendingBar" style="width: 0%"></div>
                 </div>
-                <span class="status-count" id="reportPendingCount">0</span>
+                <span class="status-count" id="reportPendingCount">1</span>
               </div>
               <div class="status-item">
                 <span class="status-label">Reviewing</span>
                 <div class="status-bar">
                   <div class="status-fill reviewing-fill" id="reportReviewingBar" style="width: 0%"></div>
                 </div>
-                <span class="status-count" id="reportReviewingCount">0</span>
+                <span class="status-count" id="reportReviewingCount">1</span>
               </div>
               <div class="status-item">
                 <span class="status-label">Resolved</span>
                 <div class="status-bar">
                   <div class="status-fill resolved-fill" id="reportResolvedBar" style="width: 0%"></div>
                 </div>
-                <span class="status-count" id="reportResolvedCount">0</span>
+                <span class="status-count" id="reportResolvedCount">13</span>
               </div>
             </div>
           </div>
@@ -224,7 +281,8 @@
           <!-- Service Request Status Breakdown -->
           <div class="card analytics-card">
             <div class="card-header">
-              <h2>Service Request Status Breakdown</h2>
+              <h2>Service Request Status</h2>
+              <span class="card-badge">This Month</span>
             </div>
             <div class="status-breakdown">
               <div class="status-item">
@@ -232,7 +290,7 @@
                 <div class="status-bar">
                   <div class="status-fill pending-fill" id="servicePendingBar" style="width: 0%"></div>
                 </div>
-                <span class="status-count" id="servicePendingCount">0</span>
+                <span class="status-count" id="servicePendingCount">2</span>
               </div>
               <div class="status-item">
                 <span class="status-label">Processing</span>
@@ -253,41 +311,27 @@
                 <div class="status-bar">
                   <div class="status-fill rejected-fill" id="serviceRejectedBar" style="width: 0%"></div>
                 </div>
-                <span class="status-count" id="serviceRejectedCount">0</span>
+                <span class="status-count" id="serviceRejectedCount">2</span>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- News by Category -->
-          <div class="card analytics-card" style="display: none;">
-            <div class="card-header">
-              <h2>News by Category</h2>
-            </div>
-            <div class="category-list" id="newsByCategoryList">
-              <p class="loading-text">Loading...</p>
-            </div>
+        <!-- Row 3: Performance Trend -->
+        <div class="card analytics-card">
+          <div class="card-header">
+            <h2>Performance trend</h2>
+            <select class="status-filter" id="performanceTrendFilter" style="margin-left: auto;" onchange="loadPerformanceTrend()">
+              <option value="6">Last 6 Months</option>
+              <option value="3">Last 3 Months</option>
+              <option value="12">Last 12 Months</option>
+            </select>
           </div>
-
-          <!-- Reports by Category -->
-          <div class="card analytics-card" style="display: none;">
-            <div class="card-header">
-              <h2>Reports by Category</h2>
-            </div>
-            <div class="category-list" id="reportsByCategoryList">
-              <p class="loading-text">Loading...</p>
-            </div>
-          </div>
-
-          <!-- Service Requests by Type -->
-          <div class="card analytics-card" style="display: none;">
-            <div class="card-header">
-              <h2>Service Requests by Type</h2>
-            </div>
-            <div class="category-list" id="servicesByTypeList">
-              <p class="loading-text">Loading...</p>
-            </div>
+          <div style="position: relative; height: 350px; width: 100%; padding: 20px 0;">
+            <canvas id="performanceTrendChart" style="display: block; max-height: 350px;"></canvas>
           </div>
         </div>
+
       </section>
 
       <!-- Manage Barangay Page -->
@@ -551,10 +595,6 @@
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input type="text" placeholder="Search services..." id="serviceSearch" />
               </div>
-              <button class="btn btn-primary" onclick="openServiceModal()">
-                <i class="fa-solid fa-plus"></i>
-                Add Service
-              </button>
             </div>
           </div>
           <div class="table-responsive">
@@ -628,160 +668,6 @@
       </section>
 
       <!-- Settings Page -->
-      <section class="page settings-page" id="settingsPage">
-        <div class="page-header">
-          <h1>Settings</h1>
-          <p class="page-subtitle">Manage your account and application settings.</p>
-        </div>
-
-        <!-- Account Settings -->
-        <div class="card">
-          <div class="card-header">
-            <h2>Account Settings</h2>
-          </div>
-          <div class="form-section">
-            <div class="section-header">
-              <h3>Admin Account Information</h3>
-              <p class="section-subtitle">Update your admin account details.</p>
-            </div>
-            <div class="form-grid-2col">
-              <div class="form-group">
-                <label for="settingsEmail">Email Address <span class="required">*</span></label>
-                <input type="email" id="settingsEmail" placeholder="admin@example.com" readonly />
-              </div>
-              <div class="form-group">
-                <label for="settingsFullName">Full Name</label>
-                <input type="text" id="settingsFullName" placeholder="Enter your full name" />
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="settingsCurrentPassword">Current Password <span class="required">*</span></label>
-              <input type="password" id="settingsCurrentPassword" placeholder="Enter current password" />
-            </div>
-            <div class="form-group">
-              <label for="settingsNewPassword">New Password</label>
-              <input type="password" id="settingsNewPassword" placeholder="Leave blank to keep current password" />
-            </div>
-            <div class="form-group">
-              <label for="settingsConfirmPassword">Confirm New Password</label>
-              <input type="password" id="settingsConfirmPassword" placeholder="Confirm new password" />
-            </div>
-            <div class="form-group" style="margin-top: 20px;">
-              <button class="btn btn-primary" onclick="updateAccountSettings()">
-                <i class="fa-solid fa-floppy-disk"></i>
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- System Settings -->
-        <div class="card">
-          <div class="card-header">
-            <h2>System Settings</h2>
-          </div>
-          <div class="form-section">
-            <div class="section-header">
-              <h3>Application Preferences</h3>
-              <p class="section-subtitle">Configure system-wide preferences and behaviors.</p>
-            </div>
-            <div class="form-group">
-              <label for="settingsItemsPerPage" class="checkbox-label">
-                <span>Items Per Page</span>
-              </label>
-              <select id="settingsItemsPerPage">
-                <option value="10">10 items per page</option>
-                <option value="25">25 items per page</option>
-                <option value="50">50 items per page</option>
-                <option value="100">100 items per page</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="settingsThemeMode" class="checkbox-label">
-                <span>Theme Mode</span>
-              </label>
-              <select id="settingsThemeMode">
-                <option value="light">Light Mode</option>
-                <option value="dark">Dark Mode</option>
-                <option value="auto">Auto (System)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="settingsNotifications" class="checkbox-label">
-                <input type="checkbox" id="settingsNotifications" />
-                <span>Enable Browser Notifications</span>
-              </label>
-              <p class="form-help-text">Receive notifications for important system events</p>
-            </div>
-            <div class="form-group">
-              <label for="settingsAutoSave" class="checkbox-label">
-                <input type="checkbox" id="settingsAutoSave" />
-                <span>Auto-save Draft Changes</span>
-              </label>
-              <p class="form-help-text">Automatically save form drafts while editing</p>
-            </div>
-            <div class="form-group" style="margin-top: 20px;">
-              <button class="btn btn-primary" onclick="updateSystemSettings()">
-                <i class="fa-solid fa-floppy-disk"></i>
-                Save System Settings
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Data Management -->
-        <div class="card">
-          <div class="card-header">
-            <h2>Data Management</h2>
-          </div>
-          <div class="form-section">
-            <div class="section-header">
-              <h3>Backup & Export</h3>
-              <p class="section-subtitle">Manage your data backups and exports.</p>
-            </div>
-            <div class="action-group">
-              <button class="btn btn-secondary" onclick="exportDashboardData()">
-                <i class="fa-solid fa-download"></i>
-                Export Dashboard Data
-              </button>
-              <p class="form-help-text">Export all dashboard data as CSV</p>
-            </div>
-            <div class="action-group" style="margin-top: 15px;">
-              <button class="btn btn-secondary" onclick="backupDatabase()">
-                <i class="fa-solid fa-database"></i>
-                Create Database Backup
-              </button>
-              <p class="form-help-text">Create a backup of all system data</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Danger Zone -->
-        <div class="card danger-card">
-          <div class="card-header">
-            <h2>Danger Zone</h2>
-          </div>
-          <div class="form-section">
-            <div class="section-header">
-              <h3>Account Actions</h3>
-              <p class="section-subtitle">Irreversible actions - proceed with caution.</p>
-            </div>
-            <div class="action-group">
-              <button class="btn btn-danger" onclick="clearAllData()">
-                <i class="fa-solid fa-trash"></i>
-                Clear All Data
-              </button>
-              <p class="form-help-text">Delete all records from the system (cannot be undone)</p>
-            </div>
-            <div class="action-group" style="margin-top: 15px;">
-              <button class="btn btn-danger" onclick="resetSettings()">
-                <i class="fa-solid fa-redo"></i>
-                Reset All Settings
-              </button>
-              <p class="form-help-text">Reset all settings to defaults</p>
-            </div>
-          </div>
-        </div>
       </section>
     </div>
   </main>
@@ -1337,48 +1223,24 @@
   <div class="modal-overlay" id="serviceModal">
     <div class="modal">
       <div class="modal-header">
-        <h2 id="serviceModalTitle">Add Service Request</h2>
+        <h2 id="serviceModalTitle">Update Service Request</h2>
         <button class="modal-close" onclick="closeServiceModal()">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
       <div class="modal-body">
         <div class="form-group">
-          <label for="serviceName">Service Name <span class="required">*</span></label>
-          <input type="text" id="serviceName" placeholder="Enter service name" />
-        </div>
-        <div class="form-group">
-          <label for="serviceType">Service Type <span class="required">*</span></label>
-          <select id="serviceType">
-            <option value="">Select type</option>
-            <option value="Birth Certificate">Birth Certificate</option>
-            <option value="Death Certificate">Death Certificate</option>
-            <option value="Marriage Certificate">Marriage Certificate</option>
-            <option value="Cenodeath Appointments">Cenodeath Appointments</option>
-            <option value="Cenomar Appointments">Cenomar Appointments</option>
-            <option value="Facility Borrow">Facility Borrow</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="serviceRequestedBy">Requested By <span class="required">*</span></label>
-          <input type="text" id="serviceRequestedBy" placeholder="Full name" />
-        </div>
-        <div class="form-group">
           <label for="serviceStatus">Status <span class="required">*</span></label>
-          <select id="serviceStatus">
+          <select id="serviceStatus" onchange="toggleReasonField()">
             <option value="pending">Pending</option>
             <option value="processing">Processing</option>
             <option value="completed">Completed</option>
             <option value="rejected">Rejected</option>
           </select>
         </div>
-        <div class="form-group">
-          <label for="serviceContactNumber">Contact Number</label>
-          <input type="text" id="serviceContactNumber" placeholder="Phone number" />
-        </div>
-        <div class="form-group">
-          <label for="serviceDescription">Description</label>
-          <textarea id="serviceDescription" rows="3" placeholder="Service details or notes"></textarea>
+        <div class="form-group" id="reasonFieldGroup" style="display: none;">
+          <label for="serviceReason" id="reasonLabel">Reason <span class="required">*</span></label>
+          <textarea id="serviceReason" rows="4" placeholder="Enter reason for this status change..."></textarea>
         </div>
         <input type="hidden" id="serviceEditId" />
       </div>
@@ -1386,7 +1248,7 @@
         <button class="btn btn-secondary" onclick="closeServiceModal()">Cancel</button>
         <button class="btn btn-primary" id="serviceSaveBtn" onclick="saveService()">
           <i class="fa-solid fa-floppy-disk"></i>
-          Save
+          Update Status
         </button>
       </div>
     </div>
