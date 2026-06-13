@@ -908,57 +908,122 @@
   </div>
 
   <!-- Report Details Modal -->
+  <!-- Report Details Modal (View Only) -->
   <div class="modal-overlay" id="reportModal">
-    <div class="modal" style="max-width: 700px; max-height: 90vh; overflow-y: auto;">
+    <div class="modal" style="max-width: 700px; max-height: 90vh; display: flex; flex-direction: column;">
       <div class="modal-header">
-        <h2 id="reportModalTitle">Report Details</h2>
+        <h2>Report Details</h2>
         <button class="modal-close" onclick="closeReportModal()">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" style="overflow-y: auto; flex: 1;">
         <div class="form-group">
-          <label for="reportReporterName">Reporter Name</label>
-          <input type="text" id="reportReporterName" placeholder="Reporter name" readonly />
+          <label for="reportViewReporterName">Reporter Name</label>
+          <input type="text" id="reportViewReporterName" placeholder="Reporter name" readonly />
         </div>
         <div class="form-group">
-          <label for="reportMessage">Message</label>
-          <textarea id="reportMessage" rows="5" placeholder="Report message" readonly></textarea>
+          <label for="reportViewMessage">Message</label>
+          <textarea id="reportViewMessage" rows="5" placeholder="Report message" readonly></textarea>
         </div>
         <div class="form-group">
           <label>Attachments</label>
-          <div id="reportAttachmentsContainer" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;">
+          <div id="reportViewAttachmentsContainer" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;">
             <p style="color: #999; font-size: 13px;">No attachments</p>
           </div>
         </div>
         <div class="form-group">
-          <label for="reportStatus">Status</label>
-          <select id="reportStatus">
+          <label for="reportViewSubmittedDate">Submitted Date</label>
+          <input type="text" id="reportViewSubmittedDate" placeholder="Date" readonly />
+        </div>
+
+        <!-- Accomplishment Report Section (Only for Resolved Reports) -->
+        <div id="reportViewAccomplishmentSection" style="display: none; border-top: 1px solid #e5e7eb; padding-top: 20px; margin-top: 20px;">
+          <div style="margin-bottom: 16px;">
+            <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 8px;">Accomplishment Report</h3>
+          </div>
+
+          <div class="form-group">
+            <label>Resolution Message</label>
+            <textarea id="reportViewAccomplishmentMessage" rows="4" placeholder="Resolution details..." readonly></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Proof/Evidence Files</label>
+            <div id="reportViewAccomplishmentFiles" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;">
+              <p style="color: #999; font-size: 13px;">No files attached</p>
+            </div>
+          </div>
+        </div>
+
+        <input type="hidden" id="reportViewId" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeReportModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Report Status Modal -->
+  <div class="modal-overlay" id="editReportModal">
+    <div class="modal" style="max-width: 600px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <h2>Edit Report Status</h2>
+        <button class="modal-close" onclick="closeEditReportModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body" style="overflow-y: auto; flex: 1;">
+        <div class="form-group">
+          <label for="reportEditStatus">Status <span class="required">*</span></label>
+          <select id="reportEditStatus" onchange="toggleReportReasonField()">
             <option value="pending">Pending</option>
             <option value="reviewing">Under Review</option>
             <option value="resolved">Resolved</option>
             <option value="rejected">Rejected</option>
           </select>
         </div>
-        <div class="form-group" id="rejectionReasonGroup" style="display: none;">
-          <label for="reportRejectionReason">Rejection Reason</label>
-          <textarea id="reportRejectionReason" rows="3" placeholder="Explain why the report is rejected..."></textarea>
+        <div class="form-group" id="reportEditReasonGroup" style="display: none;">
+          <label for="reportEditReason" id="reportEditReasonLabel">Reason <span class="required">*</span></label>
+          <textarea id="reportEditReason" rows="3" placeholder="Enter reason..."></textarea>
         </div>
-        <div class="form-group">
-          <label for="reportSubmittedDate">Submitted Date</label>
-          <input type="text" id="reportSubmittedDate" placeholder="Date" readonly />
+
+        <!-- Accomplishment Report Section (Only for Resolved) -->
+        <div id="accomplishmentSection" style="display: none; border-top: 1px solid #e5e7eb; padding-top: 20px; margin-top: 20px;">
+          <div style="margin-bottom: 16px;">
+            <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 8px;">Accomplishment Report</h3>
+            <p style="font-size: 13px; color: #666;">Share details of actions taken to resolve this report</p>
+          </div>
+
+          <div class="form-group">
+            <label for="accomplishmentMessage">Message to Reporter <span class="required">*</span></label>
+            <textarea id="accomplishmentMessage" rows="4" placeholder="Describe the actions taken and resolution details..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Proof/Evidence (Files or Images)</label>
+            <div class="logo-upload-wrapper">
+              <div class="logo-preview" id="accomplishmentFilesPreview">
+                <i class="fa-solid fa-paperclip"></i>
+                <span>No files selected</span>
+              </div>
+              <input type="file" id="accomplishmentFiles" multiple accept="image/*,.pdf,.doc,.docx" style="display: none;" />
+              <button type="button" class="btn btn-secondary" onclick="document.getElementById('accomplishmentFiles').click()">
+                <i class="fa-solid fa-upload"></i>
+                Choose Files
+              </button>
+            </div>
+            <div id="accomplishmentFilesList" style="margin-top: 12px;"></div>
+          </div>
         </div>
+
         <input type="hidden" id="reportEditId" />
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeReportModal()">Close</button>
-        <button class="btn btn-delete" id="reportDeleteBtn" onclick="openDeleteReport(document.getElementById('reportEditId').value, 'this report')">
-          <i class="fa-solid fa-trash"></i>
-          Delete
-        </button>
-        <button class="btn btn-primary" id="reportSaveBtn" onclick="updateReportStatus()">
+        <button class="btn btn-secondary" onclick="closeEditReportModal()">Cancel</button>
+        <button class="btn btn-primary" id="reportEditSaveBtn" onclick="updateReportStatus()">
           <i class="fa-solid fa-floppy-disk"></i>
-          Update Report
+          Update Status
         </button>
       </div>
     </div>
@@ -1171,15 +1236,15 @@
 
   <!-- Place Reviews Modal -->
   <div class="modal-overlay" id="placeReviewsModal">
-    <div class="modal" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+    <div class="modal" style="max-width: 800px; max-height: 90vh; display: flex; flex-direction: column;">
       <div class="modal-header">
         <h2 id="placeReviewsModalTitle">Reviews</h2>
         <button class="modal-close" onclick="closePlaceReviewsModal()">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
-      <div class="modal-body">
-        <div id="reviewsList" style="max-height: 60vh; overflow-y: auto;">
+      <div class="modal-body" style="overflow-y: auto; flex: 1;">
+        <div id="reviewsList">
           <p style="text-align: center; color: #999;">Loading reviews...</p>
         </div>
         <input type="hidden" id="selectedPlaceId" />
@@ -1316,9 +1381,34 @@
     </div>
   </div>
 
+  <!-- Logout Confirmation Modal -->
+  <div class="modal-overlay" id="logoutModal">
+    <div class="modal" style="max-width: 420px;">
+      <div class="modal-header">
+        <h2>Confirm Logout</h2>
+        <button class="modal-close" onclick="closeLogoutModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body" style="text-align: center; padding: 40px 32px;">
+        <i class="fa-solid fa-sign-out" style="font-size: 48px; color: #ef4444; margin-bottom: 20px; display: block;"></i>
+        <h3 style="font-size: 18px; font-weight: 700; color: #0f1a2e; margin-bottom: 12px;">Are you sure you want to logout?</h3>
+        <p style="font-size: 14px; color: #6b7280; margin: 0;">You will be logged out from your account and redirected to the login page.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeLogoutModal()">Cancel</button>
+        <button class="btn btn-danger" onclick="confirmLogout()">
+          <i class="fa-solid fa-sign-out"></i>
+          Logout
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notifications Container -->
   <div class="toast-container" id="toastContainer"></div>
 
+  <script src="security-utils.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
