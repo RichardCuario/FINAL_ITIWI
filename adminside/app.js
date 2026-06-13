@@ -152,11 +152,28 @@ function setupLogoutButton() {
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async (e) => {
       e.preventDefault();
-      if (confirm('Are you sure you want to logout?')) {
-        await handleLogout();
-      }
+      openLogoutModal();
     });
   }
+}
+
+function openLogoutModal() {
+  const modal = document.getElementById('logoutModal');
+  if (modal) {
+    modal.classList.add('active');
+  }
+}
+
+function closeLogoutModal() {
+  const modal = document.getElementById('logoutModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
+async function confirmLogout() {
+  closeLogoutModal();
+  await handleLogout();
 }
 
 function setupRealtimeListeners() {
@@ -2198,7 +2215,15 @@ async function saveNews() {
     // Upload new image if selected
     if (fileInput.files.length > 0) {
       const file = fileInput.files[0];
-      const fileName = `news_${Date.now()}_${file.name}`;
+
+      // Validate file upload
+      const validation = validateFileUpload(file, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], 5 * 1024 * 1024);
+      if (!validation.valid) {
+        showToast('File upload error: ' + validation.errors.join(', '), 'error');
+        return;
+      }
+
+      const fileName = `news_${Date.now()}_${sanitizeText(file.name)}`;
       const { data, error: uploadError } = await supabaseClient.storage
         .from('NEWS')
         .upload(fileName, file);
@@ -2303,7 +2328,7 @@ async function loadReports() {
   try {
     const { data, error } = await supabaseClient
       .from('reports')
-      .select('id, user_id, message, image_urls, status, rejection_reason, created_at, updated_at')
+      .select('id, user_id, message, image_urls, status, rejection_reason, resolution_notes, accomplishment_message, accomplishment_files, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -2415,6 +2440,12 @@ function renderReportsTable(reportsData) {
     viewBtn.innerHTML = '<i class="fa-solid fa-eye"></i>';
     viewBtn.addEventListener('click', () => openReportModal(r.id));
 
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn btn-sm btn-edit btn-icon';
+    editBtn.title = 'Edit Report';
+    editBtn.innerHTML = '<i class="fa-solid fa-pencil"></i>';
+    editBtn.addEventListener('click', () => openEditReportModal(r.id));
+
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'btn btn-sm btn-delete btn-icon';
     deleteBtn.title = 'Delete';
@@ -2422,6 +2453,7 @@ function renderReportsTable(reportsData) {
     deleteBtn.addEventListener('click', () => openDeleteReport(r.id, r.reporter_name || 'Report'));
 
     actionsDiv.appendChild(viewBtn);
+    actionsDiv.appendChild(editBtn);
     actionsDiv.appendChild(deleteBtn);
     tdActions.appendChild(actionsDiv);
 
@@ -2514,25 +2546,14 @@ async function openReportModal(id) {
       const reportData = allReports.find(r => r.id === id);
       const reporterName = reportData?.reporter_name || data.reporter_name || 'Anonymous';
 
-      document.getElementById('reportEditId').value = id;
-      document.getElementById('reportReporterName').value = reporterName;
-      document.getElementById('reportMessage').value = data.message || '';
-      document.getElementById('reportStatus').value = data.status || 'pending';
-      document.getElementById('reportSubmittedDate').value = formatDate(data.created_at);
-
-      // Handle rejection reason field visibility
-      const rejectionReasonGroup = document.getElementById('rejectionReasonGroup');
-      if (data.status === 'rejected') {
-        rejectionReasonGroup.style.display = 'block';
-        document.getElementById('reportRejectionReason').value = data.rejection_reason || '';
-      } else {
-        rejectionReasonGroup.style.display = 'none';
-        document.getElementById('reportRejectionReason').value = '';
-      }
+      document.getElementById('reportViewId').value = id;
+      document.getElementById('reportViewReporterName').value = reporterName;
+      document.getElementById('reportViewMessage').value = data.message || '';
+      document.getElementById('reportViewSubmittedDate').value = formatDate(data.created_at);
 
       // Display attachments
       const imageUrls = data.image_urls || [];
-      const attachmentsContainer = document.getElementById('reportAttachmentsContainer');
+      const attachmentsContainer = document.getElementById('reportViewAttachmentsContainer');
       attachmentsContainer.innerHTML = '';
 
       if (imageUrls.length === 0) {
@@ -2565,8 +2586,36 @@ async function openReportModal(id) {
         });
       }
 
+      // Display accomplishment report if status is resolved
+      const accomplishmentSection = document.getElementById('reportViewAccomplishmentSection');
+      if (data.status === 'resolved' && data.accomplishment_message) {
+        accomplishmentSection.style.display = 'block';
+        document.getElementById('reportViewAccomplishmentMessage').value = data.accomplishment_message || '';
+
+        // Display accomplishment files
+        const accomplishmentFilesContainer = document.getElementById('reportViewAccomplishmentFiles');
+        accomplishmentFilesContainer.innerHTML = '';
+
+        const accomplishmentFiles = data.accomplishment_files || [];
+        if (accomplishmentFiles.length === 0) {
+          accomplishmentFilesContainer.innerHTML = '<p style="color: #999; font-size: 13px;">No files attached</p>';
+        } else {
+          accomplishmentFiles.forEach(file => {
+            const fileLink = document.createElement('a');
+            fileLink.href = file.url;
+            fileLink.target = '_blank';
+            fileLink.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f3f4f6; border-radius: 8px; text-decoration: none; color: #1f2937; font-size: 13px; word-break: break-word;';
+            fileLink.innerHTML = `<i class="fa-solid fa-file"></i><span>${file.name}</span>`;
+            fileLink.title = 'Click to download/view';
+
+            accomplishmentFilesContainer.appendChild(fileLink);
+          });
+        }
+      } else {
+        accomplishmentSection.style.display = 'none';
+      }
+
       document.getElementById('reportModal').classList.add('active');
-      setupReportStatusChangeListener();
     }
   } catch (error) {
     console.error('Error loading report:', error);
@@ -2578,52 +2627,186 @@ function closeReportModal() {
   document.getElementById('reportModal').classList.remove('active');
 }
 
-function setupReportStatusChangeListener() {
-  const statusSelect = document.getElementById('reportStatus');
-  const rejectionReasonGroup = document.getElementById('rejectionReasonGroup');
-  if (statusSelect && rejectionReasonGroup) {
-    statusSelect.addEventListener('change', (e) => {
-      if (e.target.value === 'rejected') {
-        rejectionReasonGroup.style.display = 'block';
-      } else {
-        rejectionReasonGroup.style.display = 'none';
+async function openEditReportModal(id) {
+  document.getElementById('reportEditId').value = id;
+  document.getElementById('reportEditReason').value = '';
+  document.getElementById('accomplishmentMessage').value = '';
+  document.getElementById('accomplishmentFiles').value = '';
+  document.getElementById('accomplishmentFilesList').innerHTML = '';
+  updateAccomplishmentFilesList();
+
+  try {
+    const record = allReports.find(r => r.id === id);
+
+    if (record) {
+      document.getElementById('reportEditStatus').value = record.status || 'pending';
+
+      // Populate existing accomplishment data if report is already resolved
+      if (record.status === 'resolved') {
+        if (record.accomplishment_message) {
+          document.getElementById('accomplishmentMessage').value = record.accomplishment_message;
+        }
       }
+
+      toggleReportReasonField();
+    } else {
+      throw new Error('Record not found');
+    }
+  } catch (error) {
+    console.error('Error loading report:', error);
+    showToast('Failed to load report data', 'error');
+    return;
+  }
+
+  document.getElementById('editReportModal').classList.add('active');
+}
+
+function closeEditReportModal() {
+  document.getElementById('editReportModal').classList.remove('active');
+}
+
+function setupReportStatusChangeListener() {
+  // No longer needed - functionality moved to toggleReportReasonField
+}
+
+function toggleReportReasonField() {
+  const status = document.getElementById('reportEditStatus').value;
+  const reasonGroup = document.getElementById('reportEditReasonGroup');
+  const reasonLabel = document.getElementById('reportEditReasonLabel');
+  const accomplishmentSection = document.getElementById('accomplishmentSection');
+
+  if (status === 'rejected') {
+    reasonGroup.style.display = 'block';
+    reasonLabel.textContent = 'Rejection Reason *';
+    accomplishmentSection.style.display = 'none';
+  } else if (status === 'resolved') {
+    reasonGroup.style.display = 'none';
+    accomplishmentSection.style.display = 'block';
+  } else {
+    reasonGroup.style.display = 'none';
+    accomplishmentSection.style.display = 'none';
+  }
+
+  if (reasonGroup.style.display === 'none') {
+    document.getElementById('reportEditReason').value = '';
+  }
+}
+
+// Handle accomplishment file selection
+document.addEventListener('DOMContentLoaded', function() {
+  const fileInput = document.getElementById('accomplishmentFiles');
+  if (fileInput) {
+    fileInput.addEventListener('change', function(e) {
+      updateAccomplishmentFilesList();
     });
   }
+});
+
+function updateAccomplishmentFilesList() {
+  const fileInput = document.getElementById('accomplishmentFiles');
+  const filesList = document.getElementById('accomplishmentFilesList');
+  const preview = document.getElementById('accomplishmentFilesPreview');
+
+  if (!fileInput.files || fileInput.files.length === 0) {
+    preview.innerHTML = '<i class="fa-solid fa-paperclip"></i><span>No files selected</span>';
+    filesList.innerHTML = '';
+    return;
+  }
+
+  preview.innerHTML = `<i class="fa-solid fa-check-circle"></i><span>${fileInput.files.length} file(s) selected</span>`;
+
+  filesList.innerHTML = '';
+  Array.from(fileInput.files).forEach((file, index) => {
+    const fileItem = document.createElement('div');
+    fileItem.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #f3f4f6; border-radius: 8px; margin-bottom: 8px; font-size: 13px;';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = file.name;
+    nameSpan.style.cssText = 'flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+
+    const sizeSpan = document.createElement('span');
+    sizeSpan.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+    sizeSpan.style.cssText = 'color: #999; margin-left: 10px; white-space: nowrap;';
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn btn-sm btn-delete btn-icon';
+    removeBtn.style.cssText = 'margin-left: 10px; padding: 4px 8px;';
+    removeBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+    removeBtn.title = 'Remove file';
+    removeBtn.addEventListener('click', () => {
+      const dt = new DataTransfer();
+      Array.from(fileInput.files).forEach((file, i) => {
+        if (i !== index) dt.items.add(file);
+      });
+      fileInput.files = dt.files;
+      updateAccomplishmentFilesList();
+    });
+
+    fileItem.appendChild(nameSpan);
+    fileItem.appendChild(sizeSpan);
+    fileItem.appendChild(removeBtn);
+    filesList.appendChild(fileItem);
+  });
 }
 
 async function updateReportStatus() {
   const reportId = document.getElementById('reportEditId').value;
-  const status = document.getElementById('reportStatus').value;
-  const rejectionReason = document.getElementById('reportRejectionReason').value;
+  const status = document.getElementById('reportEditStatus').value;
+  const reason = document.getElementById('reportEditReason').value;
+  const accomplishmentMessage = document.getElementById('accomplishmentMessage')?.value || '';
+  const accomplishmentFiles = document.getElementById('accomplishmentFiles')?.files || [];
 
   if (!reportId) {
     showToast('Report ID not found', 'error');
     return;
   }
 
-  if (status === 'rejected' && !rejectionReason.trim()) {
+  if (status === 'rejected' && !reason.trim()) {
     showToast('Please provide a rejection reason', 'error');
     return;
   }
 
-  const saveBtn = document.getElementById('reportSaveBtn');
+  if (status === 'resolved' && !accomplishmentMessage.trim()) {
+    showToast('Please provide a message in the accomplishment report', 'error');
+    return;
+  }
+
+  const saveBtn = document.getElementById('reportEditSaveBtn');
   saveBtn.innerHTML = '<span class="loading-spinner"></span> Updating...';
   saveBtn.disabled = true;
 
   try {
     if (!supabaseClient) {
       showToast('Database connection unavailable', 'error');
-      saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update Report';
+      saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update Status';
       saveBtn.disabled = false;
       return;
     }
 
+    let accomplishmentFileUrls = [];
+
+    // Upload accomplishment files if status is resolved
+    if (status === 'resolved' && accomplishmentFiles.length > 0) {
+      accomplishmentFileUrls = await uploadAccomplishmentFiles(reportId, accomplishmentFiles);
+    }
+
     const updateData = { status };
     if (status === 'rejected') {
-      updateData.rejection_reason = rejectionReason.trim();
+      updateData.rejection_reason = reason.trim();
+      updateData.resolution_notes = null;
+      updateData.accomplishment_message = null;
+      updateData.accomplishment_files = null;
+    } else if (status === 'resolved') {
+      updateData.rejection_reason = null;
+      updateData.resolution_notes = null;
+      updateData.accomplishment_message = accomplishmentMessage.trim();
+      updateData.accomplishment_files = accomplishmentFileUrls;
     } else {
       updateData.rejection_reason = null;
+      updateData.resolution_notes = null;
+      updateData.accomplishment_message = null;
+      updateData.accomplishment_files = null;
     }
 
     const { error } = await supabaseClient
@@ -2634,15 +2817,55 @@ async function updateReportStatus() {
     if (error) throw error;
     showToast('Report status updated successfully!', 'success');
     addNotification('Report Status Changed', `Report status changed to ${status}`, 'info');
-    closeReportModal();
+    closeEditReportModal();
     loadReports();
   } catch (error) {
     console.error('Error updating report:', error);
     showToast('Failed to update report: ' + error.message, 'error');
   } finally {
-    saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update Report';
+    saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update Status';
     saveBtn.disabled = false;
   }
+}
+
+async function uploadAccomplishmentFiles(reportId, files) {
+  const fileUrls = [];
+
+  try {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const timestamp = Date.now();
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = `accomplishment/${reportId}/${timestamp}-${i}-${sanitizedName}`;
+
+      const { data, error } = await supabaseClient.storage
+        .from('report-images')
+        .upload(path, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        console.error(`Error uploading file ${file.name}:`, error);
+        throw error;
+      }
+
+      const { data: publicUrlData } = supabaseClient.storage
+        .from('report-images')
+        .getPublicUrl(path);
+
+      fileUrls.push({
+        name: file.name,
+        url: publicUrlData.publicUrl,
+        uploadedAt: new Date().toISOString()
+      });
+    }
+  } catch (error) {
+    console.error('Error uploading accomplishment files:', error);
+    throw new Error(`Failed to upload files: ${error.message || 'Unknown error'}`);
+  }
+
+  return fileUrls;
 }
 
 function openDeleteReport(id, title) {
@@ -3149,24 +3372,39 @@ async function loadTourist() {
         const userIds = [...new Set(allPlaceReviews.map(r => r.user_id).filter(Boolean))];
 
         if (userIds.length > 0) {
-          const { data: users } = await supabaseClient
-            .from('users')
-            .select('id, display_name, email')
-            .in('id', userIds);
+          try {
+            const { data: users } = await supabaseClient
+              .from('users')
+              .select('id, display_name, email')
+              .in('id', userIds);
 
-          const userMap = {};
-          (users || []).forEach(u => {
-            const name = (u.display_name && u.display_name.trim())
-              ? u.display_name
-              : (u.email && u.email.trim()
-                ? u.email
-                : u.id.substring(0, 12));
-            userMap[u.id] = name;
-          });
+            const userMap = {};
+            (users || []).forEach(u => {
+              const name = (u.display_name && u.display_name.trim())
+                ? u.display_name
+                : (u.email && u.email.trim()
+                  ? u.email
+                  : u.id.substring(0, 12));
+              userMap[u.id] = name;
+            });
 
+            allPlaceReviews = allPlaceReviews.map(r => ({
+              ...r,
+              display_name: userMap[r.user_id] || r.reviewer_name || 'Anonymous'
+            }));
+          } catch (userError) {
+            console.warn('Error fetching user display names:', userError);
+            // Use any available name fields
+            allPlaceReviews = allPlaceReviews.map(r => ({
+              ...r,
+              display_name: r.reviewer_name || 'Anonymous'
+            }));
+          }
+        } else {
+          // No user IDs, use reviewer_name field if available
           allPlaceReviews = allPlaceReviews.map(r => ({
             ...r,
-            display_name: userMap[r.user_id] || 'Anonymous'
+            display_name: r.reviewer_name || 'Anonymous'
           }));
         }
       }
@@ -3248,27 +3486,21 @@ function renderTouristTable(touristData) {
     if (placeReviews.length > 0) {
       const reviewsContainer = document.createElement('div');
       reviewsContainer.style.cssText = `
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        cursor: pointer;
-        padding: 6px 12px;
-        background: #f0f4f9;
-        border: 1px solid #d1dce6;
-        border-radius: 8px;
-        transition: all 0.2s ease;
+        display: contents;
       `;
 
       reviewsContainer.addEventListener('mouseenter', function() {
-        this.style.background = '#e3edf5';
-        this.style.borderColor = '#2196F3';
-        this.style.boxShadow = '0 2px 8px rgba(33, 150, 243, 0.15)';
+        if (this.querySelector('div')) {
+          this.querySelector('div').style.boxShadow = '0 4px 12px rgba(251, 191, 36, 0.2)';
+          this.querySelector('div').style.transform = 'scale(1.02)';
+        }
       });
 
       reviewsContainer.addEventListener('mouseleave', function() {
-        this.style.background = '#f0f4f9';
-        this.style.borderColor = '#d1dce6';
-        this.style.boxShadow = 'none';
+        if (this.querySelector('div')) {
+          this.querySelector('div').style.boxShadow = 'none';
+          this.querySelector('div').style.transform = 'scale(1)';
+        }
       });
 
       reviewsContainer.addEventListener('click', () => {
@@ -3276,20 +3508,49 @@ function renderTouristTable(touristData) {
       });
 
       const starsDiv = document.createElement('div');
-      starsDiv.style.display = 'flex';
-      starsDiv.style.alignItems = 'center';
-      starsDiv.style.gap = '4px';
+      starsDiv.style.cssText = `
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid #fcd34d;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      `;
 
-      const starsSpan = document.createElement('span');
-      starsSpan.innerHTML = '⭐'.repeat(Math.round(avgRating));
-      starsSpan.style.fontSize = '13px';
-      starsSpan.style.lineHeight = '1';
+      const starsContainer = document.createElement('div');
+      starsContainer.style.cssText = `
+        display: flex;
+        gap: 2px;
+        font-size: 16px;
+      `;
+
+      const fullStars = Math.floor(avgRating);
+      const hasHalfStar = avgRating % 1 >= 0.5;
+      const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+
+      starsContainer.innerHTML =
+        '★'.repeat(fullStars) +
+        (hasHalfStar ? '⭐' : '') +
+        '☆'.repeat(emptyStars);
+      starsContainer.style.cssText += `
+        color: #fbbf24;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        letter-spacing: 1px;
+      `;
 
       const ratingText = document.createElement('span');
       ratingText.textContent = `${avgRating} (${placeReviews.length})`;
-      ratingText.style.cssText = 'font-weight: 600; color: #2196F3; font-size: 12px;';
+      ratingText.style.cssText = `
+        font-weight: 700;
+        color: #d97706;
+        font-size: 13px;
+        white-space: nowrap;
+      `;
 
-      starsDiv.appendChild(starsSpan);
+      starsDiv.appendChild(starsContainer);
       starsDiv.appendChild(ratingText);
 
       const viewIcon = document.createElement('i');
@@ -3587,6 +3848,96 @@ function openDeleteTourist(id, name) {
 let allServices = [];
 let serviceTableName = null;
 
+async function loadServicesData() {
+  if (!supabaseClient) {
+    console.warn('Supabase client not available');
+    return;
+  }
+
+  try {
+    let combinedData = [];
+
+    const serviceTables = [
+      { name: 'birth_certificate_appointments', type: 'Birth Certificate' },
+      { name: 'cenodeath_appointments', type: 'Cenodeath Appointments' },
+      { name: 'cenomar_appointments', type: 'Cenomar Appointments' },
+      { name: 'death_certificate_appointments', type: 'Death Certificate' },
+      { name: 'facility_borrow_requests', type: 'Facility Borrow' },
+      { name: 'marriage_certificate_appointments', type: 'Marriage Certificate' }
+    ];
+
+    for (const serviceTable of serviceTables) {
+      try {
+        const { data, error } = await supabaseClient
+          .from(serviceTable.name)
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!error && data && data.length > 0) {
+          const mappedData = data.map(item => ({
+            id: String(item.id),
+            name: item.name || item.appointment_type || item.service_name || item.title || serviceTable.type,
+            type: serviceTable.type,
+            requested_by: item.requested_by || item.applicant_name || item.customer_name || item.client_name || item.submitted_by || item.first_name || 'N/A',
+            status: item.status || item.appointment_status || 'pending',
+            contact_number: item.contact_number || item.phone || item.phone_number || item.mobile || '',
+            description: item.description || item.notes || item.details || item.purpose || '',
+            created_at: item.created_at || item.date || item.appointment_date || item.created_date || new Date().toISOString(),
+            date: item.date || item.appointment_date || item.created_at || item.created_date || new Date().toISOString(),
+            table_name: serviceTable.name,
+            ...item
+          }));
+
+          combinedData = combinedData.concat(mappedData);
+        }
+      } catch (e) {
+        console.log(`Could not fetch from ${serviceTable.name}`);
+      }
+    }
+
+    if (combinedData.length === 0) {
+      console.warn('No service data found');
+      return;
+    }
+
+    const userIds = [...new Set(combinedData.map(item => item.user_id).filter(id => id))];
+    const userDisplayNames = {};
+
+    if (userIds.length > 0 && supabaseClient) {
+      try {
+        const { data: users } = await supabaseClient
+          .from('users')
+          .select('id, display_name')
+          .in('id', userIds);
+
+        if (users) {
+          users.forEach(user => {
+            userDisplayNames[user.id] = user.display_name;
+          });
+        }
+      } catch (e) {
+        console.log('Could not fetch user display names');
+      }
+    }
+
+    combinedData = combinedData.map(item => ({
+      ...item,
+      display_name: item.user_id ? userDisplayNames[item.user_id] : null
+    }));
+
+    combinedData.sort((a, b) => {
+      const dateA = new Date(a.created_at);
+      const dateB = new Date(b.created_at);
+      return dateB - dateA;
+    });
+
+    allServices = combinedData;
+    console.log(`✓ Loaded ${allServices.length} services into memory`);
+  } catch (error) {
+    console.error('Error loading services data:', error);
+  }
+}
+
 async function loadServices() {
   const tbody = document.getElementById('serviceTableBody');
   if (!tbody) return;
@@ -3625,9 +3976,9 @@ async function loadServices() {
         if (!error && data && data.length > 0) {
           console.log(`✓ Got ${data.length} records from ${serviceTable.name}`);
 
-          // Map each record to include the service type
+          // Map each record to include the service type - ensure ID is always a string
           const mappedData = data.map(item => ({
-            id: item.id,
+            id: String(item.id), // Convert to string for consistent comparison
             name: item.name || item.appointment_type || item.service_name || item.title || serviceTable.type,
             type: serviceTable.type,
             requested_by: item.requested_by || item.applicant_name || item.customer_name || item.client_name || item.submitted_by || item.first_name || 'N/A',
@@ -3759,13 +4110,13 @@ function renderServiceTable(servicesData) {
     viewBtn.className = 'btn btn-sm btn-info btn-icon';
     viewBtn.title = 'View Details';
     viewBtn.innerHTML = '<i class="fa-solid fa-eye"></i>';
-    viewBtn.addEventListener('click', () => openServiceDetailsModal(s.id));
+    viewBtn.addEventListener('click', () => openServiceDetailsModal(String(s.id)));
 
     const editBtn = document.createElement('button');
     editBtn.className = 'btn btn-sm btn-edit btn-icon';
     editBtn.title = 'Edit';
     editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
-    editBtn.addEventListener('click', () => openEditServiceModal(s.id));
+    editBtn.addEventListener('click', () => openEditServiceModal(String(s.id)));
 
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'btn btn-sm btn-delete btn-icon';
@@ -3892,13 +4243,34 @@ function closeServiceModal() {
 
 async function openServiceDetailsModal(id) {
   try {
-    const record = allServices.find(s => s.id === id);
+    // Ensure ID is a string for consistent comparison
+    const stringId = String(id).trim();
+
+    // Load services if not already loaded (e.g., when called from dashboard)
+    if (allServices.length === 0) {
+      console.log('📂 Services not loaded, fetching...');
+      await loadServicesData();
+    }
+
+    // Debug: Log the search
+    console.log('🔍 Searching for service ID:', stringId);
+    console.log('📊 Total services loaded:', allServices.length);
+    console.log('🔎 Service IDs available:', allServices.map(s => String(s.id)));
+
+    // Find with flexible ID matching
+    let record = allServices.find(s => String(s.id) === stringId);
+
     if (!record) {
-      showToast('Service not found', 'error');
+      console.warn('⚠️ Service not found with ID:', stringId);
+      console.log('Available service objects:', allServices.slice(0, 3)); // Log first 3 for debugging
+
+      showToast('Service not found. Please refresh and try again.', 'error');
       return;
     }
 
-    document.getElementById('serviceDetailsId').value = id;
+    console.log('✅ Service found:', record);
+
+    document.getElementById('serviceDetailsId').value = stringId;
     document.getElementById('serviceDetailsTitle').textContent = `Service Request: ${record.name || 'Service'}`;
 
     const detailsContent = document.getElementById('serviceDetailsContent');
@@ -3907,7 +4279,7 @@ async function openServiceDetailsModal(id) {
     let requestedByValue = 'N/A';
     if (record.user_id) {
       try {
-        const { data: user } = await supabase
+        const { data: user } = await supabaseClient
           .from('users')
           .select('display_name')
           .eq('id', record.user_id)
@@ -3923,7 +4295,7 @@ async function openServiceDetailsModal(id) {
     const fields = [
       { label: 'Service Name', value: record.name || 'N/A' },
       { label: 'Service Type', value: record.type || record.service_type || 'N/A' },
-      { label: 'Requested By', value: requestedByValue },
+      { label: 'Requested By', value: record.requested_by || requestedByValue || 'N/A' },
       { label: 'Status', value: (record.status || 'N/A').charAt(0).toUpperCase() + (record.status || 'N/A').slice(1) },
       { label: 'Contact Number', value: record.contact_number || record.phone || 'N/A' },
       { label: 'Date Requested', value: formatDate(record.created_at || record.date) },
@@ -4794,63 +5166,94 @@ async function openPlaceReviewsModal(placeId, placeName) {
     placeReviews.forEach(review => {
       const reviewCard = document.createElement('div');
       reviewCard.style.cssText = `
-        background: #ffffff;
+        background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
         border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        padding: 16px;
-        margin-bottom: 12px;
-        transition: all 0.2s ease;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 16px;
+        transition: all 0.3s ease;
       `;
 
       reviewCard.addEventListener('mouseenter', function() {
-        this.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.08)';
+        this.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.1)';
+        this.style.transform = 'translateY(-2px)';
       });
 
       reviewCard.addEventListener('mouseleave', function() {
         this.style.boxShadow = 'none';
+        this.style.transform = 'translateY(0)';
       });
 
       const headerDiv = document.createElement('div');
-      headerDiv.style.cssText = 'display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;';
+      headerDiv.style.cssText = 'display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; gap: 12px;';
 
-      const authorDiv = document.createElement('div');
+      const authorInfoDiv = document.createElement('div');
+      authorInfoDiv.style.cssText = 'display: flex; gap: 12px; align-items: flex-start; flex: 1;';
+
+      const avatarDiv = document.createElement('div');
+      const displayName = review.display_name || 'Anonymous';
+      const initials = displayName
+        .split(' ')
+        .slice(0, 2)
+        .map(n => n[0])
+        .join('')
+        .toUpperCase();
+
+      avatarDiv.style.cssText = `
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #2196F3, #1976D2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 700;
+        font-size: 14px;
+        flex-shrink: 0;
+      `;
+      avatarDiv.textContent = initials;
+
+      const nameTimeDiv = document.createElement('div');
+      nameTimeDiv.style.cssText = 'flex: 1;';
+
       const authorName = document.createElement('p');
-      authorName.textContent = review.display_name || 'Anonymous';
-      authorName.style.cssText = 'margin: 0; font-weight: 600; color: #1f2937; font-size: 14px;';
-      authorDiv.appendChild(authorName);
+      authorName.textContent = displayName;
+      authorName.style.cssText = 'margin: 0 0 4px 0; font-weight: 700; color: #0f1a2e; font-size: 15px; letter-spacing: -0.3px;';
+
+      const dateSpan = document.createElement('span');
+      dateSpan.textContent = `${formatDate(review.created_at)}`;
+      dateSpan.style.cssText = 'font-size: 12px; color: #9ca3af; display: block;';
+
+      nameTimeDiv.appendChild(authorName);
+      nameTimeDiv.appendChild(dateSpan);
+
+      authorInfoDiv.appendChild(avatarDiv);
+      authorInfoDiv.appendChild(nameTimeDiv);
 
       const ratingDiv = document.createElement('div');
-      ratingDiv.style.cssText = 'display: flex; align-items: center; gap: 6px;';
+      ratingDiv.style.cssText = 'display: flex; align-items: center; gap: 8px; white-space: nowrap;';
 
       const starsSpan = document.createElement('span');
-      starsSpan.innerHTML = '⭐'.repeat(review.rating);
-      starsSpan.style.fontSize = '14px';
+      starsSpan.innerHTML = '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating);
+      starsSpan.style.cssText = 'font-size: 16px; color: #fbbf24; letter-spacing: 1px;';
 
       const ratingValue = document.createElement('span');
       ratingValue.textContent = `${review.rating}/5`;
-      ratingValue.style.cssText = 'font-weight: 600; color: #2196F3; font-size: 12px;';
+      ratingValue.style.cssText = 'font-weight: 700; color: #2196F3; font-size: 13px;';
 
       ratingDiv.appendChild(starsSpan);
       ratingDiv.appendChild(ratingValue);
 
-      headerDiv.appendChild(authorDiv);
+      headerDiv.appendChild(authorInfoDiv);
       headerDiv.appendChild(ratingDiv);
 
       const reviewText = document.createElement('p');
       reviewText.textContent = review.review_text || '';
-      reviewText.style.cssText = 'margin: 0 0 12px 0; color: #4b5563; font-size: 13px; line-height: 1.6;';
-
-      const footerDiv = document.createElement('div');
-      footerDiv.style.cssText = 'font-size: 12px; color: #9ca3af;';
-
-      const dateSpan = document.createElement('span');
-      dateSpan.textContent = `${formatDate(review.created_at)}`;
-
-      footerDiv.appendChild(dateSpan);
+      reviewText.style.cssText = 'margin: 0; color: #4b5563; font-size: 14px; line-height: 1.6; font-weight: 500;';
 
       reviewCard.appendChild(headerDiv);
       reviewCard.appendChild(reviewText);
-      reviewCard.appendChild(footerDiv);
 
       reviewsList.appendChild(reviewCard);
     });
