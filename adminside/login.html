@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>iTIWI — Admin Login | Municipality of Tiwi</title>
+  <link rel="icon" type="image/png" href="assets/itiwi_logo.png" />
+  <link rel="shortcut icon" type="image/png" href="assets/itiwi_logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -540,11 +542,11 @@
       <div class="brand-header">
         <div class="brand-logos">
           <div class="logo-item">
-            <img src="assets/ITIWI-LOGO.png" alt="iTIWI Logo" />
+            <img src="assets/itiwi_logo.png" alt="iTIWI Logo" />
           </div>
           <div class="logo-divider"></div>
           <div class="logo-item">
-            <img src="assets/TEXTLOGO.png" alt="iTIWI" />
+            <img src="assets/itiwi_logo.png" alt="iTIWI" />
           </div>
         </div>
       </div>
@@ -759,7 +761,7 @@
     });
 
     // Forgot password
-    forgotPasswordLink.addEventListener('click', (e) => {
+    forgotPasswordLink.addEventListener('click', async (e) => {
       e.preventDefault();
       const email = emailInput.value.trim();
 
@@ -768,23 +770,36 @@
         return;
       }
 
+      if (!supabaseClient) {
+        showError('Supabase not initialized. Please refresh the page.');
+        return;
+      }
+
       submitBtn.disabled = true;
       submitBtn.classList.add('loading');
       clearMessages();
 
-      supabaseClient.auth
-        .resetPasswordForEmail(email, {
-          redirectTo: window.location.origin + '/adminside/reset-password.html',
-        })
-        .then(({ error }) => {
-          if (error) {
-            showError('Failed to send reset email: ' + error.message);
-          } else {
-            showSuccess('Password reset link sent to your email!');
-          }
-          submitBtn.disabled = false;
-          submitBtn.classList.remove('loading');
+      try {
+        // Get the current page URL without the filename
+        const resetUrl = window.location.origin + window.location.pathname.replace('login.html', 'reset-password.html');
+
+        const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+          redirectTo: resetUrl,
         });
+
+        if (error) {
+          console.error('Reset error:', error);
+          showError('Failed to send reset email: ' + (error.message || 'Please try again later or contact support.'));
+        } else {
+          showSuccess('Password reset link has been sent to your email. Check your inbox and spam folder.');
+        }
+      } catch (err) {
+        console.error('Unexpected error:', err);
+        showError('An unexpected error occurred. Please try again later.');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('loading');
+      }
     });
 
     // Signup link

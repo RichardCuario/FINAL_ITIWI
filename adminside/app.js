@@ -2,6 +2,42 @@
 // iTIWI Admin Dashboard - Main Application Script
 // ============================================================
 
+// ---------- DARK MODE MANAGEMENT ----------
+function initDarkMode() {
+  const savedTheme = localStorage.getItem('theme') || 'light';
+  setTheme(savedTheme);
+
+  const themeToggleBtn = document.getElementById('themeToggleBtn');
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', toggleTheme);
+  }
+}
+
+function setTheme(theme) {
+  if (theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.body.style.backgroundImage = 'none';
+    document.body.style.backgroundColor = '#0f1419';
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    if (themeToggleBtn) {
+      themeToggleBtn.innerHTML = '<i class="fa-solid fa-sun"></i>';
+    }
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    if (themeToggleBtn) {
+      themeToggleBtn.innerHTML = '<i class="fa-solid fa-moon"></i>';
+    }
+  }
+  localStorage.setItem('theme', theme);
+}
+
+function toggleTheme() {
+  const currentTheme = localStorage.getItem('theme') || 'light';
+  const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+  setTheme(newTheme);
+}
+
 // ---------- SUPABASE CLIENT ----------
 const SUPABASE_URL = 'https://jbhlbukxankrtcwhqoll.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpiaGxidWt4YW5rcnRjd2hxb2xsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NzAxODgsImV4cCI6MjA5MDA0NjE4OH0.DebtVdw7bF5nRaXQg8Ta2SsO2Qv42QnGSzoS8hT2vJc';
@@ -109,6 +145,138 @@ async function handleLogout() {
 }
 
 // ============================================================
+// PROFILE MANAGEMENT
+// ============================================================
+async function openProfileModal() {
+  const profileModal = document.getElementById('profileModal');
+  const { data: { session } } = await supabaseClient.auth.getSession();
+
+  if (session?.user) {
+    const user = session.user;
+    document.getElementById('profileUserId').value = user.id;
+    document.getElementById('profileEmail').value = user.email || '';
+    document.getElementById('profileFullName').value = user.user_metadata?.full_name || '';
+    document.getElementById('profileRole').value = user.user_metadata?.role || 'Administrator';
+    document.getElementById('profilePhone').value = user.user_metadata?.phone || '';
+    document.getElementById('profileAddress').value = user.user_metadata?.address || '';
+    document.getElementById('profileBio').value = user.user_metadata?.bio || '';
+
+    // Update avatar initials
+    const fullName = user.user_metadata?.full_name || user.email.split('@')[0];
+    const initials = fullName
+      .split(' ')
+      .map(name => name[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+    document.getElementById('profileInitials').textContent = initials;
+  }
+
+  profileModal.classList.add('active');
+}
+
+function closeProfileModal() {
+  const profileModal = document.getElementById('profileModal');
+  profileModal.classList.remove('active');
+}
+
+async function saveProfile() {
+  if (!supabaseClient) return;
+
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session?.user) return;
+
+    const fullName = document.getElementById('profileFullName').value;
+    const phone = document.getElementById('profilePhone').value;
+    const address = document.getElementById('profileAddress').value;
+    const bio = document.getElementById('profileBio').value;
+
+    if (!fullName) {
+      showToast('Full name is required', 'error');
+      return;
+    }
+
+    // Update user metadata
+    const { error: updateError } = await supabaseClient.auth.updateUser({
+      data: {
+        full_name: fullName,
+        phone: phone,
+        address: address,
+        bio: bio,
+        role: session.user.user_metadata?.role || 'Administrator'
+      }
+    });
+
+    if (updateError) {
+      showToast('Error updating profile: ' + updateError.message, 'error');
+      return;
+    }
+
+    // Update UI
+    updateUserProfile(session.user);
+    showToast('Profile updated successfully!', 'success');
+    closeProfileModal();
+  } catch (error) {
+    console.error('Profile update error:', error);
+    showToast('Error updating profile', 'error');
+  }
+}
+
+async function changePassword() {
+  if (!supabaseClient) return;
+
+  try {
+    const currentPassword = document.getElementById('currentPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+
+    // Validation
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      showToast('All password fields are required', 'error');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      showToast('New password must be at least 8 characters long', 'error');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      showToast('Passwords do not match', 'error');
+      return;
+    }
+
+    if (currentPassword === newPassword) {
+      showToast('New password must be different from current password', 'error');
+      return;
+    }
+
+    // Update password
+    const { error: updateError } = await supabaseClient.auth.updateUser({
+      password: newPassword
+    });
+
+    if (updateError) {
+      showToast('Error changing password: ' + updateError.message, 'error');
+      return;
+    }
+
+    // Clear password fields
+    document.getElementById('currentPassword').value = '';
+    document.getElementById('newPassword').value = '';
+    document.getElementById('confirmPassword').value = '';
+
+    showToast('Password changed successfully!', 'success');
+  } catch (error) {
+    console.error('Password change error:', error);
+    showToast('Error changing password', 'error');
+  }
+}
+
+
+
+// ============================================================
 // NOTIFICATIONS
 // ============================================================
 function setupNotifications() {
@@ -148,7 +316,7 @@ function setupNotifications() {
 }
 
 function setupLogoutButton() {
-  const logoutBtn = document.querySelector('.logout-btn');
+  const logoutBtn = document.getElementById('logoutBtn');
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async (e) => {
       e.preventDefault();
@@ -355,7 +523,8 @@ const paginationState = {
   tourist: { current: 1, total: 0 },
   placeReviews: { current: 1, total: 0 },
   services: { current: 1, total: 0 },
-  hotline: { current: 1, total: 0 }
+  hotline: { current: 1, total: 0 },
+  users: { current: 1, total: 0 }
 };
 
 // Notifications array
@@ -367,12 +536,15 @@ let notifications = [];
 
 // ---------- INIT ----------
 document.addEventListener('DOMContentLoaded', () => {
+  initDarkMode();
   initSupabase();
   setupNavigation();
   setupMobileMenu();
+  setupSidebarCollapse();
   setupSearchListeners();
   setupNotifications();
   setupNewsImagePreview();
+  setupNewsSchedule();
   setupLogoutButton();
   setupRealtimeListeners();
 
@@ -399,12 +571,6 @@ function navigateTo(page) {
 
   // Save current page to localStorage for persistence on refresh
   localStorage.setItem('lastVisitedPage', page);
-
-  // Clear header search when navigating to a new page
-  const headerSearch = document.getElementById('headerSearch');
-  if (headerSearch) {
-    headerSearch.value = '';
-  }
 
   document.querySelectorAll('.nav-item').forEach(item => {
     item.classList.toggle('active', item.dataset.page === page);
@@ -434,6 +600,8 @@ function navigateTo(page) {
     loadServices();
   } else if (page === 'hotline') {
     loadHotline();
+  } else if (page === 'users') {
+    loadUsers();
   }
 
   document.getElementById('sidebar').classList.remove('open');
@@ -456,6 +624,30 @@ function setupMobileMenu() {
       }
     }
   });
+}
+
+function setupSidebarCollapse() {
+  const collapseBtn = document.getElementById('sidebarCollapseBtn');
+  const brandLogo = document.querySelector('.brand-logo');
+  const sidebar = document.getElementById('sidebar');
+  const body = document.body;
+
+  // Load collapsed state from localStorage
+  const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+  if (isCollapsed) {
+    sidebar.classList.add('collapsed');
+    body.classList.add('sidebar-collapsed');
+  }
+
+  const toggleSidebar = () => {
+    sidebar.classList.toggle('collapsed');
+    body.classList.toggle('sidebar-collapsed');
+    const collapsed = sidebar.classList.contains('collapsed');
+    localStorage.setItem('sidebarCollapsed', collapsed);
+  };
+
+  collapseBtn.addEventListener('click', toggleSidebar);
+  brandLogo.addEventListener('click', toggleSidebar);
 }
 
 // ============================================================
@@ -1329,8 +1521,8 @@ async function fetchBarangays() {
   }
 }
 
-async function renderBarangayTable(tbody, limit = null, showPagination = false) {
-  const barangays = await fetchBarangays();
+async function renderBarangayTable(tbody, limit = null, showPagination = false, barangayData = null) {
+  const barangays = barangayData !== null ? barangayData : await fetchBarangays();
 
   if (!showPagination) {
     const data = limit ? barangays.slice(0, limit) : barangays;
@@ -1897,6 +2089,18 @@ async function confirmDelete() {
       showToast('Hotline deleted successfully!', 'success');
       addNotification('Hotline Deleted', 'A hotline record has been removed', 'warning');
       loadHotline();
+    } else if (deleteType === 'user') {
+      if (!supabaseClient) {
+        showToast('Database connection unavailable', 'error');
+        deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete';
+        deleteBtn.disabled = false;
+        return;
+      }
+      const { error } = await supabaseClient.from('users').delete().eq('id', deleteTarget);
+      if (error) throw error;
+      showToast('User deleted successfully!', 'success');
+      addNotification('User Deleted', 'A user has been removed', 'warning');
+      loadUsers();
     }
   } catch (error) {
     console.error('Error deleting:', error);
@@ -1986,8 +2190,23 @@ async function renderNewsTable(newsData) {
     const tr = document.createElement('tr');
 
     const tdTitle = document.createElement('td');
-    tdTitle.textContent = n.title || 'N/A';
     tdTitle.style.fontWeight = '600';
+
+    // Show scheduled indicator if post is scheduled
+    if (n.scheduled_at && !n.is_published) {
+      const scheduledDate = new Date(n.scheduled_at);
+      const now = new Date();
+      if (scheduledDate > now) {
+        const badge = document.createElement('span');
+        badge.style.cssText = 'display: inline-block; background: #3b82f6; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-right: 8px; font-weight: 600;';
+        badge.textContent = '📅 SCHEDULED';
+        tdTitle.appendChild(badge);
+      }
+    }
+
+    const titleSpan = document.createElement('span');
+    titleSpan.textContent = n.title || 'N/A';
+    tdTitle.appendChild(titleSpan);
 
     const tdDescription = document.createElement('td');
     const desc = (n.description || 'No description').substring(0, 50) + '...';
@@ -2020,6 +2239,10 @@ async function renderNewsTable(newsData) {
     const tdPublished = document.createElement('td');
     tdPublished.textContent = formatDate(n.created_at);
 
+    const tdCreated = document.createElement('td');
+    tdCreated.textContent = formatDate(n.created_at);
+    tdCreated.style.fontSize = '13px';
+
     const tdActions = document.createElement('td');
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'action-btns';
@@ -2044,6 +2267,7 @@ async function renderNewsTable(newsData) {
     tr.appendChild(tdDescription);
     tr.appendChild(tdImage);
     tr.appendChild(tdPublished);
+    tr.appendChild(tdCreated);
     tr.appendChild(tdActions);
 
     tbody.appendChild(tr);
@@ -2115,9 +2339,21 @@ function openNewsModal() {
   document.getElementById('newsEditId').value = '';
   document.getElementById('newsTitle').value = '';
   document.getElementById('newsContent').value = '';
+  document.getElementById('newsCategory').value = '';
   document.getElementById('newsImage').value = '';
   document.getElementById('newsImageUrl').value = '';
   document.getElementById('newsImagePreview').innerHTML = '<i class="fa-solid fa-image"></i><span>No image selected</span>';
+  document.getElementById('newsScheduleCheckbox').checked = false;
+  document.getElementById('newsScheduleDate').value = '';
+  document.getElementById('newsScheduleTime').value = '';
+  document.getElementById('newsScheduledAt').value = '';
+  document.getElementById('newsScheduleSection').style.display = 'none';
+  document.getElementById('newsScheduleCheckbox').checked = false;
+  document.getElementById('newsScheduleSection').style.display = 'none';
+  document.getElementById('newsScheduleDate').value = '';
+  document.getElementById('newsScheduleTime').value = '';
+  document.getElementById('newsScheduledAt').value = '';
+  document.getElementById('schedulePreview').textContent = '';
   document.getElementById('newsSaveBtn').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save';
   document.getElementById('newsSaveBtn').disabled = false;
   document.getElementById('newsModal').classList.add('active');
@@ -2141,6 +2377,7 @@ async function openEditNewsModal(id) {
     if (data) {
       document.getElementById('newsTitle').value = data.title || '';
       document.getElementById('newsContent').value = data.description || '';
+      document.getElementById('newsCategory').value = data.category || '';
       document.getElementById('newsImageUrl').value = data.image_url || '';
       document.getElementById('newsImage').value = '';
 
@@ -2149,6 +2386,25 @@ async function openEditNewsModal(id) {
         previewDiv.innerHTML = `<img src="${data.image_url}" alt="News image" style="max-width: 100%; max-height: 200px; border-radius: 8px;" />`;
       } else {
         document.getElementById('newsImagePreview').innerHTML = '<i class="fa-solid fa-image"></i><span>No image selected</span>';
+      }
+
+      // Load scheduling data
+      if (data.scheduled_at) {
+        const scheduledDate = new Date(data.scheduled_at);
+        const dateStr = scheduledDate.toISOString().split('T')[0];
+        const timeStr = scheduledDate.toTimeString().slice(0, 5);
+        document.getElementById('newsScheduleCheckbox').checked = true;
+        document.getElementById('newsScheduleDate').value = dateStr;
+        document.getElementById('newsScheduleTime').value = timeStr;
+        document.getElementById('newsScheduledAt').value = data.scheduled_at;
+        document.getElementById('newsScheduleSection').style.display = 'block';
+        updateSchedulePreview();
+      } else {
+        document.getElementById('newsScheduleCheckbox').checked = false;
+        document.getElementById('newsScheduleDate').value = '';
+        document.getElementById('newsScheduleTime').value = '';
+        document.getElementById('newsScheduledAt').value = '';
+        document.getElementById('newsScheduleSection').style.display = 'none';
       }
     }
   } catch (error) {
@@ -2161,6 +2417,47 @@ async function openEditNewsModal(id) {
 
 function closeNewsModal() {
   document.getElementById('newsModal').classList.remove('active');
+  document.getElementById('newsScheduleCheckbox').checked = false;
+  document.getElementById('newsScheduleSection').style.display = 'none';
+}
+
+function toggleNewsSchedule() {
+  const checkbox = document.getElementById('newsScheduleCheckbox');
+  const scheduleSection = document.getElementById('newsScheduleSection');
+  scheduleSection.style.display = checkbox.checked ? 'block' : 'none';
+
+  if (!checkbox.checked) {
+    document.getElementById('newsScheduleDate').value = '';
+    document.getElementById('newsScheduleTime').value = '';
+    document.getElementById('newsScheduledAt').value = '';
+  }
+}
+
+function updateSchedulePreview() {
+  const dateInput = document.getElementById('newsScheduleDate').value;
+  const timeInput = document.getElementById('newsScheduleTime').value;
+  const previewEl = document.getElementById('schedulePreview');
+
+  if (dateInput && timeInput) {
+    const date = new Date(dateInput + 'T' + timeInput);
+    const previewText = 'Will be published on ' + date.toLocaleString();
+    if (previewEl.textContent !== previewText) {
+      previewEl.textContent = previewText;
+    }
+    const isoString = date.toISOString();
+    const hiddenField = document.getElementById('newsScheduledAt');
+    if (hiddenField.value !== isoString) {
+      hiddenField.value = isoString;
+    }
+  } else {
+    if (previewEl.textContent !== '') {
+      previewEl.textContent = '';
+    }
+    const hiddenField = document.getElementById('newsScheduledAt');
+    if (hiddenField.value !== '') {
+      hiddenField.value = '';
+    }
+  }
 }
 
 function removeNewsImage() {
@@ -2179,14 +2476,45 @@ function setupNewsImagePreview() {
       const reader = new FileReader();
       reader.onload = function(event) {
         const previewDiv = document.getElementById('newsImagePreview');
-        previewDiv.innerHTML = `<img src="${event.target.result}" alt="Preview" style="max-width: 100%; max-height: 200px; border-radius: 8px;" />`;
+        previewDiv.innerHTML = `
+          <div class="preview-image-wrapper">
+            <img src="${event.target.result}" alt="Preview" style="max-width: 100%; max-height: 200px; border-radius: 8px;" />
+            <button type="button" class="remove-image-btn" title="Remove image">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        `;
+        previewDiv.querySelector('.remove-image-btn').addEventListener('click', (e) => {
+          e.preventDefault();
+          fileInput.value = '';
+          previewDiv.innerHTML = '';
+        });
       };
       reader.readAsDataURL(file);
     }
   });
 }
 
+function setupNewsSchedule() {
+  const dateInput = document.getElementById('newsScheduleDate');
+  const timeInput = document.getElementById('newsScheduleTime');
+
+  if (!dateInput || !timeInput) return;
+
+  let scheduleTimeout;
+  const debouncedUpdate = () => {
+    clearTimeout(scheduleTimeout);
+    scheduleTimeout = setTimeout(updateSchedulePreview, 100);
+  };
+
+  dateInput.addEventListener('input', debouncedUpdate);
+  timeInput.addEventListener('input', debouncedUpdate);
+}
+
 async function saveNews() {
+  // Ensure schedule preview is updated before saving (populates the hidden field)
+  updateSchedulePreview();
+
   const editId = document.getElementById('newsEditId').value;
   const title = document.getElementById('newsTitle').value.trim();
   const content = document.getElementById('newsContent').value.trim();
@@ -2239,6 +2567,30 @@ async function saveNews() {
 
     const payload = { title, description: content, image_url: imageUrl };
 
+    // Add category if selected
+    const category = document.getElementById('newsCategory').value;
+    if (category && category.trim() !== '') {
+      payload.category = category;
+    } else {
+      payload.category = 'Announcement'; // Default category
+    }
+
+    // Add scheduled_at if scheduling is enabled
+    const scheduledAtValue = document.getElementById('newsScheduledAt').value;
+    if (scheduledAtValue) {
+      payload.scheduled_at = scheduledAtValue;
+      // Mark as unpublished if scheduled for future
+      const scheduledDate = new Date(scheduledAtValue);
+      const now = new Date();
+      if (scheduledDate > now) {
+        payload.is_published = false; // Will be published later
+      } else {
+        payload.is_published = true; // Scheduled time has passed, publish now
+      }
+    } else {
+      payload.is_published = true; // No schedule, publish immediately
+    }
+
     if (editId && editId.trim() !== '') {
       console.log('Updating news with ID:', editId, 'Payload:', payload);
 
@@ -2282,13 +2634,24 @@ async function saveNews() {
       }
 
       showToast('News updated successfully!', 'success');
-      addNotification('News Updated', `Article "${title}" has been updated`, 'success');
+      const isScheduled = payload.scheduled_at && payload.is_published === false;
+      const message = isScheduled
+        ? `Article "${title}" scheduled for ${new Date(payload.scheduled_at).toLocaleString()}`
+        : `Article "${title}" has been updated`;
+      addNotification('News Updated', message, 'success');
     } else {
       console.log('Creating new news with payload:', payload, 'editId was:', editId);
       const { error } = await supabaseClient.from('news').insert(payload);
       if (error) throw error;
-      showToast('News added successfully!', 'success');
-      addNotification('News Created', `Article "${title}" has been published`, 'success');
+
+      const isScheduled = payload.scheduled_at && payload.is_published === false;
+      if (isScheduled) {
+        showToast('News scheduled successfully! It will be published at ' + new Date(payload.scheduled_at).toLocaleString(), 'success');
+        addNotification('News Scheduled', `Article "${title}" scheduled for ${new Date(payload.scheduled_at).toLocaleString()}`, 'success');
+      } else {
+        showToast('News added successfully!', 'success');
+        addNotification('News Created', `Article "${title}" has been published`, 'success');
+      }
     }
 
     closeNewsModal();
@@ -2351,6 +2714,7 @@ async function loadReports() {
         console.log('Users error:', usersError);
 
         const userMap = {};
+        const emailMap = {};
         (users || []).forEach(u => {
           // Priority: display_name -> email -> user_id (first 12 chars)
           const name = (u.display_name && u.display_name.trim())
@@ -2359,12 +2723,14 @@ async function loadReports() {
               ? u.email
               : u.id.substring(0, 12));
           userMap[u.id] = name;
+          emailMap[u.id] = u.email || '';
           console.log(`Mapped ${u.id.substring(0, 8)}... to ${name}`);
         });
 
         allReports = allReports.map(r => ({
           ...r,
-          reporter_name: userMap[r.user_id] || r.user_id.substring(0, 12) || 'Anonymous'
+          reporter_name: userMap[r.user_id] || r.user_id.substring(0, 12) || 'Anonymous',
+          reporter_email: emailMap[r.user_id] || ''
         }));
       }
     }
@@ -2430,6 +2796,10 @@ function renderReportsTable(reportsData) {
     tdDate.textContent = formatDate(r.created_at);
     tdDate.style.fontSize = '13px';
 
+    const tdUpdated = document.createElement('td');
+    tdUpdated.textContent = formatDate(r.updated_at);
+    tdUpdated.style.fontSize = '13px';
+
     const tdActions = document.createElement('td');
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'action-btns';
@@ -2462,6 +2832,7 @@ function renderReportsTable(reportsData) {
     tr.appendChild(tdStatus);
     tr.appendChild(tdAttachments);
     tr.appendChild(tdDate);
+    tr.appendChild(tdUpdated);
     tr.appendChild(tdActions);
 
     tbody.appendChild(tr);
@@ -2545,9 +2916,11 @@ async function openReportModal(id) {
     if (data) {
       const reportData = allReports.find(r => r.id === id);
       const reporterName = reportData?.reporter_name || data.reporter_name || 'Anonymous';
+      const reporterEmail = reportData?.reporter_email || data.reporter_email || '';
 
       document.getElementById('reportViewId').value = id;
       document.getElementById('reportViewReporterName').value = reporterName;
+      document.getElementById('reportViewReporterEmail').value = reporterEmail;
       document.getElementById('reportViewMessage').value = data.message || '';
       document.getElementById('reportViewSubmittedDate').value = formatDate(data.created_at);
 
@@ -2995,6 +3368,10 @@ function renderTransparencyTable(transparencyData) {
     tdDate.textContent = formatDate(t.created_at);
     tdDate.style.fontSize = '13px';
 
+    const tdUpdated = document.createElement('td');
+    tdUpdated.textContent = formatDate(t.updated_at);
+    tdUpdated.style.fontSize = '13px';
+
     const tdActions = document.createElement('td');
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'action-btns';
@@ -3018,6 +3395,7 @@ function renderTransparencyTable(transparencyData) {
     tr.appendChild(tdTitle);
     tr.appendChild(tdType);
     tr.appendChild(tdDate);
+    tr.appendChild(tdUpdated);
     tr.appendChild(tdActions);
 
     tbody.appendChild(tr);
@@ -3422,6 +3800,7 @@ async function loadTourist() {
     }
 
     allTourist = data || [];
+    populateTouristCategoryFilter();
     renderTouristTable(allTourist);
   } catch (error) {
     console.error('Error loading tourist guides:', error);
@@ -3571,6 +3950,10 @@ function renderTouristTable(touristData) {
     tdDate.textContent = formatDate(t.created_at);
     tdDate.style.fontSize = '13px';
 
+    const tdUpdated = document.createElement('td');
+    tdUpdated.textContent = formatDate(t.updated_at);
+    tdUpdated.style.fontSize = '13px';
+
     const tdActions = document.createElement('td');
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'action-btns';
@@ -3597,6 +3980,7 @@ function renderTouristTable(touristData) {
     tr.appendChild(tdDescription);
     tr.appendChild(tdReviews);
     tr.appendChild(tdDate);
+    tr.appendChild(tdUpdated);
     tr.appendChild(tdActions);
 
     tbody.appendChild(tr);
@@ -3657,6 +4041,25 @@ function renderTouristPagination(totalItems) {
       }
     });
   });
+}
+
+function populateTouristCategoryFilter() {
+  const categoryFilter = document.getElementById('touristCategoryFilter');
+  if (!categoryFilter) return;
+
+  const categories = [...new Set(allTourist.map(t => t.category ? t.category.trim() : null).filter(Boolean))].sort();
+
+  const currentValue = categoryFilter.value;
+  categoryFilter.innerHTML = '<option value="">All Categories</option>';
+
+  categories.forEach(cat => {
+    const option = document.createElement('option');
+    option.value = cat;
+    option.textContent = cat;
+    categoryFilter.appendChild(option);
+  });
+
+  categoryFilter.value = currentValue;
 }
 
 function openTouristModal() {
@@ -4047,6 +4450,7 @@ async function loadServices() {
 
     allServices = combinedData;
     console.log(`✓ Successfully loaded ${allServices.length} total services`);
+    populateServiceCategoryFilter();
     renderServiceTable(allServices);
   } catch (error) {
     console.error('Error loading services:', error);
@@ -4102,6 +4506,10 @@ function renderServiceTable(servicesData) {
     tdDate.textContent = formatDate(s.created_at || s.date);
     tdDate.style.fontSize = '13px';
 
+    const tdCreated = document.createElement('td');
+    tdCreated.textContent = formatDate(s.created_at);
+    tdCreated.style.fontSize = '13px';
+
     const tdActions = document.createElement('td');
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'action-btns';
@@ -4133,6 +4541,7 @@ function renderServiceTable(servicesData) {
     tr.appendChild(tdType);
     tr.appendChild(tdStatus);
     tr.appendChild(tdDate);
+    tr.appendChild(tdCreated);
     tr.appendChild(tdActions);
 
     // Add click handler to view details
@@ -4201,6 +4610,25 @@ function renderServicePagination(totalItems) {
       }
     });
   });
+}
+
+function populateServiceCategoryFilter() {
+  const categoryFilter = document.getElementById('serviceCategoryFilter');
+  if (!categoryFilter) return;
+
+  const categories = [...new Set(allServices.map(s => s.type ? s.type.trim() : null).filter(Boolean))].sort();
+
+  const currentValue = categoryFilter.value;
+  categoryFilter.innerHTML = '<option value="">All Categories</option>';
+
+  categories.forEach(cat => {
+    const option = document.createElement('option');
+    option.value = cat;
+    option.textContent = cat;
+    categoryFilter.appendChild(option);
+  });
+
+  categoryFilter.value = currentValue;
 }
 
 function openServiceModal() {
@@ -4479,6 +4907,7 @@ async function loadHotline() {
 
     if (error) throw error;
     allHotlines = data || [];
+    populateHotlineCategoryFilter();
     renderHotlineTable(allHotlines);
   } catch (error) {
     console.error('Error loading hotlines:', error);
@@ -4644,6 +5073,25 @@ function renderHotlinePagination(totalItems) {
   });
 }
 
+function populateHotlineCategoryFilter() {
+  const categoryFilter = document.getElementById('hotlineCategoryFilter');
+  if (!categoryFilter) return;
+
+  const categories = [...new Set(allHotlines.map(h => h.category ? h.category.trim() : null).filter(Boolean))].sort();
+
+  const currentValue = categoryFilter.value;
+  categoryFilter.innerHTML = '<option value="">All Categories</option>';
+
+  categories.forEach(cat => {
+    const option = document.createElement('option');
+    option.value = cat;
+    option.textContent = cat;
+    categoryFilter.appendChild(option);
+  });
+
+  categoryFilter.value = currentValue;
+}
+
 function openHotlineModal() {
   document.getElementById('hotlineModalTitle').textContent = 'Add Hotline';
   document.getElementById('hotlineEditId').value = '';
@@ -4793,8 +5241,32 @@ function openDeleteHotline(id, name) {
 function setupSearchListeners() {
   const barangaySearch = document.getElementById('barangaySearch');
   if (barangaySearch) {
-    barangaySearch.addEventListener('input', debounce(() => {
-      loadBarangayTable();
+    barangaySearch.addEventListener('input', debounce(async () => {
+      const searchTerm = barangaySearch.value.toLowerCase();
+      if (!supabaseClient) return;
+
+      try {
+        const { data, error } = await supabaseClient
+          .from('barangays')
+          .select('*')
+          .order('id', { ascending: true });
+
+        if (error) throw error;
+
+        const filtered = data.filter(b =>
+          (b.name && b.name.toLowerCase().includes(searchTerm)) ||
+          (b.description && b.description.toLowerCase().includes(searchTerm)) ||
+          (b.geographic_data && b.geographic_data.toLowerCase().includes(searchTerm))
+        );
+
+        const tbody = document.getElementById('barangayTableBody');
+        if (tbody) {
+          paginationState.barangay.current = 1;
+          await renderBarangayTable(tbody, null, true, filtered);
+        }
+      } catch (error) {
+        console.error('Error searching barangays:', error);
+      }
     }, 300));
   }
 
@@ -4839,6 +5311,20 @@ function setupSearchListeners() {
     });
   }
 
+  const reportDateFrom = document.getElementById('reportDateFrom');
+  if (reportDateFrom) {
+    reportDateFrom.addEventListener('change', () => {
+      filterReports();
+    });
+  }
+
+  const reportDateTo = document.getElementById('reportDateTo');
+  if (reportDateTo) {
+    reportDateTo.addEventListener('change', () => {
+      filterReports();
+    });
+  }
+
   const transparencyTypeFilter = document.getElementById('transparencyTypeFilter');
   if (transparencyTypeFilter) {
     transparencyTypeFilter.addEventListener('change', () => {
@@ -4854,11 +5340,33 @@ function setupSearchListeners() {
     }, 300));
   }
 
+  const transparencyDateFrom = document.getElementById('transparencyDateFrom');
+  if (transparencyDateFrom) {
+    transparencyDateFrom.addEventListener('change', () => {
+      filterTransparency();
+    });
+  }
+
+  const transparencyDateTo = document.getElementById('transparencyDateTo');
+  if (transparencyDateTo) {
+    transparencyDateTo.addEventListener('change', () => {
+      filterTransparency();
+    });
+  }
+
   const touristSearch = document.getElementById('touristSearch');
   if (touristSearch) {
     touristSearch.addEventListener('input', debounce(() => {
       filterTourist();
     }, 300));
+  }
+
+  const touristCategoryFilter = document.getElementById('touristCategoryFilter');
+  if (touristCategoryFilter) {
+    touristCategoryFilter.addEventListener('change', () => {
+      paginationState.tourist.current = 1;
+      filterTourist();
+    });
   }
 
   const serviceSearch = document.getElementById('serviceSearch');
@@ -4875,6 +5383,27 @@ function setupSearchListeners() {
     });
   }
 
+  const serviceCategoryFilter = document.getElementById('serviceCategoryFilter');
+  if (serviceCategoryFilter) {
+    serviceCategoryFilter.addEventListener('change', () => {
+      filterService();
+    });
+  }
+
+  const serviceDateFrom = document.getElementById('serviceDateFrom');
+  if (serviceDateFrom) {
+    serviceDateFrom.addEventListener('change', () => {
+      filterService();
+    });
+  }
+
+  const serviceDateTo = document.getElementById('serviceDateTo');
+  if (serviceDateTo) {
+    serviceDateTo.addEventListener('change', () => {
+      filterService();
+    });
+  }
+
   const hotlineSearch = document.getElementById('hotlineSearch');
   if (hotlineSearch) {
     hotlineSearch.addEventListener('input', debounce(() => {
@@ -4882,27 +5411,18 @@ function setupSearchListeners() {
     }, 300));
   }
 
-  const headerSearch = document.getElementById('headerSearch');
-  if (headerSearch) {
-    headerSearch.addEventListener('input', debounce(() => {
-      const searchTerm = headerSearch.value;
-
-      // Clear header search from individual page search boxes
-      ['barangaySearch', 'newsSearch', 'reportsSearch', 'transparencySearch', 'touristSearch', 'serviceSearch', 'hotlineSearch'].forEach(id => {
-        const searchBox = document.getElementById(id);
-        if (searchBox) {
-          searchBox.value = searchTerm;
-        }
-      });
-
-      // Apply search to each page's data
-      loadBarangayTable();
-      loadNews();
-      filterReports();
-      filterTransparency();
-      filterTourist();
-      filterService();
+  const hotlineCategoryFilter = document.getElementById('hotlineCategoryFilter');
+  if (hotlineCategoryFilter) {
+    hotlineCategoryFilter.addEventListener('change', () => {
+      paginationState.hotline.current = 1;
       filterHotline();
+    });
+  }
+
+  const usersSearch = document.getElementById('usersSearch');
+  if (usersSearch) {
+    usersSearch.addEventListener('input', debounce(() => {
+      filterUsers();
     }, 300));
   }
 }
@@ -4910,6 +5430,8 @@ function setupSearchListeners() {
 function filterTransparency() {
   const searchTerm = (document.getElementById('transparencySearch').value || '').toLowerCase();
   const typeFilter = document.getElementById('transparencyTypeFilter').value || '';
+  const dateFrom = document.getElementById('transparencyDateFrom').value;
+  const dateTo = document.getElementById('transparencyDateTo').value;
 
   const filtered = allTransparency.filter(t => {
     const matchSearch = !searchTerm ||
@@ -4918,7 +5440,14 @@ function filterTransparency() {
 
     const matchType = !typeFilter || t.type === typeFilter;
 
-    return matchSearch && matchType;
+    let matchDate = true;
+    if (dateFrom || dateTo) {
+      const createdDate = new Date(t.created_at).toISOString().split('T')[0];
+      if (dateFrom && createdDate < dateFrom) matchDate = false;
+      if (dateTo && createdDate > dateTo) matchDate = false;
+    }
+
+    return matchSearch && matchType && matchDate;
   });
 
   renderTransparencyTable(filtered);
@@ -4931,13 +5460,19 @@ function updateTransparencyTable() {
 
 function filterTourist() {
   const searchTerm = (document.getElementById('touristSearch').value || '').toLowerCase();
+  const categoryFilter = (document.getElementById('touristCategoryFilter').value || '').toLowerCase().trim();
 
-  const filtered = allTourist.filter(t =>
-    (t.name && t.name.toLowerCase().includes(searchTerm)) ||
-    (t.location && t.location.toLowerCase().includes(searchTerm)) ||
-    (t.category && t.category.toLowerCase().includes(searchTerm)) ||
-    (t.description && t.description.toLowerCase().includes(searchTerm))
-  );
+  const filtered = allTourist.filter(t => {
+    const matchSearch = !searchTerm ||
+      (t.name && t.name.toLowerCase().includes(searchTerm)) ||
+      (t.location && t.location.toLowerCase().includes(searchTerm)) ||
+      (t.category && t.category.toLowerCase().includes(searchTerm)) ||
+      (t.description && t.description.toLowerCase().includes(searchTerm));
+
+    const matchCategory = !categoryFilter || (t.category || '').toLowerCase().trim() === categoryFilter;
+
+    return matchSearch && matchCategory;
+  });
 
   renderTouristTable(filtered);
 }
@@ -4945,6 +5480,9 @@ function filterTourist() {
 function filterService() {
   const searchTerm = (document.getElementById('serviceSearch').value || '').toLowerCase();
   const statusFilter = document.getElementById('serviceStatusFilter').value || '';
+  const categoryFilter = document.getElementById('serviceCategoryFilter').value || '';
+  const dateFrom = document.getElementById('serviceDateFrom').value;
+  const dateTo = document.getElementById('serviceDateTo').value;
 
   const filtered = allServices.filter(s => {
     const matchSearch = !searchTerm ||
@@ -4953,8 +5491,16 @@ function filterService() {
       ((s.type || s.service_type) && (s.type || s.service_type).toLowerCase().includes(searchTerm));
 
     const matchStatus = !statusFilter || s.status === statusFilter;
+    const matchCategory = !categoryFilter || s.type === categoryFilter;
 
-    return matchSearch && matchStatus;
+    let matchDate = true;
+    if (dateFrom || dateTo) {
+      const createdDate = new Date(s.created_at).toISOString().split('T')[0];
+      if (dateFrom && createdDate < dateFrom) matchDate = false;
+      if (dateTo && createdDate > dateTo) matchDate = false;
+    }
+
+    return matchSearch && matchStatus && matchCategory && matchDate;
   });
 
   renderServiceTable(filtered);
@@ -4962,17 +5508,22 @@ function filterService() {
 
 function filterHotline() {
   const searchTerm = (document.getElementById('hotlineSearch').value || '').toLowerCase();
+  const categoryFilter = (document.getElementById('hotlineCategoryFilter').value || '').toLowerCase().trim();
 
   const filtered = allHotlines.filter(h => {
     const name = (h.name || h.department || '').toLowerCase();
     const category = (h.category || '').toLowerCase();
-    const number = (h.phone_numbers || h.hotline_number || '').toLowerCase();
+    const number = String(h.phone_numbers || h.hotline_number || '').toLowerCase();
     const desc = (h.description || '').toLowerCase();
 
-    return name.includes(searchTerm) ||
+    const matchSearch = name.includes(searchTerm) ||
            category.includes(searchTerm) ||
            number.includes(searchTerm) ||
            desc.includes(searchTerm);
+
+    const matchCategory = !categoryFilter || category === categoryFilter;
+
+    return matchSearch && matchCategory;
   });
 
   renderHotlineTable(filtered);
@@ -4981,6 +5532,8 @@ function filterHotline() {
 function filterReports() {
   const searchTerm = (document.getElementById('reportsSearch').value || '').toLowerCase();
   const statusFilter = document.getElementById('reportStatusFilter').value || '';
+  const dateFrom = document.getElementById('reportDateFrom').value;
+  const dateTo = document.getElementById('reportDateTo').value;
 
   const filtered = allReports.filter(r => {
     const matchSearch = !searchTerm ||
@@ -4989,7 +5542,14 @@ function filterReports() {
 
     const matchStatus = !statusFilter || r.status === statusFilter;
 
-    return matchSearch && matchStatus;
+    let matchDate = true;
+    if (dateFrom || dateTo) {
+      const createdDate = new Date(r.created_at).toISOString().split('T')[0];
+      if (dateFrom && createdDate < dateFrom) matchDate = false;
+      if (dateTo && createdDate > dateTo) matchDate = false;
+    }
+
+    return matchSearch && matchStatus && matchDate;
   });
 
   renderReportsTable(filtered);
@@ -5010,7 +5570,20 @@ function setupLogoUpload() {
     reader.onload = (event) => {
       const base64 = event.target.result;
       document.getElementById('barangayLogoBase64').value = base64;
-      logoPreview.innerHTML = `<img src="${base64}" alt="logo preview" style="max-width: 100%; max-height: 100%; border-radius: 8px;">`;
+      logoPreview.innerHTML = `
+        <div class="preview-image-wrapper">
+          <img src="${base64}" alt="logo preview" style="max-width: 100%; max-height: 100%; border-radius: 8px;">
+          <button type="button" class="remove-image-btn" title="Remove image">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      `;
+      logoPreview.querySelector('.remove-image-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        logoInput.value = '';
+        document.getElementById('barangayLogoBase64').value = '';
+        logoPreview.innerHTML = '<i class="fa-solid fa-image"></i><span>No image selected</span>';
+      });
     };
     reader.readAsDataURL(file);
   });
@@ -5028,7 +5601,20 @@ function setupCoverImageUpload() {
     reader.onload = (event) => {
       const base64 = event.target.result;
       document.getElementById('barangayCoverImageBase64').value = base64;
-      coverPreview.innerHTML = `<img src="${base64}" alt="cover preview" style="max-width: 100%; max-height: 100%; border-radius: 8px;">`;
+      coverPreview.innerHTML = `
+        <div class="preview-image-wrapper">
+          <img src="${base64}" alt="cover preview" style="max-width: 100%; max-height: 100%; border-radius: 8px;">
+          <button type="button" class="remove-image-btn" title="Remove image">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      `;
+      coverPreview.querySelector('.remove-image-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        coverInput.value = '';
+        document.getElementById('barangayCoverImageBase64').value = '';
+        coverPreview.innerHTML = '<i class="fa-solid fa-image"></i><span>No image selected</span>';
+      });
     };
     reader.readAsDataURL(file);
   });
@@ -5048,7 +5634,20 @@ function setupHotlineLogoUpload() {
     reader.onload = (event) => {
       const base64 = event.target.result;
       document.getElementById('hotlineLogoBase64').value = base64;
-      logoPreview.innerHTML = `<img src="${base64}" alt="logo preview" style="max-width: 100%; max-height: 100%; border-radius: 8px;">`;
+      logoPreview.innerHTML = `
+        <div class="preview-image-wrapper">
+          <img src="${base64}" alt="logo preview" style="max-width: 100%; max-height: 100%; border-radius: 8px;">
+          <button type="button" class="remove-image-btn" title="Remove image">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      `;
+      logoPreview.querySelector('.remove-image-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        logoInput.value = '';
+        document.getElementById('hotlineLogoBase64').value = '';
+        logoPreview.innerHTML = '<i class="fa-solid fa-image"></i><span>No image selected</span>';
+      });
     };
     reader.readAsDataURL(file);
   });
@@ -5074,7 +5673,20 @@ function setupTouristImageUpload() {
     reader.onload = (event) => {
       const base64 = event.target.result;
       document.getElementById('touristImageBase64').value = base64;
-      imagePreview.innerHTML = `<img src="${base64}" alt="image preview" style="max-width: 100%; max-height: 200px; border-radius: 8px;">`;
+      imagePreview.innerHTML = `
+        <div class="preview-image-wrapper">
+          <img src="${base64}" alt="image preview" style="max-width: 100%; max-height: 200px; border-radius: 8px;">
+          <button type="button" class="remove-image-btn" title="Remove image">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      `;
+      imagePreview.querySelector('.remove-image-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        imageInput.value = '';
+        document.getElementById('touristImageBase64').value = '';
+        imagePreview.innerHTML = '<i class="fa-solid fa-image"></i><span>No image selected</span>';
+      });
     };
     reader.readAsDataURL(file);
   });
@@ -5097,7 +5709,20 @@ function setupTransparencyPdfUpload() {
       return;
     }
 
-    pdfPreview.innerHTML = `<i class="fa-solid fa-file-pdf"></i><span>${file.name}</span>`;
+    pdfPreview.innerHTML = `
+      <div class="preview-file-wrapper">
+        <i class="fa-solid fa-file-pdf"></i>
+        <span>${file.name}</span>
+        <button type="button" class="remove-image-btn" title="Remove file">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    `;
+    pdfPreview.querySelector('.remove-image-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      pdfInput.value = '';
+      pdfPreview.innerHTML = '';
+    });
   });
 }
 
@@ -5266,6 +5891,274 @@ async function openPlaceReviewsModal(placeId, placeName) {
 function closePlaceReviewsModal() {
   const modal = document.getElementById('placeReviewsModal');
   modal.classList.remove('active');
+}
+
+// ============================================================
+// USERS MANAGEMENT
+// ============================================================
+let allUsers = [];
+
+async function loadUsers() {
+  const tbody = document.getElementById('usersTableBody');
+  if (!tbody) return;
+
+  if (!supabaseClient) {
+    const colSpan = tbody.closest('table').querySelectorAll('th').length;
+    tbody.innerHTML = `<tr><td colspan="${colSpan}" class="empty-state">Database connection unavailable</td></tr>`;
+    return;
+  }
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    allUsers = data || [];
+    renderUsersTable(allUsers);
+  } catch (error) {
+    console.error('Error loading users:', error);
+    showToast('Failed to load users from database: ' + error.message, 'error');
+  }
+}
+
+function renderUsersTable(usersData) {
+  const tbody = document.getElementById('usersTableBody');
+  const colSpan = tbody.closest('table').querySelectorAll('th').length;
+
+  const totalItems = usersData.length;
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+  const currentPage = paginationState.users.current;
+
+  if (currentPage > totalPages && totalPages > 0) {
+    paginationState.users.current = 1;
+    renderUsersTable(usersData);
+    return;
+  }
+
+  if (usersData.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="${colSpan}" class="empty-state">No users found</td></tr>`;
+    renderUsersPagination(0);
+    return;
+  }
+
+  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIdx = startIdx + ITEMS_PER_PAGE;
+  const pageData = usersData.slice(startIdx, endIdx);
+
+  tbody.innerHTML = '';
+  pageData.forEach(u => {
+    const tr = document.createElement('tr');
+
+    const tdEmail = document.createElement('td');
+    tdEmail.textContent = u.email || 'N/A';
+    tdEmail.style.fontWeight = '500';
+
+    const tdFullName = document.createElement('td');
+    tdFullName.textContent = u.display_name || u.user_metadata?.full_name || 'N/A';
+
+    const tdPhone = document.createElement('td');
+    tdPhone.textContent = u.phone || u.user_metadata?.phone || 'N/A';
+    tdPhone.style.fontSize = '13px';
+
+    const tdAddress = document.createElement('td');
+    tdAddress.textContent = u.address || u.user_metadata?.address || 'N/A';
+    tdAddress.style.fontSize = '13px';
+
+    const tdStatus = document.createElement('td');
+    const statusBadge = document.createElement('span');
+    statusBadge.className = 'status-badge ' + (u.user_metadata?.status === 'suspended' ? 'status-rejected' : 'status-resolved');
+    statusBadge.textContent = (u.user_metadata?.status || 'active').charAt(0).toUpperCase() + (u.user_metadata?.status || 'active').slice(1);
+    tdStatus.appendChild(statusBadge);
+
+    const tdCreated = document.createElement('td');
+    tdCreated.textContent = formatDate(u.created_at);
+    tdCreated.style.fontSize = '13px';
+
+    const tdActions = document.createElement('td');
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'action-btns';
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn btn-sm btn-edit btn-icon';
+    editBtn.title = 'Edit';
+    editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
+    editBtn.addEventListener('click', () => openEditUserModal(u.id, u));
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn btn-sm btn-delete btn-icon';
+    deleteBtn.title = 'Delete';
+    deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+    deleteBtn.addEventListener('click', () => openDeleteUser(u.id, u.email || 'User'));
+
+    actionsDiv.appendChild(editBtn);
+    actionsDiv.appendChild(deleteBtn);
+    tdActions.appendChild(actionsDiv);
+
+    tr.appendChild(tdEmail);
+    tr.appendChild(tdFullName);
+    tr.appendChild(tdPhone);
+    tr.appendChild(tdAddress);
+    tr.appendChild(tdStatus);
+    tr.appendChild(tdCreated);
+    tr.appendChild(tdActions);
+
+    tbody.appendChild(tr);
+  });
+
+  renderUsersPagination(totalItems);
+}
+
+function renderUsersPagination(totalItems) {
+  const paginationEl = document.getElementById('usersPagination');
+  const showingEl = document.getElementById('usersShowing');
+  if (!paginationEl || !showingEl) return;
+
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+  const currentPage = paginationState.users.current;
+  paginationState.users.total = totalPages;
+  showingEl.textContent = `Showing ${Math.min(currentPage * ITEMS_PER_PAGE, totalItems)} of ${totalItems} entries`;
+
+  if (totalPages <= 1) {
+    paginationEl.innerHTML = '';
+    return;
+  }
+
+  let html = `<button class="page-btn prev-btn" data-page="${currentPage - 1}" ${currentPage === 1 ? 'disabled' : ''}><i class="fa-solid fa-chevron-left"></i></button>`;
+
+  const maxButtons = 5;
+  let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+  let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+  if (endPage - startPage + 1 < maxButtons) {
+    startPage = Math.max(1, endPage - maxButtons + 1);
+  }
+
+  if (startPage > 1) {
+    html += `<button class="page-btn" data-page="1">1</button>`;
+    if (startPage > 2) html += `<span class="page-ellipsis">...</span>`;
+  }
+
+  for (let i = startPage; i <= endPage; i++) {
+    html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`;
+  }
+
+  if (endPage < totalPages) {
+    if (endPage < totalPages - 1) html += `<span class="page-ellipsis">...</span>`;
+    html += `<button class="page-btn" data-page="${totalPages}">${totalPages}</button>`;
+  }
+
+  html += `<button class="page-btn next-btn" data-page="${currentPage + 1}" ${currentPage === totalPages ? 'disabled' : ''}><i class="fa-solid fa-chevron-right"></i></button>`;
+  paginationEl.innerHTML = html;
+
+  paginationEl.querySelectorAll('.page-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const page = parseInt(btn.dataset.page);
+      if (page >= 1 && page <= totalPages) {
+        paginationState.users.current = page;
+        filterUsers();
+        window.scrollTo(0, 0);
+      }
+    });
+  });
+}
+
+function openEditUserModal(userId, userData) {
+  document.getElementById('userModalTitle').textContent = 'Edit User';
+  document.getElementById('userEditId').value = userId;
+  document.getElementById('userEmail').value = userData.email || '';
+  document.getElementById('userFullName').value = userData.display_name || userData.user_metadata?.full_name || '';
+  document.getElementById('userPhone').value = userData.phone || userData.user_metadata?.phone || '';
+  document.getElementById('userAddress').value = userData.address || userData.user_metadata?.address || '';
+  document.getElementById('userStatus').value = userData.user_metadata?.status || 'active';
+
+  document.getElementById('userModal').classList.add('active');
+}
+
+function closeUserModal() {
+  document.getElementById('userModal').classList.remove('active');
+}
+
+async function saveUser() {
+  const userId = document.getElementById('userEditId').value;
+  const fullName = document.getElementById('userFullName').value.trim();
+  const phone = document.getElementById('userPhone').value.trim();
+  const address = document.getElementById('userAddress').value.trim();
+  const status = document.getElementById('userStatus').value;
+
+  if (!fullName) {
+    showToast('Please enter full name', 'error');
+    return;
+  }
+
+  try {
+    const { error } = await supabaseClient
+      .from('users')
+      .update({
+        display_name: fullName,
+        phone: phone,
+        address: address,
+        user_metadata: {
+          phone: phone,
+          address: address,
+          status: status
+        }
+      })
+      .eq('id', userId);
+
+    if (error) throw error;
+
+    showToast('User updated successfully!', 'success');
+    addNotification('User Updated', `${fullName} has been updated`, 'success');
+    closeUserModal();
+    loadUsers();
+  } catch (error) {
+    console.error('Error updating user:', error);
+    showToast('Failed to update user: ' + error.message, 'error');
+  }
+}
+
+function openDeleteUser(userId, userEmail) {
+  deleteTarget = userId;
+  deleteType = 'user';
+  document.getElementById('deleteMessage').textContent = `Are you sure you want to delete this user (${userEmail})? This action cannot be undone.`;
+  document.getElementById('deleteModal').classList.add('active');
+}
+
+async function deleteUser() {
+  try {
+    const { error } = await supabaseClient
+      .from('users')
+      .delete()
+      .eq('id', deleteTarget);
+
+    if (error) throw error;
+    showToast('User deleted successfully!', 'success');
+    addNotification('User Deleted', 'A user has been removed', 'warning');
+    loadUsers();
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    showToast('Failed to delete user: ' + error.message, 'error');
+  }
+}
+
+function filterUsers() {
+  const searchTerm = (document.getElementById('usersSearch').value || '').toLowerCase();
+
+  const filtered = allUsers.filter(u => {
+    const email = (u.email || '').toLowerCase();
+    const fullName = (u.display_name || u.user_metadata?.full_name || '').toLowerCase();
+    const phone = (u.phone || u.user_metadata?.phone || '').toLowerCase();
+    const address = (u.address || u.user_metadata?.address || '').toLowerCase();
+
+    return email.includes(searchTerm) ||
+           fullName.includes(searchTerm) ||
+           phone.includes(searchTerm) ||
+           address.includes(searchTerm);
+  });
+
+  renderUsersTable(filtered);
 }
 
 // ============================================================

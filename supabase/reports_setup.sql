@@ -53,6 +53,21 @@ alter table public.reports
 alter table public.reports
   add column if not exists rejection_reason text;
 
+alter table public.reports
+  add column if not exists resolution_notes text;
+
+alter table public.reports
+  add column if not exists accomplishment_message text;
+
+alter table public.reports
+  add column if not exists reporter_name text;
+
+alter table public.reports
+  add column if not exists reporter_email text;
+
+alter table public.reports
+  add column if not exists accomplishment_files jsonb;
+
 create index if not exists reports_user_id_idx
   on public.reports (user_id);
 

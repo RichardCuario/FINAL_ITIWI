@@ -82,7 +82,7 @@ flutter:
     - assets/onboarding2.png
     - assets/onboarding3.png
     - assets/TEXTLOGO.png
-    - assets/ITIWI LOGO.png
+    - assets/itiwi_logo.png
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

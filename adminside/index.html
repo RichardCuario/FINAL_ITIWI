@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>iTIWI Admin Dashboard</title>
+  <link rel="icon" type="image/png" href="assets/itiwi_logo.png" />
+  <link rel="shortcut icon" type="image/png" href="assets/itiwi_logo.png" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -17,11 +19,14 @@
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
       <div class="brand-logo">
-        <img src="assets/ITIWI-LOGO.png" alt="iTIWI Logo" class="sidebar-logo-icon" />
+        <img src="assets/itiwi_logo.png" alt="iTIWI Logo" class="sidebar-logo-icon" />
       </div>
       <div class="brand-text">
         <img src="assets/TEXTLOGO.png" alt="iTIWI" class="sidebar-logo-text" />
       </div>
+      <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Collapse Sidebar">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
     </div>
 
     <nav class="sidebar-nav">
@@ -57,10 +62,15 @@
         <i class="fa-solid fa-phone"></i>
         <span>Manage Hotline</span>
       </a>
+      <a href="#" class="nav-item" data-page="users">
+        <i class="fa-solid fa-users"></i>
+        <span>Manage Users</span>
+      </a>
     </nav>
 
     <div class="sidebar-footer">
-      <div class="user-profile-sidebar">
+      <!-- Full account card — visible when expanded -->
+      <div class="user-profile-sidebar" id="userProfileSidebar" onclick="openProfileModal()" style="cursor: pointer;">
         <div class="user-avatar-sidebar">
           <i class="fa-solid fa-user"></i>
         </div>
@@ -68,10 +78,12 @@
           <span class="user-name-sidebar">Admin User</span>
           <span class="user-role-sidebar">Administrator</span>
         </div>
-        <button class="logout-btn" title="Logout">
-          <i class="fa-solid fa-right-from-bracket"></i>
-        </button>
       </div>
+      <!-- Logout button - always visible -->
+      <button class="logout-btn-footer" id="logoutBtn" title="Logout">
+        <i class="fa-solid fa-right-from-bracket"></i>
+        <span>Logout</span>
+      </button>
     </div>
   </aside>
 
@@ -83,12 +95,12 @@
         <button class="menu-toggle" id="menuToggle">
           <i class="fa-solid fa-bars"></i>
         </button>
-        <div class="search-box">
-          <i class="fa-solid fa-magnifying-glass"></i>
-          <input type="text" id="headerSearch" placeholder="Search here..." autocomplete="off" />
-        </div>
       </div>
       <div class="header-right">
+        <button class="icon-btn theme-toggle-btn" id="themeToggleBtn" title="Toggle Dark Mode">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+
         <button class="icon-btn notification-btn" id="notificationBtn" title="Notifications">
           <i class="fa-solid fa-bell"></i>
           <span class="notification-badge" id="notificationBadge">0</span>
@@ -107,7 +119,7 @@
           </div>
         </div>
 
-        <div class="header-user">
+        <div class="header-user" onclick="openProfileModal()" style="cursor: pointer;">
           <div class="header-avatar">
             <i class="fa-solid fa-user"></i>
           </div>
@@ -408,12 +420,13 @@
                   <th>Description</th>
                   <th>Image</th>
                   <th>Published</th>
+                  <th>Created</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="newsTableBody">
                 <tr>
-                  <td colspan="5" class="empty-state">Loading...</td>
+                  <td colspan="6" class="empty-state">Loading...</td>
                 </tr>
               </tbody>
             </table>
@@ -446,6 +459,11 @@
                 <option value="resolved">Resolved</option>
                 <option value="rejected">Rejected</option>
               </select>
+              <div class="date-range-group">
+                <input type="date" id="reportDateFrom" class="status-filter" />
+                <span class="date-separator">to</span>
+                <input type="date" id="reportDateTo" class="status-filter" />
+              </div>
             </div>
           </div>
           <div class="table-responsive">
@@ -456,13 +474,14 @@
                   <th>Message</th>
                   <th>Status</th>
                   <th>Attachments</th>
-                  <th>Date Submitted</th>
+                  <th>Created</th>
+                  <th>Last Updated</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="reportsTableBody">
                 <tr>
-                  <td colspan="6" class="empty-state">Loading...</td>
+                  <td colspan="7" class="empty-state">Loading...</td>
                 </tr>
               </tbody>
             </table>
@@ -484,6 +503,10 @@
           <div class="card-header">
             <h2>Transparency Records</h2>
             <div class="card-header-actions">
+              <div class="search-box table-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" placeholder="Search records..." id="transparencySearch" />
+              </div>
               <select id="transparencyTypeFilter" class="status-filter">
                 <option value="">All Types</option>
                 <option value="annual_budget">Annual Budget</option>
@@ -493,9 +516,10 @@
                 <option value="legislative_ordinances">Legislative Ordinances</option>
                 <option value="programs">Programs</option>
               </select>
-              <div class="search-box table-search">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" placeholder="Search records..." id="transparencySearch" />
+              <div class="date-range-group">
+                <input type="date" id="transparencyDateFrom" class="status-filter" />
+                <span class="date-separator">to</span>
+                <input type="date" id="transparencyDateTo" class="status-filter" />
               </div>
               <button class="btn btn-primary" onclick="openTransparencyModal()">
                 <i class="fa-solid fa-plus"></i>
@@ -509,13 +533,14 @@
                 <tr>
                   <th>Title</th>
                   <th>Type</th>
-                  <th>Date</th>
+                  <th>Created</th>
+                  <th>Last Updated</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="transparencyTableBody">
                 <tr>
-                  <td colspan="6" class="empty-state">Loading...</td>
+                  <td colspan="5" class="empty-state">Loading...</td>
                 </tr>
               </tbody>
             </table>
@@ -541,6 +566,9 @@
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input type="text" placeholder="Search destinations..." id="touristSearch" />
               </div>
+              <select id="touristCategoryFilter" class="status-filter">
+                <option value="">All Categories</option>
+              </select>
               <button class="btn btn-primary" onclick="openTouristModal()">
                 <i class="fa-solid fa-plus"></i>
                 Add Destination
@@ -556,13 +584,14 @@
                   <th>Category</th>
                   <th>Description</th>
                   <th>Reviews</th>
-                  <th>Date Added</th>
+                  <th>Created</th>
+                  <th>Last Updated</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="touristTableBody">
                 <tr>
-                  <td colspan="7" class="empty-state">Loading...</td>
+                  <td colspan="8" class="empty-state">Loading...</td>
                 </tr>
               </tbody>
             </table>
@@ -584,6 +613,10 @@
           <div class="card-header">
             <h2>Service Requests</h2>
             <div class="card-header-actions">
+              <div class="search-box table-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" placeholder="Search services..." id="serviceSearch" />
+              </div>
               <select id="serviceStatusFilter" class="status-filter">
                 <option value="">All Status</option>
                 <option value="pending">Pending</option>
@@ -591,9 +624,13 @@
                 <option value="completed">Completed</option>
                 <option value="rejected">Rejected</option>
               </select>
-              <div class="search-box table-search">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" placeholder="Search services..." id="serviceSearch" />
+              <select id="serviceCategoryFilter" class="status-filter">
+                <option value="">All Categories</option>
+              </select>
+              <div class="date-range-group">
+                <input type="date" id="serviceDateFrom" class="status-filter" />
+                <span class="date-separator">to</span>
+                <input type="date" id="serviceDateTo" class="status-filter" />
               </div>
             </div>
           </div>
@@ -605,12 +642,13 @@
                   <th>Type</th>
                   <th>Status</th>
                   <th>Date Requested</th>
+                  <th>Created</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="serviceTableBody">
                 <tr>
-                  <td colspan="5" class="empty-state">Loading...</td>
+                  <td colspan="6" class="empty-state">Loading...</td>
                 </tr>
               </tbody>
             </table>
@@ -636,6 +674,9 @@
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input type="text" placeholder="Search hotlines..." id="hotlineSearch" />
               </div>
+              <select id="hotlineCategoryFilter" class="status-filter">
+                <option value="">All Categories</option>
+              </select>
               <button class="btn btn-primary" onclick="openHotlineModal()">
                 <i class="fa-solid fa-plus"></i>
                 Add Hotline
@@ -663,6 +704,49 @@
           <div class="table-footer">
             <span class="showing-text" id="hotlineShowing">Showing 0 of 0 entries</span>
             <div class="pagination" id="hotlinePagination"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Manage Users Page -->
+      <section class="page users-page" id="usersPage">
+        <div class="page-header">
+          <h1>Manage Users</h1>
+          <p class="page-subtitle">View and manage all application users.</p>
+        </div>
+        <div class="card table-card">
+          <div class="card-header">
+            <h2>All Users</h2>
+            <div class="card-header-actions">
+              <div class="search-box table-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" placeholder="Search users..." id="usersSearch" />
+              </div>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Full Name</th>
+                  <th>Phone</th>
+                  <th>Address</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="usersTableBody">
+                <tr>
+                  <td colspan="7" class="empty-state">Loading...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <span class="showing-text" id="usersShowing">Showing 0 of 0 entries</span>
+            <div class="pagination" id="usersPagination"></div>
           </div>
         </div>
       </section>
@@ -856,6 +940,17 @@
           <textarea id="newsContent" rows="5" placeholder="Enter news description"></textarea>
         </div>
         <div class="form-group">
+          <label for="newsCategory">Category</label>
+          <select id="newsCategory">
+            <option value="">-- Select Category --</option>
+            <option value="Announcement">Announcement</option>
+            <option value="Update">Update</option>
+            <option value="Event">Event</option>
+            <option value="Alert">Alert</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
           <label for="newsImage">Upload Image</label>
           <div class="logo-upload-wrapper">
             <div class="logo-preview" id="newsImagePreview">
@@ -869,8 +964,34 @@
             </button>
           </div>
         </div>
+
+        <div class="form-group">
+          <div class="checkbox-label">
+            <input type="checkbox" id="newsScheduleCheckbox" onchange="toggleNewsSchedule()" />
+            <label for="newsScheduleCheckbox">Schedule this post for later</label>
+          </div>
+          <p class="form-help-text">Post will be automatically published on the scheduled date and time</p>
+        </div>
+
+        <div id="newsScheduleSection" style="display: none;">
+          <div class="form-grid-2col">
+            <div class="form-group">
+              <label for="newsScheduleDate">Publish Date <span class="required">*</span></label>
+              <input type="date" id="newsScheduleDate" />
+            </div>
+            <div class="form-group">
+              <label for="newsScheduleTime">Publish Time <span class="required">*</span></label>
+              <input type="time" id="newsScheduleTime" />
+            </div>
+          </div>
+          <div class="form-group" style="background: #f0fdf4; padding: 12px; border-radius: 6px; border-left: 3px solid #22c55e;">
+            <p class="form-help-text" id="schedulePreview" style="margin: 0; color: #16a34a; font-weight: 500;"></p>
+          </div>
+        </div>
+
         <input type="hidden" id="newsEditId" />
         <input type="hidden" id="newsImageUrl" />
+        <input type="hidden" id="newsScheduledAt" />
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeNewsModal()">Cancel</button>
@@ -921,6 +1042,10 @@
         <div class="form-group">
           <label for="reportViewReporterName">Reporter Name</label>
           <input type="text" id="reportViewReporterName" placeholder="Reporter name" readonly />
+        </div>
+        <div class="form-group">
+          <label for="reportViewReporterEmail">Reporter Email</label>
+          <input type="text" id="reportViewReporterEmail" placeholder="Reporter email" readonly />
         </div>
         <div class="form-group">
           <label for="reportViewMessage">Message</label>
@@ -1381,6 +1506,54 @@
     </div>
   </div>
 
+  <!-- Edit User Modal -->
+  <div class="modal-overlay" id="userModal">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h2 id="userModalTitle">Edit User</h2>
+        <button class="modal-close" onclick="closeUserModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="userEmail">Email <span class="required">*</span></label>
+          <input type="email" id="userEmail" placeholder="user@example.com" readonly />
+        </div>
+        <div class="form-grid-2col">
+          <div class="form-group">
+            <label for="userFullName">Full Name <span class="required">*</span></label>
+            <input type="text" id="userFullName" placeholder="Enter full name" />
+          </div>
+          <div class="form-group">
+            <label for="userPhone">Phone Number</label>
+            <input type="text" id="userPhone" placeholder="Enter phone number" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="userAddress">Address</label>
+          <textarea id="userAddress" rows="3" placeholder="Enter address"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="userStatus">Status <span class="required">*</span></label>
+          <select id="userStatus">
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="suspended">Suspended</option>
+          </select>
+        </div>
+        <input type="hidden" id="userEditId" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeUserModal()">Cancel</button>
+        <button class="btn btn-primary" id="userSaveBtn" onclick="saveUser()">
+          <i class="fa-solid fa-floppy-disk"></i>
+          Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Logout Confirmation Modal -->
   <div class="modal-overlay" id="logoutModal">
     <div class="modal" style="max-width: 420px;">
@@ -1400,6 +1573,106 @@
         <button class="btn btn-danger" onclick="confirmLogout()">
           <i class="fa-solid fa-sign-out"></i>
           Logout
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile Modal -->
+  <div class="modal-overlay" id="profileModal">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h2>Edit Profile</h2>
+        <button class="modal-close" onclick="closeProfileModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="profile-avatar-section">
+          <div class="profile-avatar-large">
+            <i class="fa-solid fa-user"></i>
+            <span id="profileInitials">AU</span>
+          </div>
+          <p class="profile-avatar-hint">Profile Picture</p>
+        </div>
+
+        <div class="form-section">
+          <div class="section-header">
+            <h3>Account Information</h3>
+            <p class="section-subtitle">Update your profile details</p>
+          </div>
+
+          <div class="form-group">
+            <label for="profileEmail">Email Address <span class="required">*</span></label>
+            <input type="email" id="profileEmail" placeholder="user@example.com" readonly />
+            <p class="form-help-text">Email cannot be changed</p>
+          </div>
+
+          <div class="form-grid-2col">
+            <div class="form-group">
+              <label for="profileFullName">Full Name <span class="required">*</span></label>
+              <input type="text" id="profileFullName" placeholder="Enter your full name" />
+            </div>
+            <div class="form-group">
+              <label for="profileRole">Role</label>
+              <input type="text" id="profileRole" placeholder="Administrator" readonly />
+              <p class="form-help-text">Role is set by administrator</p>
+            </div>
+          </div>
+
+          <div class="form-grid-2col">
+            <div class="form-group">
+              <label for="profilePhone">Phone Number</label>
+              <input type="tel" id="profilePhone" placeholder="Enter phone number" />
+            </div>
+            <div class="form-group">
+              <label for="profileAddress">Address</label>
+              <input type="text" id="profileAddress" placeholder="Enter your address" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="profileBio">Bio</label>
+            <textarea id="profileBio" rows="3" placeholder="Tell us about yourself..."></textarea>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="section-header">
+            <h3>Security</h3>
+            <p class="section-subtitle">Change your password</p>
+          </div>
+
+          <div class="form-group">
+            <label for="currentPassword">Current Password <span class="required">*</span></label>
+            <input type="password" id="currentPassword" placeholder="Enter your current password" />
+          </div>
+
+          <div class="form-grid-2col">
+            <div class="form-group">
+              <label for="newPassword">New Password <span class="required">*</span></label>
+              <input type="password" id="newPassword" placeholder="Enter new password" />
+              <p class="form-help-text">At least 8 characters</p>
+            </div>
+            <div class="form-group">
+              <label for="confirmPassword">Confirm Password <span class="required">*</span></label>
+              <input type="password" id="confirmPassword" placeholder="Confirm new password" />
+            </div>
+          </div>
+
+          <button class="btn btn-secondary" onclick="changePassword()" style="width: 100%;">
+            <i class="fa-solid fa-key"></i>
+            Change Password
+          </button>
+        </div>
+
+        <input type="hidden" id="profileUserId" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeProfileModal()">Cancel</button>
+        <button class="btn btn-primary" id="profileSaveBtn" onclick="saveProfile()">
+          <i class="fa-solid fa-floppy-disk"></i>
+          Save Changes
         </button>
       </div>
     </div>

@@ -35,9 +35,18 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
     }
 
     try {
+      // Publish any scheduled news that's due
+      try {
+        await supabase.rpc('publish_scheduled_news');
+      } catch (e) {
+        // Function may not exist, continue anyway
+        print('Could not call publish_scheduled_news: $e');
+      }
+
       final data = await supabase
           .from('news')
           .select()
+          .eq('is_published', true)
           .order('created_at', ascending: false);
 
       final mapped = List<Map<String, dynamic>>.from(
