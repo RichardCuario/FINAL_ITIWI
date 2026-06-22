@@ -8,7 +8,9 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'content_cache_service.dart';
 
 @pragma('vm:entry-point')
-Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {}
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await NewsNotificationService.instance.persistIncomingNotification(message.data);
+}
 
 class NewsNotificationService {
   NewsNotificationService._();
@@ -183,7 +185,7 @@ class NewsNotificationService {
     final notification = message.notification;
     final data = message.data;
 
-    await _persistIncomingNotification(data);
+    await persistIncomingNotification(data);
 
     final type = data['type']?.toString();
     final title = notification?.title?.trim().isNotEmpty == true
@@ -218,7 +220,7 @@ class NewsNotificationService {
     );
   }
 
-  Future<void> _persistIncomingNotification(Map<String, dynamic> data) async {
+  Future<void> persistIncomingNotification(Map<String, dynamic> data) async {
     final type = data['type']?.toString();
 
     if (type == 'report_status') {
