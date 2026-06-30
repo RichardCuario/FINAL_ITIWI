@@ -40,7 +40,7 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
         await supabase.rpc('publish_scheduled_news');
       } catch (e) {
         // Function may not exist, continue anyway
-        print('Could not call publish_scheduled_news: $e');
+        debugPrint('Could not call publish_scheduled_news: $e');
       }
 
       final data = await supabase
@@ -145,21 +145,6 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
           ),
         ),
         centerTitle: false,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.notifications_outlined,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())

@@ -1,15 +1,149 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-
 import 'content_cache_service.dart';
 
 @pragma('vm:entry-point')
-Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {}
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  try {
+    await Firebase.initializeApp();
 
+    final plugin = FlutterLocalNotificationsPlugin();
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const darwinSettings = DarwinInitializationSettings();
+    const settings = InitializationSettings(
+      android: androidSettings,
+      iOS: darwinSettings,
+      macOS: darwinSettings,
+    );
+    await plugin.initialize(settings);
+
+    final androidPlugin =
+        plugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'news_updates',
+        'News Updates',
+        description: 'Notifications for newly published news and announcements.',
+        importance: Importance.high,
+      ),
+    );
+
+    final notification = message.notification;
+    final data = message.data;
+    final type = data['type']?.toString();
+
+    final title = notification?.title?.trim().isNotEmpty == true
+        ? notification!.title!.trim()
+        : (data['title']?.toString().trim().isNotEmpty == true
+            ? data['title'].toString().trim()
+            : _bgFallbackTitle(type, data));
+
+    final body = notification?.body?.trim().isNotEmpty == true
+        ? notification!.body!.trim()
+        : (data['description']?.toString().trim().isNotEmpty == true
+            ? data['description'].toString().trim()
+            : _bgFallbackBody(type, data));
+
+    final notificationId = _bgNotificationId(type, data);
+
+    await plugin.show(
+      notificationId,
+      title,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          'news_updates',
+          'News Updates',
+          channelDescription: 'Notifications for newly published news and announcements.',
+          importance: Importance.high,
+          priority: Priority.high,
+          ticker: type == 'report_status'
+              ? 'report_status_update'
+              : type == 'online_service_status'
+                  ? 'online_service_status_update'
+                  : 'news_update',
+        ),
+        iOS: const DarwinNotificationDetails(),
+      ),
+    );
+  } catch (e) {
+    debugPrint('Background notification handler error: $e');
+  }
+}
+
+/// Fallback title builder used in the background isolate (no access to instance methods).
+String _bgFallbackTitle(String? type, Map<String, dynamic> data) {
+  if (type == 'report_status') {
+    return 'Report status updated';
+  }
+  if (type == 'online_service_status') {
+    final serviceLabel = data['serviceLabel']?.toString().trim() ?? '';
+    if (serviceLabel.isNotEmpty) {
+      final status = (data['status']?.toString() ?? '').trim().toLowerCase();
+      if (status == 'approved' || status == 'approve') return '$serviceLabel request approved';
+      if (status == 'rejected' || status == 'reject') return '$serviceLabel request rejected';
+      return '$serviceLabel request updated';
+    }
+    return 'Online service status updated';
+  }
+  return 'New Announcement';
+}
+
+/// Fallback body builder used in the background isolate.
+String _bgFallbackBody(String? type, Map<String, dynamic> data) {
+  if (type == 'report_status') {
+    final status = (data['status']?.toString() ?? '').trim().toLowerCase();
+    final rejectionReason = data['rejectionReason']?.toString().trim() ?? '';
+    if ((status == 'rejected' || status == 'reject') && rejectionReason.isNotEmpty) {
+      return 'The admin rejected your report. Reason: $rejectionReason';
+    }
+    if (status == 'rejected' || status == 'reject') return 'The admin rejected your report.';
+    if (status == 'resolved') return 'The admin marked your report as resolved.';
+    if (status == 'processing' || status == 'in progress') return 'The admin started processing your report.';
+    return 'The admin updated your report status.';
+  }
+  if (type == 'online_service_status') {
+    final serviceLabel = data['serviceLabel']?.toString().trim().isNotEmpty == true
+        ? data['serviceLabel'].toString().trim()
+        : 'online service';
+    final status = (data['status']?.toString() ?? '').trim().toLowerCase();
+    final scheduleLabel = data['scheduleLabel']?.toString().trim() ?? '';
+    final suffix = scheduleLabel.isNotEmpty ? ' Schedule: $scheduleLabel.' : '';
+    if (status == 'approved' || status == 'approve') return 'The admin approved your $serviceLabel request.$suffix';
+    if (status == 'rejected' || status == 'reject') return 'The admin rejected your $serviceLabel request.$suffix';
+    return 'The admin updated your $serviceLabel request status.$suffix';
+  }
+  return 'Tap to view the latest news.';
+}
+
+/// Builds a stable notification ID in the background isolate.
+int _bgNotificationId(String? type, Map<String, dynamic> data) {
+  if (type == 'report_status') {
+    final reportId = data['reportId']?.toString().trim();
+    if (reportId != null && reportId.isNotEmpty) {
+      return reportId.codeUnits.fold<int>(
+        2000, (hash, unit) => ((hash * 31) + unit) & 0x7fffffff,
+      );
+    }
+    return 1002;
+  }
+  if (type == 'online_service_status') {
+    final requestId = data['requestId']?.toString().trim();
+    if (requestId != null && requestId.isNotEmpty) {
+      return requestId.codeUnits.fold<int>(
+        3000, (hash, unit) => ((hash * 31) + unit) & 0x7fffffff,
+      );
+    }
+    return 1003;
+  }
+  return 1001;
+}
 class NewsNotificationService {
   NewsNotificationService._();
 

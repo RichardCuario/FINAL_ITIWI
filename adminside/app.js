@@ -534,10 +534,51 @@ let notifications = [];
 // SETTINGS
 // ============================================================
 
+// ---------- ANTI-AUTOFILL FOR SEARCH INPUTS ----------
+function preventSearchAutofill() {
+  // Select all search inputs that should never autofill
+  const searchIds = [
+    'barangaySearch',
+    'newsSearch',
+    'reportsSearch',
+    'transparencySearch',
+    'touristSearch',
+    'serviceSearch',
+    'hotlineSearch',
+    'usersSearch'
+  ];
+
+  searchIds.forEach(function(id) {
+    var input = document.getElementById(id);
+    if (!input) return;
+
+    // Set readonly initially — browsers won't autofill readonly fields
+    input.setAttribute('readonly', 'readonly');
+
+    // Remove readonly on focus so user can type
+    input.addEventListener('focus', function onFocus() {
+      input.removeAttribute('readonly');
+      input.removeEventListener('focus', onFocus);
+    });
+
+    // Also clear any value the browser may have injected
+    input.addEventListener('mousedown', function clearAutofill() {
+      // Delay to run after browser's autofill
+      var valueOnMousedown = input.value;
+      setTimeout(function() {
+        if (input.value !== valueOnMousedown) {
+          input.value = '';
+        }
+      }, 10);
+    });
+  });
+}
+
 // ---------- INIT ----------
 document.addEventListener('DOMContentLoaded', () => {
   initDarkMode();
   initSupabase();
+  preventSearchAutofill();
   setupNavigation();
   setupMobileMenu();
   setupSidebarCollapse();
@@ -6166,3 +6207,104 @@ function filterUsers() {
 // ============================================================
 // Reviews are now displayed inline in the Tourist Guide table
 // Click the "View" button next to reviews to see all reviews for that place
+
+/**
+ * Loads reviews for a specific place and displays them in the reviews modal.
+ */
+async function loadPlaceReviews(placeId) {
+  if (!supabaseClient || !placeId) {
+    console.warn('Cannot load place reviews: missing supabase client or place ID');
+    return;
+  }
+
+  const reviewsList = document.getElementById('reviewsList');
+  if (!reviewsList) return;
+  reviewsList.innerHTML = '<p style="text-align: center; color: #999;">Loading reviews...</p>';
+
+  try {
+    const { data: place } = await supabaseClient
+      .from('places')
+      .select('name, place_reviews')
+      .eq('id', placeId)
+      .single();
+
+    const placeName = place ? (place.name || 'Unknown Place') : 'Unknown Place';
+    const titleEl = document.getElementById('placeReviewsModalTitle');
+    if (titleEl) {
+      titleEl.textContent = 'Reviews - ' + escapeHtml(placeName);
+    }
+
+    const reviews = place ? (place.place_reviews || []) : [];
+
+    if (!reviews || reviews.length === 0) {
+      reviewsList.innerHTML = '<p style="text-align: center; color: #999; padding: 40px 0;">No reviews yet for this place.</p>';
+      return;
+    }
+
+    reviewsList.innerHTML = reviews.map(function(review) {
+      var stars = '';
+      for (var i = 0; i < 5; i++) {
+        stars += i < (review.rating || 0) ? '\u2605' : '\u2606';
+      }
+      var dateStr = review.created_at
+        ? new Date(review.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+        : '';
+      var reviewerName = review.user_name || review.name || 'Anonymous';
+      var commentHtml = review.comment
+        ? '<p style="font-size: 13px; color: #4b5563; margin: 8px 0 0 0; line-height: 1.5;">' + escapeHtml(review.comment) + '</p>'
+        : '';
+      var dateBlock = dateStr ? '<span style="font-size: 12px; color: #9ca3af;">' + dateStr + '</span>' : '';
+
+      return '<div class="review-card" style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 10px;">' +
+        '<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">' +
+        '<div><strong style="font-size: 14px; color: #111827;">' + escapeHtml(reviewerName) + '</strong>' +
+        '<span style="color: #f59e0b; font-size: 14px; margin-left: 8px;">' + stars + '</span></div>' +
+        dateBlock + '</div>' + commentHtml + '</div>';
+    }).join('');
+  } catch (error) {
+    console.error('Error loading place reviews:', error);
+    reviewsList.innerHTML = '<p style="text-align: center; color: #ef4444;">Error loading reviews.</p>';
+  }
+}
+
+/**
+ * Validates a file upload against allowed types and max size.
+ */
+function validateFileUpload(file, allowedTypes, maxSizeBytes) {
+  if (!file) {
+    return { valid: false, error: 'No file selected' };
+  }
+
+  if (allowedTypes && allowedTypes.length > 0) {
+    var isAllowed = allowedTypes.some(function(type) {
+      if (type.endsWith('/*')) {
+        var baseType = type.replace('/*', '');
+        return file.type.startsWith(baseType + '/');
+      }
+      return file.type === type;
+    });
+    if (!isAllowed) {
+      return { valid: false, error: 'File type not allowed. Accepted types: ' + allowedTypes.join(', ') };
+    }
+  }
+
+  if (maxSizeBytes && file.size > maxSizeBytes) {
+    var maxSizeMB = (maxSizeBytes / (1024 * 1024)).toFixed(1);
+    var fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
+    return { valid: false, error: 'File too large. ' + fileSizeMB + 'MB exceeds the maximum size of ' + maxSizeMB + 'MB' };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Sanitizes a filename by removing special characters and spaces.
+ */
+function sanitizeText(name) {
+  if (!name) return '';
+  return name
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+    .toLowerCase();
+}

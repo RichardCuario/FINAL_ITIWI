@@ -23,7 +23,7 @@ class ContentCacheService {
   static const String _hotlinesUpdatedAtKey = 'cached_hotlines_updated_at';
   static const String _latestNewsMarkerKey = 'latest_news_marker';
   static const String _seenNewsMarkerKey = 'seen_news_marker';
-  static const String _dismissedNewsMarkerKey = 'dismissed_news_marker';
+  static const String _dismissedNewsIdsKey = 'dismissed_news_ids';
   static const String _reportStatusSnapshotKey = 'report_status_snapshot';
   static const String _reportNotificationsKey = 'report_notifications';
 
@@ -94,14 +94,25 @@ class ContentCacheService {
     return prefs.getString(_seenNewsMarkerKey);
   }
 
-  Future<void> saveDismissedNewsMarker(String marker) async {
+  /// Saves the set of dismissed news IDs so "clear all" persists.
+  Future<void> saveDismissedNewsIds(Set<String> ids) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_dismissedNewsMarkerKey, marker);
+    await prefs.setString(_dismissedNewsIdsKey, jsonEncode(ids.toList()));
   }
 
-  Future<String?> getDismissedNewsMarker() async {
+  /// Returns the set of dismissed news IDs.
+  Future<Set<String>> getDismissedNewsIds() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_dismissedNewsMarkerKey);
+    final raw = prefs.getString(_dismissedNewsIdsKey);
+    if (raw == null || raw.isEmpty) return {};
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return {};
+      return decoded.whereType<String>().toSet();
+    } catch (_) {
+      return {};
+    }
   }
 
   Future<void> saveReportStatusSnapshot(Map<String, dynamic> snapshot) async {

@@ -20,31 +20,16 @@ class _NotificationPageState extends State<NotificationPage> {
   bool _isShowingCachedData = false;
   DateTime? _cacheUpdatedAt;
 
-  String? _buildNewsMarker(List<Map<String, dynamic>> items) {
-    if (items.isEmpty) return null;
-
-    final latest = items.first;
-    final id = latest['id']?.toString() ?? '';
-    final createdAt = latest['created_at']?.toString() ?? '';
-    final updatedAt = latest['updated_at']?.toString() ?? '';
-
-    return '$id|$createdAt|$updatedAt';
-  }
-
   Future<List<Map<String, dynamic>>> _filterDismissedNotifications(
     List<Map<String, dynamic>> items,
   ) async {
-    final latestMarker = _buildNewsMarker(items);
-    if (latestMarker == null) {
-      return items;
-    }
+    final dismissedIds = await _cacheService.getDismissedNewsIds();
+    if (dismissedIds.isEmpty) return items;
 
-    final dismissedMarker = await _cacheService.getDismissedNewsMarker();
-    if (dismissedMarker == latestMarker) {
-      return [];
-    }
-
-    return items;
+    return items.where((item) {
+      final id = item['id']?.toString();
+      return id != null && !dismissedIds.contains(id);
+    }).toList();
   }
 
   Future<List<Map<String, dynamic>>> _buildCombinedNotifications(
@@ -102,7 +87,9 @@ class _NotificationPageState extends State<NotificationPage> {
 
       await _cacheService.saveNews(mapped);
 
-      final latestMarker = _buildNewsMarker(mapped);
+      final latestMarker = mapped.isNotEmpty
+          ? '${mapped.first['id']}|${mapped.first['created_at']}|${mapped.first['updated_at']}'
+          : null;
       if (latestMarker != null) {
         await _cacheService.saveLatestNewsMarker(latestMarker);
         await _cacheService.markNewsAsSeen(latestMarker);
@@ -120,7 +107,9 @@ class _NotificationPageState extends State<NotificationPage> {
       });
     } catch (_) {
       final cached = await _cacheService.getNews();
-      final latestMarker = _buildNewsMarker(cached.items);
+      final latestMarker = cached.items.isNotEmpty
+          ? '${cached.items.first['id']}|${cached.items.first['created_at']}|${cached.items.first['updated_at']}'
+          : null;
 
       if (latestMarker != null) {
         await _cacheService.markNewsAsSeen(latestMarker);
@@ -206,12 +195,20 @@ class _NotificationPageState extends State<NotificationPage> {
 
     if (shouldClear != true) return;
 
-    final currentMarker = _buildNewsMarker(_notifications);
-    if (currentMarker != null) {
-      await _cacheService.saveDismissedNewsMarker(currentMarker);
+    // Collect all news IDs currently shown and mark them as dismissed
+    final newsIds = _notifications
+        .where((n) => n['type'] == null || n['type'] == 'news')
+        .map((n) => n['id']?.toString())
+        .where((id) => id != null && id.isNotEmpty)
+        .cast<String>()
+        .toSet();
+
+    if (newsIds.isNotEmpty) {
+      final existingDismissed = await _cacheService.getDismissedNewsIds();
+      existingDismissed.addAll(newsIds);
+      await _cacheService.saveDismissedNewsIds(existingDismissed);
     }
 
-    await _cacheService.clearNewsCache();
     await _cacheService.saveReportNotifications(const []);
 
     if (!mounted) return;

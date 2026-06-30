@@ -24,51 +24,7 @@ class _NewsPageState extends State<NewsPage> {
   bool isLoading = true;
   bool isShowingCachedData = false;
   DateTime? cacheUpdatedAt;
-  bool hasUnreadNews = false;
-
   int currentIndex = 1;
-
-  String? _buildNewsMarker(List<Map<String, dynamic>> items) {
-    if (items.isEmpty) {
-      return null;
-    }
-
-    final latest = items.first;
-    final id = latest['id']?.toString() ?? '';
-    final createdAt = latest['created_at']?.toString() ?? '';
-    final updatedAt = latest['updated_at']?.toString() ?? '';
-
-    return '$id|$createdAt|$updatedAt';
-  }
-
-  Future<void> _markCurrentNewsAsSeen(List<Map<String, dynamic>> items) async {
-    final marker = _buildNewsMarker(items);
-    if (marker == null) return;
-    await _cacheService.markNewsAsSeen(marker);
-
-    if (!mounted) return;
-    setState(() {
-      hasUnreadNews = false;
-    });
-  }
-
-  Future<void> _refreshUnreadNewsIndicator([
-    List<Map<String, dynamic>>? items,
-  ]) async {
-    final latestMarker = items != null
-        ? _buildNewsMarker(items)
-        : await _cacheService.getLatestNewsMarker();
-    final seenMarker = await _cacheService.getSeenNewsMarker();
-
-    if (!mounted) return;
-
-    setState(() {
-      hasUnreadNews =
-          latestMarker != null &&
-          latestMarker.isNotEmpty &&
-          latestMarker != seenMarker;
-    });
-  }
 
   void _handleNavigation(int index) {
     setState(() {
@@ -84,9 +40,6 @@ class _NewsPageState extends State<NewsPage> {
   void initState() {
     super.initState();
     fetchNews();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _refreshUnreadNewsIndicator();
-    });
   }
 
   Future<void> fetchNews() async {
@@ -102,7 +55,7 @@ class _NewsPageState extends State<NewsPage> {
         await supabase.rpc('publish_scheduled_news');
       } catch (e) {
         // Function may not exist, continue anyway
-        print('Could not call publish_scheduled_news: $e');
+        debugPrint('Could not call publish_scheduled_news: $e');
       }
 
       final data = await supabase
@@ -117,11 +70,6 @@ class _NewsPageState extends State<NewsPage> {
 
       await _cacheService.saveNews(mapped);
 
-      final latestMarker = _buildNewsMarker(mapped);
-      if (latestMarker != null) {
-        await _cacheService.saveLatestNewsMarker(latestMarker);
-      }
-
       if (!mounted) return;
 
       setState(() {
@@ -132,8 +80,6 @@ class _NewsPageState extends State<NewsPage> {
       });
 
       _applySearch(searchQuery);
-      await _refreshUnreadNewsIndicator(mapped);
-      await _markCurrentNewsAsSeen(mapped);
     } catch (e) {
       final cached = await _cacheService.getNews();
 
@@ -147,8 +93,6 @@ class _NewsPageState extends State<NewsPage> {
       });
 
       _applySearch(searchQuery);
-      await _refreshUnreadNewsIndicator(cached.items);
-      await _markCurrentNewsAsSeen(cached.items);
 
       if (!mounted) return;
 
@@ -280,49 +224,6 @@ class _NewsPageState extends State<NewsPage> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ),
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.18),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: const Icon(
-                              Icons.notifications_outlined,
-                              color: Colors.white,
-                            ),
-                          ),
-                          if (hasUnreadNews)
-                            Positioned(
-                              right: -4,
-                              top: -4,
-                              child: Container(
-                                width: 22,
-                                height: 22,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFF3B4D),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
-                                  ),
-                                ),
-                                alignment: Alignment.center,
-                                child: const Text(
-                                  '1',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
                       ),
                     ],
                   ),

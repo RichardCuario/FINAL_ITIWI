@@ -103,13 +103,15 @@ class _HomePageState extends State<HomePage> {
         ? null
         : '${latestNews['id']?.toString() ?? ''}|${latestNews['created_at']?.toString() ?? ''}|${latestNews['updated_at']?.toString() ?? ''}';
     final seenNewsMarker = await _cacheService.getSeenNewsMarker();
-    final dismissedNewsMarker = await _cacheService.getDismissedNewsMarker();
+    final dismissedNewsIds = await _cacheService.getDismissedNewsIds();
     final reportNotifications = await _cacheService.getReportNotifications();
 
     final hasUnreadNews =
         latestNewsMarker != null &&
         latestNewsMarker != seenNewsMarker &&
-        latestNewsMarker != dismissedNewsMarker;
+        !dismissedNewsIds.contains(
+          latestNewsMarker.split('|').first,
+        );
 
     final hasUnreadReports = reportNotifications.isNotEmpty;
 

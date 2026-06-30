@@ -127,6 +127,147 @@ app.post('/api/sync-users', async (req, res) => {
   }
 });
 
+// Route to send FCM notification (news, report status, online service status)
+app.post('/api/send-notification', async (req, res) => {
+  try {
+    const {
+      title,
+      description,
+      image_url,
+      topic,
+      type,
+      reportId,
+      status,
+      rejectionReason,
+      serviceLabel,
+      requestId,
+      applicantName,
+      scheduleLabel,
+      table,
+    } = req.body;
+
+    const notificationType = type || 'news';
+    let targetTopic = topic || 'news_updates';
+
+    // Build notification title
+    let notificationTitle = title;
+    if (!notificationTitle) {
+      if (notificationType === 'report_status') {
+        const s = (status || '').toLowerCase();
+        if (s === 'resolved') notificationTitle = 'Your report was resolved';
+        else if (s === 'rejected') notificationTitle = 'Your report was rejected';
+        else if (s === 'reviewing' || s === 'processing') notificationTitle = 'Your report is being reviewed';
+        else notificationTitle = 'Your report status was updated';
+      } else if (notificationType === 'online_service_status') {
+        const label = serviceLabel || 'Online service';
+        const s = (status || '').toLowerCase();
+        if (s === 'approved') notificationTitle = `${label} request approved`;
+        else if (s === 'rejected') notificationTitle = `${label} request rejected`;
+        else notificationTitle = `${label} request updated`;
+      } else {
+        notificationTitle = 'New Announcement';
+      }
+    }
+
+    // Build notification body
+    let notificationBody = description;
+    if (!notificationBody) {
+      if (notificationType === 'report_status') {
+        const s = (status || '').toLowerCase();
+        if (s === 'rejected') {
+          const reason = rejectionReason || '';
+          notificationBody = reason ? `The admin rejected your report. Reason: ${reason}` : 'The admin rejected your report.';
+        } else if (s === 'resolved') {
+          notificationBody = 'The admin marked your report as resolved.';
+        } else if (s === 'reviewing' || s === 'processing') {
+          notificationBody = 'The admin started processing your report.';
+        } else {
+          notificationBody = 'The admin updated your report status.';
+        }
+      } else if (notificationType === 'online_service_status') {
+        const label = serviceLabel || 'online service';
+        const s = (status || '').toLowerCase();
+        const schedule = scheduleLabel ? ` Schedule: ${scheduleLabel}.` : '';
+        if (s === 'approved') notificationBody = `The admin approved your ${label} request.${schedule}`;
+        else if (s === 'rejected') notificationBody = `The admin rejected your ${label} request.${schedule}`;
+        else notificationBody = `The admin updated your ${label} request status.${schedule}`;
+      } else {
+        notificationBody = 'Tap to view the latest news.';
+      }
+    }
+
+    // Build data payload
+    const dataPayload = { type: notificationType, click_action: 'FLUTTER_NOTIFICATION_CLICK' };
+
+    if (notificationType === 'report_status') {
+      dataPayload.reportId = reportId || '';
+      dataPayload.status = status || '';
+      dataPayload.rejectionReason = rejectionReason || '';
+      dataPayload.title = notificationTitle;
+      dataPayload.description = notificationBody;
+    } else if (notificationType === 'online_service_status') {
+      dataPayload.requestId = requestId || '';
+      dataPayload.status = status || '';
+      dataPayload.serviceLabel = serviceLabel || '';
+      dataPayload.applicantName = applicantName || '';
+      dataPayload.scheduleLabel = scheduleLabel || '';
+      dataPayload.table = table || '';
+      dataPayload.title = notificationTitle;
+      dataPayload.description = notificationBody;
+    } else {
+      dataPayload.title = notificationTitle;
+      dataPayload.description = notificationBody || '';
+      dataPayload.image_url = image_url || '';
+    }
+
+    const message = {
+      topic: targetTopic,
+      notification: {
+        title: notificationTitle,
+        body: notificationBody
+          ? (notificationBody.length > 150 ? notificationBody.substring(0, 150) + '…' : notificationBody)
+          : 'Tap to view the latest update.',
+      },
+      data: dataPayload,
+      android: {
+        priority: 'high',
+        notification: {
+          channelId: 'news_updates',
+          priority: 'high',
+          sound: 'default',
+          defaultSound: true,
+          defaultVibrateTimings: true,
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1,
+            contentAvailable: true,
+          },
+        },
+      },
+    };
+
+    const response = await admin.messaging().send(message);
+    console.log(`✅ FCM ${notificationType} notification sent to topic "${targetTopic}":`, response);
+
+    res.json({
+      success: true,
+      messageId: response,
+      topic: targetTopic,
+      type: notificationType,
+    });
+  } catch (error) {
+    console.error('Error sending FCM notification:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend is running' });

@@ -707,11 +707,9 @@ class _BarangayHeroSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final searchBackground =
-        isDark ? const Color(0xFF1E293B) : Colors.white.withValues(alpha: 0.96);
-    final searchBorder =
-        isDark ? Colors.white10 : Colors.white.withValues(alpha: 0.45);
+        isDark ? const Color(0xFF1E293B).withValues(alpha: 0.88) : Colors.white.withValues(alpha: 0.70);
     final searchText = isDark ? Colors.white : Colors.black87;
-    final searchHint = isDark ? Colors.white60 : Colors.grey[500];
+    final searchHint = isDark ? Colors.white60 : const Color(0xFF5F6368);
 
     return Stack(
       children: [
@@ -775,9 +773,14 @@ class _BarangayHeroSection extends StatelessWidget {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 3),
-                        image: const DecorationImage(
-                          image: AssetImage('assets/logo.png'),
-                          fit: BoxFit.cover,
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFF123E9B),
+                            Color(0xFFF6C33B),
+                            Color(0xFF2E7D32),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
                         boxShadow: [
                           BoxShadow(
@@ -786,6 +789,39 @@ class _BarangayHeroSection extends StatelessWidget {
                             offset: const Offset(0, 5),
                           ),
                         ],
+                      ),
+                      child: ClipOval(
+                        child: Image.asset(
+                          'assets/logo.png',
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Color(0xFF123E9B),
+                                    Color(0xFFF6C33B),
+                                    Color(0xFF2E7D32),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                              ),
+                              child: const Center(
+                                child: Text(
+                                  'ITIWI',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 2,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ],
@@ -796,14 +832,10 @@ class _BarangayHeroSection extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: searchBackground,
                     borderRadius: BorderRadius.circular(29),
-                    border: Border.all(
-                      color: searchBorder,
-                      width: 1.2,
-                    ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.10),
-                        blurRadius: 16,
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 20,
                         offset: const Offset(0, 6),
                       ),
                     ],
