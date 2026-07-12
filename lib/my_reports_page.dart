@@ -1,5 +1,4 @@
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -173,7 +172,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
       final response = await _supabase
           .from('reports')
           .select(
-            'id, message, image_urls, status, rejection_reason, accomplishment_message, accomplishment_files, created_at, updated_at, user_id',
+            'id, message, image_urls, status, rejection_reason, created_at, updated_at, user_id',
           )
           .eq('user_id', user.uid)
           .order('created_at', ascending: false);
@@ -252,7 +251,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
         }
       }
     } catch (e) {
-      if (kDebugMode) print('Error fetching user display names: $e');
+      debugPrint('Error fetching user display names: $e');
     }
   }
 
@@ -302,6 +301,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
     final createdAt = report['created_at']?.toString();
     final updatedAt = report['updated_at']?.toString();
 
+    final pendingReached = true;
     final reviewReached = status != 'pending';
     final resolvedReached = status == 'approved' || status == 'resolved' || status == 'rejected';
 
@@ -322,11 +322,11 @@ class _MyReportsPageState extends State<MyReportsPage> {
         isReached: reviewReached,
         isDone: resolvedReached,
       ),
-      _ReportTimelineStep(
+          _ReportTimelineStep(
         title: 'Pending',
         description: 'Your report has been submitted',
         date: createdAt,
-        isReached: true,
+        isReached: pendingReached,
         isDone: reviewReached,
       ),
     ];
@@ -698,65 +698,104 @@ class _MyReportsPageState extends State<MyReportsPage> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
-                      width: 44,
-                      height: 44,
+                      width: 52,
+                      height: 52,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: const Color(0xFFDC2626).withValues(alpha: 0.12),
+                        color: const Color(0xFFDC2626).withValues(
+                          alpha: isDark ? 0.22 : 0.12,
+                        ),
                       ),
                       child: const Icon(
-                        Icons.info_rounded,
+                        Icons.gpp_bad_rounded,
                         color: Color(0xFFDC2626),
-                        size: 22,
+                        size: 28,
                       ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Text(
-                        'Rejection Reason',
+                        'Why your report was rejected',
                         style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? Colors.white : Colors.black,
+                          color: isDark ? Colors.white : const Color(0xFF111827),
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          height: 1.2,
+                          letterSpacing: -0.4,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? const Color(0xFF2A1616)
-                        : const Color(0xFFFFF7F7),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isDark
-                          ? const Color(0xFF5F2A2A)
-                          : const Color(0xFFFCA5A5),
-                    ),
-                  ),
-                  child: Text(
-                    reasonText,
-                    style: TextStyle(
-                      fontSize: 14,
-                      height: 1.5,
-                      color: isDark ? Colors.white70 : Colors.black87,
-                    ),
+                const SizedBox(height: 14),
+                Text(
+                  'This decision was provided by the admin team based on their review of your submission.',
+                  style: TextStyle(
+                    color: isDark ? Colors.white70 : const Color(0xFF64748B),
+                    fontSize: 13.5,
+                    height: 1.45,
                   ),
                 ),
                 const SizedBox(height: 18),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF0F172A)
+                        : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2563EB).withValues(
+                            alpha: isDark ? 0.22 : 0.10,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.info_outline_rounded,
+                          size: 18,
+                          color: Color(0xFF2563EB),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          reasonText,
+                          style: TextStyle(
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF1E293B),
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w600,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () => Navigator.of(dialogContext).pop(),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: const Color(0xFF2563EB),
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -773,323 +812,6 @@ class _MyReportsPageState extends State<MyReportsPage> {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  void _showAccomplishmentReportDialog(String message, List<dynamic>? files) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final messageText = message.trim().isEmpty
-        ? 'The accomplishment report is not available yet.'
-        : message.trim();
-    final fileList = files is List ? files : [];
-
-    showDialog<void>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.45),
-      builder: (dialogContext) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-        child: Container(
-          constraints: const BoxConstraints(maxHeight: 600),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(28),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: isDark
-                  ? const [Color(0xFF172033), Color(0xFF111827)]
-                  : const [Color(0xFFF8FBFF), Color(0xFFFFFFFF)],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.32 : 0.14),
-                blurRadius: 28,
-                offset: const Offset(0, 16),
-              ),
-            ],
-            border: Border.all(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : const Color(0xFFD9E7FF),
-            ),
-          ),
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: const Color(0xFF16A34A).withValues(alpha: 0.12),
-                        ),
-                        child: const Icon(
-                          Icons.check_circle_rounded,
-                          color: Color(0xFF16A34A),
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Text(
-                          'Accomplishment Report',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Resolution Details',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? Colors.white70 : Colors.black54,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? const Color(0xFF1A3A1A)
-                          : const Color(0xFFF0FDF4),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isDark
-                            ? const Color(0xFF3A5A3A)
-                            : const Color(0xFFA7F3D0),
-                      ),
-                    ),
-                    child: Text(
-                      messageText,
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 1.5,
-                        color: isDark ? Colors.white70 : Colors.black87,
-                      ),
-                    ),
-                  ),
-                  if (fileList.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      'Proof & Evidence',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white70 : Colors.black54,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ...fileList.map((file) {
-                      final fileName = file is Map ? file['name']?.toString() ?? 'File' : 'File';
-                      final fileUrl = file is Map ? file['url']?.toString() : '';
-                      final isImage = _isImageFile(fileName);
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: GestureDetector(
-                          onTap: fileUrl != null && fileUrl.isNotEmpty
-                              ? () {
-                                  if (isImage) {
-                                    _showImagePreview(dialogContext, fileUrl, fileName);
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Opening: $fileName')),
-                                    );
-                                  }
-                                }
-                              : null,
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? const Color(0xFF243145)
-                                  : const Color(0xFFF3F4F6),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.1)
-                                    : Colors.black.withValues(alpha: 0.05),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  isImage ? Icons.image_rounded : Icons.file_present_rounded,
-                                  color: AppColors.primary,
-                                  size: 24,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    fileName,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark ? Colors.white : Colors.black,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                Icon(
-                                  isImage ? Icons.preview_rounded : Icons.open_in_new_rounded,
-                                  size: 16,
-                                  color: AppColors.primary,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ],
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: const Text(
-                        'Close',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  bool _isImageFile(String fileName) {
-    final lowerName = fileName.toLowerCase();
-    return lowerName.endsWith('.png') ||
-        lowerName.endsWith('.jpg') ||
-        lowerName.endsWith('.jpeg') ||
-        lowerName.endsWith('.gif') ||
-        lowerName.endsWith('.webp') ||
-        lowerName.endsWith('.bmp');
-  }
-
-  void _showImagePreview(BuildContext context, String imageUrl, String fileName) {
-    showDialog<void>(
-      context: context,
-      builder: (previewContext) => Dialog(
-        backgroundColor: Colors.black87,
-        insetPadding: const EdgeInsets.all(8),
-        child: Stack(
-          children: [
-            GestureDetector(
-              onTap: () => Navigator.of(previewContext).pop(),
-              child: Center(
-                child: Image.network(
-                  imageUrl,
-                  fit: BoxFit.contain,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Center(
-                      child: CircularProgressIndicator(
-                        value: loadingProgress.expectedTotalBytes != null
-                            ? loadingProgress.cumulativeBytesLoaded /
-                                loadingProgress.expectedTotalBytes!
-                            : null,
-                        color: Colors.white,
-                      ),
-                    );
-                  },
-                  errorBuilder: (context, error, stackTrace) {
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.image_not_supported_outlined,
-                          color: Colors.white70,
-                          size: 48,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Unable to load image',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
-            Positioned(
-              top: 12,
-              left: 12,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  onPressed: () => Navigator.of(previewContext).pop(),
-                  icon: const Icon(
-                    Icons.close_rounded,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 12,
-              left: 12,
-              right: 12,
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  fileName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -1145,12 +867,14 @@ class _MyReportsPageState extends State<MyReportsPage> {
                       IconButton(
                         onPressed:
                             widget.onBack ?? () => Navigator.of(context).maybePop(),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         icon: const Icon(
-                          Icons.arrow_back_ios_new_rounded,
+                          Icons.arrow_back_rounded,
                           color: Colors.white,
                         ),
                       ),
-                      const SizedBox(width: 2),
+                      const SizedBox(width: 10),
                       const Expanded(
                         child: Text(
                           'My Reports',
@@ -1335,6 +1059,9 @@ class _MyReportsPageState extends State<MyReportsPage> {
                                             ?.toString()
                                             .trim() ??
                                         '';
+                                final showRejectionReason = status.toLowerCase() ==
+                                        'rejected' &&
+                                    rejectionReason.isNotEmpty;
                                 final canManageReport = _canManageReport(status);
 
                                 final reporterName =
@@ -1463,6 +1190,8 @@ class _MyReportsPageState extends State<MyReportsPage> {
                                                             child: Image.network(
                                                               imageUrl,
                                                               fit: BoxFit.contain,
+                                                              cacheWidth: 1200,
+                                                              cacheHeight: 1600,
                                                             ),
                                                           ),
                                                         ),
@@ -1493,6 +1222,8 @@ class _MyReportsPageState extends State<MyReportsPage> {
                                                       width: 120,
                                                       height: 120,
                                                       fit: BoxFit.cover,
+                                                      cacheWidth: 240,
+                                                      cacheHeight: 240,
                                                     ),
                                                   ),
                                                 ),
@@ -1640,8 +1371,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
                                                 ),
                                               ),
                                             ),
-                                            if (status.toLowerCase() ==
-                                                'rejected') ...[
+                                            if (showRejectionReason) ...[
                                               const SizedBox(height: 10),
                                               SizedBox(
                                                 width: double.infinity,
@@ -1674,50 +1404,6 @@ class _MyReportsPageState extends State<MyReportsPage> {
                                                     backgroundColor: isDark
                                                         ? const Color(0xFF2A1616)
                                                         : const Color(0xFFFFF7F7),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                            if (status.toLowerCase() ==
-                                                'resolved' ||
-                                                status.toLowerCase() ==
-                                                    'approved') ...[
-                                              const SizedBox(height: 10),
-                                              SizedBox(
-                                                width: double.infinity,
-                                                child: OutlinedButton.icon(
-                                                  onPressed: () =>
-                                                      _showAccomplishmentReportDialog(
-                                                    report['accomplishment_message']
-                                                            ?.toString() ??
-                                                        '',
-                                                    report['accomplishment_files']
-                                                        as List?,
-                                                  ),
-                                                  icon: const Icon(
-                                                    Icons.check_circle_outline_rounded,
-                                                  ),
-                                                  label: const Text(
-                                                    'View accomplishment report',
-                                                  ),
-                                                  style: OutlinedButton.styleFrom(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 16,
-                                                          vertical: 14,
-                                                        ),
-                                                    foregroundColor:
-                                                        const Color(0xFF16A34A),
-                                                    side: const BorderSide(
-                                                      color: Color(0xFFA7F3D0),
-                                                    ),
-                                                    shape: RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(14),
-                                                    ),
-                                                    backgroundColor: isDark
-                                                        ? const Color(0xFF1A3A1A)
-                                                        : const Color(0xFFF0FDF4),
                                                   ),
                                                 ),
                                               ),

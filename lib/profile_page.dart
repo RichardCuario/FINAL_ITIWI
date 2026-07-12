@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 
 import 'data_compliance_page.dart';
 import 'faq_page.dart';
@@ -25,11 +26,36 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   late bool _isDarkMode;
+  String _phone = '';
+  String _address = '';
 
   @override
   void initState() {
     super.initState();
     _isDarkMode = widget.isDarkMode;
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final user = _user;
+      if (user == null) return;
+
+      final response = await Supabase.instance.client
+          .from('users')
+          .select('phone, address')
+          .eq('id', user.uid)
+          .maybeSingle();
+
+      if (response != null && mounted) {
+        setState(() {
+          _phone = response['phone'] as String? ?? '';
+          _address = response['address'] as String? ?? '';
+        });
+      }
+    } catch (_) {
+      // Silently fail — fields will remain as empty strings
+    }
   }
 
   @override
@@ -94,6 +120,8 @@ class _ProfilePageState extends State<ProfilePage> {
         final emailController = TextEditingController(
           text: _user?.email?.trim() ?? '',
         );
+        final phoneController = TextEditingController(text: _phone);
+        final addressController = TextEditingController(text: _address);
         var isSavingProfile = false;
 
         return StatefulBuilder(
@@ -101,6 +129,8 @@ class _ProfilePageState extends State<ProfilePage> {
             Future<void> submit() async {
               final username = usernameController.text.trim();
               final email = emailController.text.trim();
+              final phone = phoneController.text.trim();
+              final address = addressController.text.trim();
 
               if (username.isEmpty) {
                 Navigator.of(dialogContext).pop('Username is required.');
@@ -136,10 +166,25 @@ class _ProfilePageState extends State<ProfilePage> {
                   await currentUser.updateDisplayName(username);
                 }
 
+                // Save phone and address to Supabase (non-blocking)
+                try {
+                  await Supabase.instance.client.from('users').upsert({
+                    'id': currentUser.uid,
+                    'email': currentUser.email ?? '',
+                    'phone': phone,
+                    'address': address,
+                  }, onConflict: 'id');
+                } catch (supabaseError) {
+                  debugPrint('Supabase profile save failed: $supabaseError');
+                }
+
                 await currentUser.reload();
 
                 if (!mounted || !dialogContext.mounted) return;
-                setState(() {});
+                setState(() {
+                  _phone = phone;
+                  _address = address;
+                });
                 Navigator.of(dialogContext).pop(
                   'Profile updated. If you changed the email, confirm it from your inbox.',
                 );
@@ -150,7 +195,8 @@ class _ProfilePageState extends State<ProfilePage> {
                         'Failed to update profile. Please try again.',
                   );
                 }
-              } catch (_) {
+              } catch (error) {
+                debugPrint('Profile update failed: $error');
                 if (dialogContext.mounted) {
                   Navigator.of(dialogContext).pop(
                     'Unable to update profile right now.',
@@ -176,6 +222,19 @@ class _ProfilePageState extends State<ProfilePage> {
                       label: 'Email',
                       icon: Icons.mail_outline,
                       keyboardType: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 14),
+                    _buildDialogTextField(
+                      controller: phoneController,
+                      label: 'Phone Number',
+                      icon: Icons.phone_outlined,
+                      keyboardType: TextInputType.phone,
+                    ),
+                    const SizedBox(height: 14),
+                    _buildDialogTextField(
+                      controller: addressController,
+                      label: 'Address',
+                      icon: Icons.location_on_outlined,
                     ),
                   ],
                 ),
@@ -529,14 +588,99 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildGeneralSection(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return _buildSectionCard(
       context: context,
       title: 'General',
       children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF243145) : const Color(0xFFE5E5E5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.phone_outlined, color: Colors.blue),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Phone',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isDark ? Colors.white60 : Colors.black54,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _phone.isNotEmpty ? _phone : 'Not set',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF243145) : const Color(0xFFE5E5E5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.location_on_outlined, color: Colors.blue),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Address',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isDark ? Colors.white60 : Colors.black54,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _address.isNotEmpty ? _address : 'Not set',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const Divider(),
+        const SizedBox(height: 12),
         _ProfileOptionTile(
           icon: Icons.person_outline,
           title: 'Edit Profile',
-          subtitle: 'Change your username and email',
+          subtitle: 'Change your username, email, phone, and address',
           onTap: _showEditProfileDialog,
         ),
         const SizedBox(height: 14),

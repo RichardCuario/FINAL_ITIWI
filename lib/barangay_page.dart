@@ -114,20 +114,7 @@ class _BarangayPageState extends State<BarangayPage> {
     });
   }
 
-  String _formatCacheUpdatedAt() {
-    final value = cacheUpdatedAt;
-    if (value == null) {
-      return 'previous session';
-    }
-
-    final local = value.toLocal();
-    final month = local.month.toString().padLeft(2, '0');
-    final day = local.day.toString().padLeft(2, '0');
-    final hour = local.hour.toString().padLeft(2, '0');
-    final minute = local.minute.toString().padLeft(2, '0');
-
-    return '$month/$day ${local.year} $hour:$minute';
-  }
+  
 
   Future<void> openBarangayDetail(Map<String, dynamic> barangay) async {
     await Navigator.push(
@@ -157,13 +144,12 @@ class _BarangayPageState extends State<BarangayPage> {
         isDark ? theme.scaffoldBackgroundColor : const Color(0xFFF3F4F6);
     final surfaceBackground =
         isDark ? const Color(0xFF111827) : const Color(0xFFF8F8F8);
-    final summaryCardColor =
-        isDark ? const Color(0xFF1F2937) : Colors.white;
-    final summaryIconBackground =
-        isDark ? const Color(0xFF243145) : const Color(0xFFEAF4FF);
-    final primaryText = isDark ? Colors.white : const Color(0xFF161616);
-    final secondaryText =
-        isDark ? Colors.white70 : const Color(0xFF6B7280);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final horizontalPadding = screenWidth < 600 ? 16.0 : 20.0;
+    final gridCrossAxisCount = 2;
+    final gridAspectRatio = screenWidth < 600 ? 0.84 : 0.72;
+    final gridSpacing = screenWidth < 600 ? 14.0 : 18.0;
+    final gridRunSpacing = screenWidth < 600 ? 16.0 : 22.0;
 
     return Scaffold(
       backgroundColor: pageBackground,
@@ -190,7 +176,12 @@ class _BarangayPageState extends State<BarangayPage> {
                       top: Radius.circular(28),
                     ),
                   ),
-                  padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    28,
+                    horizontalPadding,
+                    24,
+                  ),
                   child: isLoading
                       ? const Padding(
                           padding: EdgeInsets.symmetric(vertical: 120),
@@ -201,123 +192,19 @@ class _BarangayPageState extends State<BarangayPage> {
                           : Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 14,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: summaryCardColor,
-                                    borderRadius: BorderRadius.circular(18),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.04),
-                                        blurRadius: 12,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 44,
-                                        height: 44,
-                                        decoration: BoxDecoration(
-                                          color: summaryIconBackground,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(
-                                          Icons.location_city,
-                                          color: AppColors.primary,
-                                          size: 22,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Available barangays',
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w600,
-                                                color: secondaryText,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              '${filteredBarangays.length} barangays found',
-                                              style: TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.w800,
-                                                color: primaryText,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (isShowingCachedData)
-                                  Container(
-                                    width: double.infinity,
-                                    margin: const EdgeInsets.only(bottom: 20),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 12,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isDark
-                                          ? const Color(0xFF3A2F12)
-                                          : const Color(0xFFFFF4D6),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: isDark
-                                            ? const Color(0xFF8C6D1F)
-                                            : const Color(0xFFE0BE63),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.offline_bolt_rounded,
-                                          color: isDark
-                                              ? const Color(0xFFFFD54F)
-                                              : const Color(0xFF8A6200),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Text(
-                                            'Offline mode: showing cached barangays from ${_formatCacheUpdatedAt()}.',
-                                            style: TextStyle(
-                                              color: isDark
-                                                  ? const Color(0xFFFFECB3)
-                                                  : const Color(0xFF6B4F00),
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                const SizedBox(height: 20),
                                 GridView.builder(
                                   shrinkWrap: true,
                                   physics: const NeverScrollableScrollPhysics(),
                                   itemCount: filteredBarangays.length,
                                   gridDelegate:
-                                      const SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 2,
-                                        crossAxisSpacing: 18,
-                                        mainAxisSpacing: 22,
-                                        childAspectRatio: 0.72,
-                                      ),
+                                      SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: gridCrossAxisCount,
+                                    crossAxisSpacing: gridSpacing,
+                                    mainAxisSpacing: gridRunSpacing,
+                                    childAspectRatio: gridAspectRatio,
+                                  ),
                                   itemBuilder: (context, index) {
                                     final item = filteredBarangays[index];
-
                                     return _BarangayGridCard(
                                       barangay: item,
                                       subtitle: _extractShortLocation(
@@ -521,9 +408,14 @@ class BarangayDetailPage extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                     child: Align(
                       alignment: Alignment.topLeft,
-                      child: _CircleIconButton(
-                        icon: Icons.arrow_back,
-                        onTap: () => Navigator.pop(context),
+                      child: IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: const Icon(
+                          Icons.arrow_back_rounded,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -745,9 +637,14 @@ class _BarangayHeroSection extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _CircleIconButton(
-                  icon: Icons.arrow_back,
-                  onTap: onBackPressed,
+                IconButton(
+                  onPressed: onBackPressed,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: Colors.white,
+                  ),
                 ),
                 const SizedBox(height: 26),
                 Row(
@@ -1003,6 +900,8 @@ class _BarangaySeal extends StatelessWidget {
     return Image.network(
       imageUrl,
       fit: BoxFit.cover,
+      cacheWidth: 400,
+      cacheHeight: 400,
       errorBuilder: (context, error, stackTrace) {
         if (kDebugMode) {
           print('Image load failed for $imageUrl: $error');
@@ -1723,36 +1622,4 @@ class _EmptyBarangayState extends StatelessWidget {
   }
 }
 
-class _CircleIconButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
 
-  const _CircleIconButton({
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF1E293B).withValues(alpha: 0.92)
-          : Colors.white.withValues(alpha: 0.8),
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: SizedBox(
-          width: 48,
-          height: 48,
-          child: Icon(
-            icon,
-            color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.white
-                : Colors.black87,
-          ),
-        ),
-      ),
-    );
-  }
-}

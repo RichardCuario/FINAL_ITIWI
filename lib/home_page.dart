@@ -10,6 +10,8 @@ import 'hotline.dart';
 import 'news_page.dart';
 import 'notification_page.dart';
 import 'online_service_page.dart';
+import 'place_models.dart';
+import 'place_service.dart';
 import 'profile_page.dart';
 import 'report_page.dart';
 import 'shared_widgets.dart';
@@ -35,8 +37,10 @@ class _HomePageState extends State<HomePage> {
   final PageController _promoPageController = PageController();
   final TextEditingController _searchController = TextEditingController();
   final ContentCacheService _cacheService = const ContentCacheService();
+  final PlaceService _placeService = PlaceService();
   Timer? _promoTimer;
   int _currentPromoPage = 0;
+  List<Place> _promoPlaces = [];
   List<Map<String, dynamic>> _barangays = [];
   bool _hasUnreadNotifications = false;
 
@@ -45,6 +49,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _startPromoAutoScroll();
     _loadBarangays();
+    _loadPromoPlaces();
     _loadUnreadNotifications();
   }
 
@@ -56,12 +61,16 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
+  List<Place> get _promoDestinations => _promoPlaces;
+
+  int get _promoPageCount => _promoDestinations.isNotEmpty ? _promoDestinations.length : 3;
+
   void _startPromoAutoScroll() {
     _promoTimer?.cancel();
     _promoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (!_promoPageController.hasClients) return;
 
-      final nextPage = (_currentPromoPage + 1) % 3;
+      final nextPage = (_currentPromoPage + 1) % _promoPageCount;
       _promoPageController.animateToPage(
         nextPage,
         duration: const Duration(milliseconds: 450),
@@ -93,6 +102,22 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _barangays = cached.items;
       });
+    }
+  }
+
+  Future<void> _loadPromoPlaces() async {
+    try {
+      final places = await _placeService.fetchPlaces();
+      if (!mounted) return;
+      setState(() {
+        _promoPlaces = places;
+        if (_currentPromoPage >= _promoPageCount) {
+          _currentPromoPage = 0;
+          _promoPageController.jumpToPage(0);
+        }
+      });
+    } catch (_) {
+      // Keep the existing fallback promo cards.
     }
   }
 
@@ -739,40 +764,63 @@ class _HomePageState extends State<HomePage> {
                                           _currentPromoPage = index;
                                         });
                                       },
-                                      children: [
-                                        _DestinationPromoCard(
-                                          title:
-                                              "What's Your Next\nDestination?",
-                                          description:
-                                              "Whether it's a weekend trip or a month-long escape, make it unforgettable.",
-                                          imagePath: 'assets/card.jpg',
-                                          compact: compact || extraCompact,
-                                          onTap: () => _openPage(
-                                            const TouristGuidePage(),
-                                          ),
-                                        ),
-                                        _DestinationPromoCard(
-                                          title: 'Discover Tiwi\nHighlights',
-                                          description:
-                                              'Find scenic spots, hot springs, and beautiful places waiting for your next visit.',
-                                          imagePath:
-                                              'assets/municipal_hall.jpg',
-                                          compact: compact || extraCompact,
-                                          onTap: () => _openPage(
-                                            const TouristGuidePage(),
-                                          ),
-                                        ),
-                                        _DestinationPromoCard(
-                                          title: 'Plan Your\nAdventure',
-                                          description:
-                                              'Explore top attractions and local favorites with just a few taps.',
-                                          imagePath: 'assets/bg.jpg',
-                                          compact: compact || extraCompact,
-                                          onTap: () => _openPage(
-                                            const TouristGuidePage(),
-                                          ),
-                                        ),
-                                      ],
+                                      children: _promoDestinations.isNotEmpty
+                                          ? _promoDestinations.map(
+                                              (place) => _DestinationPromoCard(
+                                                title: place.name,
+                                                description: place.location.isNotEmpty
+                                                    ? place.location
+                                                    : place.description.isNotEmpty
+                                                        ? place.description
+                                                        : 'Discover this destination',
+                                                imageProvider: place.imageUrl.isNotEmpty
+                                                    ? NetworkImage(place.imageUrl)
+                                                    : const AssetImage('assets/card.jpg'),
+                                                compact: compact || extraCompact,
+                                                onTap: () => _openPage(
+                                                  PlaceDetailPage(
+                                                    place: place,
+                                                    placeService: _placeService,
+                                                  ),
+                                                ),
+                                              ),
+                                            ).toList()
+                                          : [
+                                              _DestinationPromoCard(
+                                                title:
+                                                    "What's Your Next\nDestination?",
+                                                description:
+                                                    "Whether it's a weekend trip or a month-long escape, make it unforgettable.",
+                                                imageProvider:
+                                                    const AssetImage('assets/card.jpg'),
+                                                compact: compact || extraCompact,
+                                                onTap: () => _openPage(
+                                                  const TouristGuidePage(),
+                                                ),
+                                              ),
+                                              _DestinationPromoCard(
+                                                title: 'Discover Tiwi\nHighlights',
+                                                description:
+                                                    'Find scenic spots, hot springs, and beautiful places waiting for your next visit.',
+                                                imageProvider:
+                                                    const AssetImage('assets/municipal_hall.jpg'),
+                                                compact: compact || extraCompact,
+                                                onTap: () => _openPage(
+                                                  const TouristGuidePage(),
+                                                ),
+                                              ),
+                                              _DestinationPromoCard(
+                                                title: 'Plan Your\nAdventure',
+                                                description:
+                                                    'Explore top attractions and local favorites with just a few taps.',
+                                                imageProvider:
+                                                    const AssetImage('assets/bg.jpg'),
+                                                compact: compact || extraCompact,
+                                                onTap: () => _openPage(
+                                                  const TouristGuidePage(),
+                                                ),
+                                              ),
+                                            ],
                                     ),
                                   ),
                                   SizedBox(height: indicatorSpacing),
@@ -780,7 +828,7 @@ class _HomePageState extends State<HomePage> {
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: List.generate(
-                                        3,
+                                        _promoPageCount,
                                         (index) => AnimatedContainer(
                                           duration: const Duration(
                                             milliseconds: 250,
@@ -1225,14 +1273,14 @@ class _DestinationPromoCard extends StatelessWidget {
   const _DestinationPromoCard({
     required this.title,
     required this.description,
-    required this.imagePath,
+    required this.imageProvider,
     required this.onTap,
     this.compact = false,
   });
 
   final String title;
   final String description;
-  final String imagePath;
+  final ImageProvider imageProvider;
   final VoidCallback onTap;
   final bool compact;
 
@@ -1244,7 +1292,7 @@ class _DestinationPromoCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         image: DecorationImage(
-          image: AssetImage(imagePath),
+          image: imageProvider,
           fit: BoxFit.cover,
         ),
       ),

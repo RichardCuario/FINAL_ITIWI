@@ -190,6 +190,8 @@ class _AddNewsPageState extends State<AddNewsPage> {
                       height: 200,
                       width: double.infinity,
                       fit: BoxFit.cover,
+                      cacheWidth: 1200,
+                      cacheHeight: 900,
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
                           height: 200,

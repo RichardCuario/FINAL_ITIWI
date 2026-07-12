@@ -938,24 +938,16 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                         padding: const EdgeInsets.fromLTRB(0, 2, 0, 18),
                         child: Row(
                           children: [
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.18),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.16),
-                                ),
-                              ),
-                              child: IconButton(
-                                onPressed: () => Navigator.of(context).pop(),
-                                icon: const Icon(
-                                  Icons.arrow_back_ios_new_rounded,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
+                            IconButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              icon: const Icon(
+                                Icons.arrow_back_rounded,
+                                color: Colors.white,
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 10),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -989,22 +981,141 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (place.imageUrl.isNotEmpty)
-                              ClipRRect(
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(24),
+                            Stack(
+                              children: [
+                                if (place.imageUrl.isNotEmpty)
+                                  ClipRRect(
+                                    borderRadius: const BorderRadius.vertical(
+                                      top: Radius.circular(24),
+                                    ),
+                                    child: Image.network(
+                                      place.imageUrl,
+                                      height: 250,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) =>
+                                          const _ImagePlaceholder(),
+                                    ),
+                                  )
+                                else
+                                  const _ImagePlaceholder(),
+                                Positioned.fill(
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Colors.transparent,
+                                          Colors.black.withValues(alpha: 0.18),
+                                          Colors.black.withValues(alpha: 0.46),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                                child: Image.network(
-                                  place.imageUrl,
-                                  height: 230,
-                                  width: double.infinity,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      const _ImagePlaceholder(),
+                                Positioned(
+                                  left: 16,
+                                  right: 16,
+                                  bottom: 16,
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.42,
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(999),
+                                          ),
+                                          child: Text(
+                                            place.category.isNotEmpty
+                                                ? place.category
+                                                : 'Tourist spot',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      if (place.isFeatured) ...[
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.92,
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(999),
+                                          ),
+                                          child: const Text(
+                                            'Featured',
+                                            style: TextStyle(
+                                              color: Color(0xFF163B63),
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
                                 ),
-                              )
-                            else
-                              const _ImagePlaceholder(),
+                                if (place.distanceLabel.isNotEmpty)
+                                  Positioned(
+                                    top: 16,
+                                    right: 16,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.95,
+                                        ),
+                                        borderRadius: BorderRadius.circular(999),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.15),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.route_rounded,
+                                            size: 16,
+                                            color: colorScheme.primary,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            place.distanceLabel,
+                                            style: theme.textTheme.bodySmall?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                              color: colorScheme.primary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                             Padding(
                               padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
                               child: Column(
@@ -1048,8 +1159,8 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                                     child: Wrap(
                                       crossAxisAlignment:
                                           WrapCrossAlignment.center,
-                                      spacing: 12,
-                                      runSpacing: 12,
+                                      spacing: 10,
+                                      runSpacing: 10,
                                       children: [
                                         Container(
                                           padding: const EdgeInsets.symmetric(
@@ -1121,17 +1232,6 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                                       ],
                                     ),
                                   ),
-                                  if (place.distanceLabel.isNotEmpty) ...[
-                                    const SizedBox(height: 18),
-                                    Text(
-                                      place.distanceLabel,
-                                      style: theme.textTheme.titleMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                            color: colorScheme.primary,
-                                          ),
-                                    ),
-                                  ],
                                   if (place.description.isNotEmpty) ...[
                                     const SizedBox(height: 18),
                                     Text(
@@ -2367,27 +2467,33 @@ class _ReviewCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
-                      vertical: 6,
+                      vertical: 8,
                     ),
                     decoration: BoxDecoration(
                       color: isDark
                           ? const Color(0xFF1F3A5F)
                           : const Color(0xFFDDEBFF),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white12
+                            : const Color(0xFFBFDBFE),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.star_rounded,
-                          color: Color(0xFFF4B400),
-                          size: 16,
+                        RatingStars(
+                          rating: review.rating.toDouble(),
+                          size: 14,
+                          activeColor: const Color(0xFFF4B400),
+                          inactiveColor: const Color(0xFFCBD5E1),
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 6),
                         Text(
-                          review.rating.toString(),
+                          review.rating.toStringAsFixed(1),
                           style: theme.textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w800,
                             color: isDark
                                 ? Colors.white
                                 : const Color(0xFF163B63),
@@ -2578,49 +2684,77 @@ class _ReviewFormSheetState extends State<ReviewFormSheet> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      children: List.generate(5, (index) {
-                        final star = index + 1;
-                        final selected = star <= _selectedRating;
-                        return InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: _submitting
-                              ? null
-                              : () {
-                                  setState(() {
-                                    _selectedRating = star;
-                                  });
-                                },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            width: 52,
-                            height: 52,
-                            decoration: BoxDecoration(
-                              color: selected
-                                  ? const Color(0xFFFFF3D6)
-                                  : (isDark
-                                      ? Colors.white.withValues(alpha: 0.04)
-                                      : const Color(0xFFF8FAFC)),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: selected
-                                    ? const Color(0xFFF4B400)
-                                    : (isDark
-                                        ? Colors.white10
-                                        : const Color(0xFFE2E8F0)),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.04)
+                            : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white10
+                              : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Selected rating',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
-                            ),
-                            child: Icon(
-                              selected
-                                  ? Icons.star_rounded
-                                  : Icons.star_outline_rounded,
-                              color: const Color(0xFFF4B400),
-                              size: 28,
-                            ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFF3D6),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  '$_selectedRating/5',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFFB45309),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        );
-                      }),
+                          const SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: List.generate(5, (index) {
+                              final star = index + 1;
+                              final selected = star <= _selectedRating;
+                              return GestureDetector(
+                                onTap: _submitting
+                                    ? null
+                                    : () {
+                                        setState(() {
+                                          _selectedRating = star;
+                                        });
+                                      },
+                                child: Icon(
+                                  selected
+                                      ? Icons.star_rounded
+                                      : Icons.star_outline_rounded,
+                                  color: const Color(0xFFF4B400),
+                                  size: 32,
+                                ),
+                              );
+                            }),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 18),
                     TextFormField(

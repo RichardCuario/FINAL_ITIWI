@@ -17,8 +17,6 @@ class _NotificationPageState extends State<NotificationPage> {
 
   List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = true;
-  bool _isShowingCachedData = false;
-  DateTime? _cacheUpdatedAt;
 
   Future<List<Map<String, dynamic>>> _filterDismissedNotifications(
     List<Map<String, dynamic>> items,
@@ -101,8 +99,6 @@ class _NotificationPageState extends State<NotificationPage> {
 
       setState(() {
         _notifications = combinedNotifications;
-        _isShowingCachedData = false;
-        _cacheUpdatedAt = DateTime.now();
         _isLoading = false;
       });
     } catch (_) {
@@ -123,8 +119,6 @@ class _NotificationPageState extends State<NotificationPage> {
 
       setState(() {
         _notifications = combinedNotifications;
-        _isShowingCachedData = cached.hasData;
-        _cacheUpdatedAt = cached.updatedAt;
         _isLoading = false;
       });
     }
@@ -146,20 +140,7 @@ class _NotificationPageState extends State<NotificationPage> {
     return '$month/$day/$year • $hour:$minute';
   }
 
-  String _formatCacheUpdatedAt() {
-    final value = _cacheUpdatedAt;
-    if (value == null) {
-      return 'previous session';
-    }
-
-    final local = value.toLocal();
-    final month = local.month.toString().padLeft(2, '0');
-    final day = local.day.toString().padLeft(2, '0');
-    final hour = local.hour.toString().padLeft(2, '0');
-    final minute = local.minute.toString().padLeft(2, '0');
-
-    return '$month/$day/${local.year} $hour:$minute';
-  }
+  
 
   void _openNewsDetail(Map<String, dynamic> item) {
     Navigator.of(context).push(
@@ -215,8 +196,6 @@ class _NotificationPageState extends State<NotificationPage> {
 
     setState(() {
       _notifications = [];
-      _isShowingCachedData = false;
-      _cacheUpdatedAt = null;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -317,47 +296,6 @@ class _NotificationPageState extends State<NotificationPage> {
                           child: ListView(
                             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                             children: [
-                              if (_isShowingCachedData)
-                                Container(
-                                  margin: const EdgeInsets.only(bottom: 16),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isDark
-                                        ? const Color(0xFF3A2F12)
-                                        : const Color(0xFFFFF4D6),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: isDark
-                                          ? const Color(0xFF8C6D1F)
-                                          : const Color(0xFFE0BE63),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.offline_bolt_rounded,
-                                        color: isDark
-                                            ? const Color(0xFFFFD54F)
-                                            : const Color(0xFF8A6200),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          'Offline mode: showing cached notifications from ${_formatCacheUpdatedAt()}.',
-                                          style: TextStyle(
-                                            color: isDark
-                                                ? const Color(0xFFFFECB3)
-                                                : const Color(0xFF6B4F00),
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
                               Text(
                                 'Recent updates',
                                 style: TextStyle(

@@ -11,6 +11,12 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 exports.syncUserOnSignUp = functions.auth.user().onCreate(async (user) => {
   try {
+    // Use Firebase's metadata creationTime for the real sign-up date
+    let createdAt = null;
+    if (user.metadata && user.metadata.creationTime) {
+      createdAt = new Date(user.metadata.creationTime).toISOString();
+    }
+
     const { data, error } = await supabase
       .from('users')
       .upsert({
@@ -18,7 +24,8 @@ exports.syncUserOnSignUp = functions.auth.user().onCreate(async (user) => {
         email: user.email,
         display_name: user.displayName || '',
         photo_url: user.photoURL || '',
-        sign_up_date: new Date().toISOString(),
+        created_at: createdAt,
+        sign_up_date: createdAt || new Date().toISOString(),
         last_login: new Date().toISOString(),
         is_active: true,
       }, { onConflict: 'id' });

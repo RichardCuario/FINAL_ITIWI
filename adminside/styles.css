@@ -3652,6 +3652,61 @@ body::before {
   }
 }
 
+/* Mobile sidebar backdrop overlay */
+.sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 98;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .sidebar-overlay.active {
+    display: block;
+    opacity: 1;
+  }
+
+  /* When sidebar is opened on mobile, always show at full width */
+  .sidebar.open {
+    width: 260px !important;
+    transform: translateX(0) !important;
+  }
+
+  /* Override collapsed state when open on mobile */
+  .sidebar.collapsed.open .brand-text {
+    display: flex !important;
+  }
+
+  .sidebar.collapsed.open .sidebar-collapse-btn {
+    display: flex !important;
+  }
+
+  .sidebar.collapsed.open .nav-item {
+    justify-content: flex-start !important;
+    padding: 12px 16px !important;
+  }
+
+  .sidebar.collapsed.open .nav-item span {
+    display: inline !important;
+  }
+
+  .sidebar.collapsed.open .user-profile-sidebar {
+    display: flex !important;
+  }
+
+  .sidebar.collapsed.open .sidebar-footer {
+    flex-direction: column !important;
+  }
+}
+
 /* ===== EXTRA SMALL SCREENS ===== */
 @media (max-width: 480px) {
   .notification-panel {
@@ -3858,6 +3913,225 @@ body::before {
 
 .image-preview .remove-image:hover {
   background: #d32f2f;
+}
+
+/* ===== MOBILE TABLE → CARD CONVERSION ===== */
+
+/* Responsive table card on mobile — automatically converts any data-table to cards */
+@media (max-width: 768px) {
+  .data-table,
+  .data-table thead,
+  .data-table tbody,
+  .data-table tr,
+  .data-table th,
+  .data-table td {
+    display: block;
+  }
+
+  .data-table thead {
+    display: none; /* Hide column headers */
+  }
+
+  .data-table tr {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 14px;
+    padding: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    position: relative;
+    border-left: 4px solid var(--primary);
+  }
+
+  .data-table td {
+    padding: 6px 0;
+    border: none !important;
+    background: transparent !important;
+    font-size: 13px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    text-align: right;
+    white-space: normal !important;
+    max-width: none !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+
+  .data-table td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    text-align: left;
+    flex-shrink: 0;
+    min-width: 90px;
+  }
+
+  .data-table td:empty::before { display: none; }
+
+  .data-table td:first-child {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--text);
+    padding-top: 0;
+  }
+
+  .data-table td[colspan] {
+    text-align: center;
+    justify-content: center;
+  }
+  .data-table td[colspan]::before { display: none; }
+
+  .data-table td:last-child {
+    padding-bottom: 0;
+    border-bottom: none !important;
+  }
+
+  /* Action buttons row in card */
+  .data-table td .action-btns {
+    justify-content: flex-end;
+    width: 100%;
+  }
+
+  /* Status badge */
+  .data-table td .status-badge {
+    font-size: 11px;
+    padding: 4px 12px;
+  }
+
+  /* Table footer hides showing text, keeps pagination centered */
+  .table-footer {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .showing-text {
+    font-size: 12px;
+    order: 2;
+  }
+
+  .pagination {
+    order: 1;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .page-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+
+  /* Dashboard tables are also converted */
+  .dashboard-grid-2col .data-table-compact th,
+  .dashboard-grid-2col .data-table-compact td {
+    display: block;
+  }
+
+  .dashboard-grid-2col .data-table-compact thead {
+    display: none;
+  }
+
+  /* Card header actions stack */
+  .card-header-actions {
+    width: 100%;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .search-box.table-search {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .status-filter {
+    width: 100%;
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+
+  .date-range-group {
+    width: 100%;
+  }
+
+  .date-range-group input {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+}
+
+/* ===== SMALL MOBILE (<=480px): compact card padding ===== */
+@media (max-width: 480px) {
+  .data-table tr {
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+  .data-table td {
+    font-size: 12px;
+    padding: 4px 0;
+  }
+  .data-table td::before {
+    min-width: 70px;
+    font-size: 10px;
+  }
+  .data-table td:first-child {
+    font-size: 14px;
+  }
+
+  .page-content {
+    padding: 12px;
+  }
+
+  .page-header {
+    padding: 12px;
+    margin-bottom: 14px;
+  }
+
+  .page-header h1 {
+    font-size: 18px;
+  }
+
+  .card-header {
+    padding: 12px 14px;
+  }
+
+  .card-header h2 {
+    font-size: 15px;
+  }
+
+  .stats-grid {
+    gap: 10px;
+  }
+
+  .stat-card {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+
+  .stat-value {
+    font-size: 22px;
+  }
+
+  /* Notification panel full-width */
+  .notification-panel {
+    width: calc(100vw - 20px);
+    left: 10px;
+    right: 10px;
+  }
 }
 
 /* Dashboard Compact Tables */

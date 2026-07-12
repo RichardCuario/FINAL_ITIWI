@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:io' show SocketException;
 
 import 'content_cache_service.dart';
 import 'news_page.dart';
@@ -59,6 +60,10 @@ class _HotlinePageState extends State<HotlinePage> {
     } catch (e) {
       final cached = await _cacheService.getHotlines();
 
+      final isOfflineError = e is SocketException ||
+          e.toString().contains('Failed host lookup') ||
+          e.toString().contains('SocketException');
+
       if (!mounted) return;
 
       setState(() {
@@ -68,15 +73,19 @@ class _HotlinePageState extends State<HotlinePage> {
         isLoading = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            cached.hasData
-                ? 'Offline mode: showing previously loaded hotlines.'
-                : 'Unable to load hotlines: $e',
+      // If we have cached data, show an offline notice. If the error is
+      // not an offline/network error, surface it. Otherwise, suppress it.
+      if (cached.hasData) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Offline mode: showing previously loaded hotlines.'),
           ),
-        ),
-      );
+        );
+      } else if (!isOfflineError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to load hotlines: $e')),
+        );
+      }
     }
   }
 
@@ -93,20 +102,7 @@ class _HotlinePageState extends State<HotlinePage> {
     );
   }
 
-  String _formatCacheUpdatedAt() {
-    final value = cacheUpdatedAt;
-    if (value == null) {
-      return 'previous session';
-    }
-
-    final local = value.toLocal();
-    final month = local.month.toString().padLeft(2, '0');
-    final day = local.day.toString().padLeft(2, '0');
-    final hour = local.hour.toString().padLeft(2, '0');
-    final minute = local.minute.toString().padLeft(2, '0');
-
-    return '$month/$day ${local.year} $hour:$minute';
-  }
+  
 
   @override
   Widget build(BuildContext context) {
@@ -179,12 +175,14 @@ class _HotlinePageState extends State<HotlinePage> {
                     children: [
                       IconButton(
                         onPressed: () => Navigator.pop(context),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         icon: const Icon(
-                          Icons.arrow_back_ios_new_rounded,
+                          Icons.arrow_back_rounded,
                           color: Colors.white,
                         ),
                       ),
-                      const SizedBox(width: 2),
+                      const SizedBox(width: 10),
                       const Expanded(
                         child: Text(
                           'Emergency Hotlines',
@@ -261,50 +259,7 @@ class _HotlinePageState extends State<HotlinePage> {
                             ],
                           ),
                         ),
-                        if (isShowingCachedData) ...[
-                          const SizedBox(height: 16),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? const Color(0xFF3A2F12)
-                                  : const Color(0xFFFFF4D6),
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(
-                                color: isDark
-                                    ? const Color(0xFF8C6D1F)
-                                    : const Color(0xFFE0BE63),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.offline_bolt_rounded,
-                                  color: isDark
-                                      ? const Color(0xFFFFD54F)
-                                      : const Color(0xFF8A6200),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'Offline mode: showing cached hotlines from ${_formatCacheUpdatedAt()}.',
-                                    style: TextStyle(
-                                      color: isDark
-                                          ? const Color(0xFFFFECB3)
-                                          : const Color(0xFF6B4F00),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 16),
+
                         if (isLoading)
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 48),

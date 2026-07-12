@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io' show SocketException, File;
 
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
@@ -188,7 +188,17 @@ class _ReportPageState extends State<ReportPage> {
         _isSubmitting = false;
       });
 
-      _showSnackBar('Unable to submit report: $e');
+      final isOfflineError = e is SocketException ||
+          e.toString().contains('Failed host lookup') ||
+          e.toString().contains('SocketException') ||
+          e.toString().contains('Connection refused') ||
+          e.toString().contains('Network is unreachable');
+
+      final errorMessage = isOfflineError 
+          ? 'No internet connection' 
+          : 'Unable to submit report: $e';
+
+      _showSnackBar(errorMessage);
     } finally {
       await AppRateLimiter.release(actionKey);
     }
@@ -250,12 +260,14 @@ class _ReportPageState extends State<ReportPage> {
                       IconButton(
                         onPressed:
                             widget.onBack ?? () => Navigator.of(context).maybePop(),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         icon: const Icon(
-                          Icons.arrow_back_ios_new_rounded,
+                          Icons.arrow_back_rounded,
                           color: Colors.white,
                         ),
                       ),
-                      const SizedBox(width: 2),
+                      const SizedBox(width: 10),
                       const Expanded(
                         child: Text(
                           'Report',

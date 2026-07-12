@@ -123,9 +123,11 @@ class _NewsPageState extends State<NewsPage> {
     filteredNews = news.where((item) {
       final title = item['title']?.toString().toLowerCase() ?? '';
       final description = item['description']?.toString().toLowerCase() ?? '';
+      final category = item['category']?.toString().toLowerCase() ?? '';
 
       return title.contains(normalizedQuery) ||
-          description.contains(normalizedQuery);
+          description.contains(normalizedQuery) ||
+          category.contains(normalizedQuery);
     }).toList();
   }
 
@@ -136,20 +138,7 @@ class _NewsPageState extends State<NewsPage> {
     });
   }
 
-  String _formatCacheUpdatedAt() {
-    final value = cacheUpdatedAt;
-    if (value == null) {
-      return 'previous session';
-    }
-
-    final local = value.toLocal();
-    final month = local.month.toString().padLeft(2, '0');
-    final day = local.day.toString().padLeft(2, '0');
-    final hour = local.hour.toString().padLeft(2, '0');
-    final minute = local.minute.toString().padLeft(2, '0');
-
-    return '$month/$day ${local.year} $hour:$minute';
-  }
+  
 
   @override
   Widget build(BuildContext context) {
@@ -278,53 +267,7 @@ class _NewsPageState extends State<NewsPage> {
                                   ),
                                 ),
                               ),
-                              if (isShowingCachedData)
-                                Container(
-                                  width: double.infinity,
-                                  margin: const EdgeInsets.fromLTRB(
-                                    16,
-                                    0,
-                                    16,
-                                    0,
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isDark
-                                        ? const Color(0xFF3A2F12)
-                                        : const Color(0xFFFFF4D6),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: isDark
-                                          ? const Color(0xFF8C6D1F)
-                                          : const Color(0xFFE0BE63),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.offline_bolt_rounded,
-                                        color: isDark
-                                            ? const Color(0xFFFFD54F)
-                                            : const Color(0xFF8A6200),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          'Offline mode: showing cached news from ${_formatCacheUpdatedAt()}.',
-                                          style: TextStyle(
-                                            color: isDark
-                                                ? const Color(0xFFFFECB3)
-                                                : const Color(0xFF6B4F00),
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+
                               const SizedBox(height: 20),
                               if (filteredNews.isNotEmpty)
                                 Padding(
@@ -463,18 +406,47 @@ class _NewsPageState extends State<NewsPage> {
                                                             const EdgeInsets.all(
                                                               10,
                                                             ),
-                                                        child: Text(
-                                                          item['title'] ??
-                                                              'Untitled',
-                                                          maxLines: 2,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                          style: TextStyle(
-                                                            fontSize: 12,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            color: primaryText,
-                                                          ),
+                                                        child: Column(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment.start,
+                                                          children: [
+                                                            Text(
+                                                              item['category'] ??
+                                                                  'General',
+                                                              maxLines: 1,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                              style: TextStyle(
+                                                                fontSize: 11,
+                                                                fontWeight:
+                                                                    FontWeight.w600,
+                                                                color: isDark
+                                                                    ? Colors
+                                                                        .lightBlue[100]
+                                                                    : AppColors
+                                                                        .primary,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(
+                                                              height: 6,
+                                                            ),
+                                                            Text(
+                                                              item['title'] ??
+                                                                  'Untitled',
+                                                              maxLines: 2,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                              style: TextStyle(
+                                                                fontSize: 12,
+                                                                fontWeight:
+                                                                    FontWeight.bold,
+                                                                color:
+                                                                    primaryText,
+                                                              ),
+                                                            ),
+                                                          ],
                                                         ),
                                                       ),
                                                     ),
@@ -586,6 +558,21 @@ class _NewsPageState extends State<NewsPage> {
                                                         CrossAxisAlignment
                                                             .start,
                                                     children: [
+                                                      Text(
+                                                        item['category'] ??
+                                                            'General',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: isDark
+                                                              ? Colors
+                                                                  .lightBlue[100]
+                                                              : AppColors
+                                                                  .primary,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 8),
                                                       Text(
                                                         item['title'] ??
                                                             'Untitled',

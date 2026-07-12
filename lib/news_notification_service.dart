@@ -4,12 +4,14 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'content_cache_service.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
+    WidgetsFlutterBinding.ensureInitialized();
     await Firebase.initializeApp();
 
     final plugin = FlutterLocalNotificationsPlugin();
@@ -30,7 +32,10 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         'news_updates',
         'News Updates',
         description: 'Notifications for newly published news and announcements.',
-        importance: Importance.high,
+        importance: Importance.max,
+        playSound: true,
+        enableVibration: true,
+        showBadge: true,
       ),
     );
 
@@ -176,8 +181,6 @@ class NewsNotificationService {
     await _configureForegroundPresentation();
     await _subscribeToTopic();
 
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
     if (!_foregroundListenerAttached) {
       FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
       FirebaseMessaging.onMessageOpenedApp.listen((message) {});
@@ -208,7 +211,10 @@ class NewsNotificationService {
         _androidChannelId,
         _androidChannelName,
         description: _androidChannelDescription,
-        importance: Importance.high,
+        importance: Importance.max,
+        playSound: true,
+        enableVibration: true,
+        showBadge: true,
       ),
     );
   }

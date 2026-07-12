@@ -651,19 +651,58 @@ function navigateTo(page) {
 function setupMobileMenu() {
   const menuToggle = document.getElementById('menuToggle');
   const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay') || createOverlay();
 
-  menuToggle.addEventListener('click', () => {
-    sidebar.classList.toggle('open');
+  function createOverlay() {
+    const el = document.createElement('div');
+    el.className = 'sidebar-overlay';
+    el.id = 'sidebarOverlay';
+    document.body.insertBefore(el, sidebar);
+    return el;
+  }
+
+  function openSidebar() {
+    sidebar.classList.add('open');
+    if (window.innerWidth <= 768) {
+      overlay.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+  }
+
+  function closeSidebar() {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  menuToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (sidebar.classList.contains('open')) {
+      closeSidebar();
+    } else {
+      openSidebar();
+    }
   });
 
-  document.addEventListener('click', (e) => {
-    if (window.innerWidth <= 768) {
-      const isInsideSidebar = sidebar.contains(e.target);
-      const isMenuToggle = menuToggle.contains(e.target);
-      if (!isInsideSidebar && !isMenuToggle && sidebar.classList.contains('open')) {
-        sidebar.classList.remove('open');
-      }
+  // Close sidebar when tapping overlay
+  overlay.addEventListener('click', closeSidebar);
+
+  // Close sidebar on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && sidebar.classList.contains('open') && window.innerWidth <= 768) {
+      closeSidebar();
     }
+  });
+
+  // Re-evaluate on resize — close sidebar if window grows past mobile breakpoint
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (window.innerWidth > 768) {
+        closeSidebar();
+      }
+    }, 200);
   });
 }
 
@@ -1015,6 +1054,32 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// -------- MOBILE DATA-LABELS --------
+// Sets data-label on every <td> from the corresponding <th> text,
+// so CSS can show labels inside cards on mobile.
+function applyTableDataLabels(table) {
+  if (!table) return;
+  const theadThs = table.querySelectorAll('thead tr th');
+  if (!theadThs.length) return;
+  const labels = [];
+  theadThs.forEach(th => {
+    labels.push(th.textContent.trim());
+  });
+  table.querySelectorAll('tbody tr').forEach(tr => {
+    const tds = tr.querySelectorAll('td');
+    tds.forEach((td, idx) => {
+      if (idx < labels.length && labels[idx]) {
+        td.setAttribute('data-label', labels[idx]);
+      }
+    });
+  });
+}
+
+// Convenience: apply to every <table class="data-table"> in the DOM
+function applyAllTableDataLabels() {
+  document.querySelectorAll('.data-table').forEach(applyTableDataLabels);
+}
+
 function getCategoryColor(category) {
   const colors = {
     'Emergency': '#dc2626',
@@ -1033,134 +1098,142 @@ async function loadPerformanceTrend() {
   if (!supabaseClient) return;
 
   try {
-    const months = 6;
+    const filterValue = document.getElementById('performanceTrendFilter')?.value || 'weekly';
     const now = new Date();
 
-    // Initialize data structure for last 6 months
-    const monthLabels = [];
-    const monthData = {};
+    // Build labels and data accumulator based on filter
+    const labels = [];
+    const dataBuckets = {};
 
-    for (let i = months - 1; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthKey = date.toLocaleString('default', { month: 'short' });
-      monthLabels.push(monthKey);
-      monthData[monthKey] = {
-        reports: 0,
-        news: 0,
-        requests: 0,
-        reviews: 0
+    let getDateKey;
+
+    if (filterValue === 'daily') {
+      // Last 7 days (today + past 6 days)
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        const key = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        labels.push(key);
+        dataBuckets[key] = { reports: 0, news: 0, requests: 0, reviews: 0 };
+      }
+      getDateKey = (dateStr) => {
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      };
+    } else if (filterValue === 'weekly') {
+      // Last 6 weeks — each bucket is a week range (Mon–Sun)
+      for (let i = 5; i >= 0; i--) {
+        // Monday of week i weeks ago
+        const monday = new Date(now);
+        monday.setDate(monday.getDate() - ((now.getDay() || 7) - 1) - 7 * i);
+        monday.setHours(0, 0, 0, 0);
+        const sunday = new Date(monday);
+        sunday.setDate(sunday.getDate() + 6);
+        sunday.setHours(23, 59, 59, 999);
+
+        const startStr = monday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const endStr = sunday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const key = `${startStr}–${endStr}`;
+        labels.push(key);
+        dataBuckets[key] = {
+          reports: 0, news: 0, requests: 0, reviews: 0,
+          _start: monday.getTime(), _end: sunday.getTime()
+        };
+      }
+      getDateKey = (dateStr) => {
+        const t = new Date(dateStr).getTime();
+        for (const key of labels) {
+          const b = dataBuckets[key];
+          if (t >= b._start && t <= b._end) return key;
+        }
+        return null;
+      };
+    } else { // yearly
+      // Last 12 months
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const key = d.toLocaleString('default', { month: 'short', year: 'numeric' });
+        labels.push(key);
+        dataBuckets[key] = { reports: 0, news: 0, requests: 0, reviews: 0 };
+      }
+      getDateKey = (dateStr) => {
+        const d = new Date(dateStr);
+        return d.toLocaleString('default', { month: 'short', year: 'numeric' });
       };
     }
 
-    // Fetch reports
-    try {
-      const { data: reportsData } = await supabaseClient
-        .from('reports')
-        .select('created_at');
-
-      (reportsData || []).forEach(r => {
-        const date = new Date(r.created_at);
-        const monthKey = date.toLocaleString('default', { month: 'short' });
-        if (monthData[monthKey]) {
-          monthData[monthKey].reports++;
+    // Assign a record to the correct bucket
+    const bucketize = (records, field) => {
+      (records || []).forEach(item => {
+        if (!item.created_at) return;
+        const key = getDateKey(item.created_at);
+        if (key && dataBuckets[key]) {
+          dataBuckets[key][field]++;
         }
       });
-    } catch (e) {
-      console.warn('Could not fetch reports:', e);
-    }
+    };
 
-    // Fetch news
+    // Fetch & bucketize: reports
     try {
-      const { data: newsData } = await supabaseClient
-        .from('news')
-        .select('created_at');
+      const { data } = await supabaseClient.from('reports').select('created_at');
+      bucketize(data, 'reports');
+    } catch (e) { console.warn('Could not fetch reports:', e); }
 
-      (newsData || []).forEach(n => {
-        const date = new Date(n.created_at);
-        const monthKey = date.toLocaleString('default', { month: 'short' });
-        if (monthData[monthKey]) {
-          monthData[monthKey].news++;
-        }
-      });
-    } catch (e) {
-      console.warn('Could not fetch news:', e);
-    }
+    // Fetch & bucketize: news
+    try {
+      const { data } = await supabaseClient.from('news').select('created_at');
+      bucketize(data, 'news');
+    } catch (e) { console.warn('Could not fetch news:', e); }
 
-    // Fetch service requests from all service tables
+    // Fetch & bucketize: service requests
     const serviceTables = [
-      'birth_certificate_appointments',
-      'cenodeath_appointments',
-      'cenomar_appointments',
-      'death_certificate_appointments',
-      'facility_borrow_requests',
-      'marriage_certificate_appointments'
+      'birth_certificate_appointments', 'cenodeath_appointments',
+      'cenomar_appointments', 'death_certificate_appointments',
+      'facility_borrow_requests', 'marriage_certificate_appointments'
     ];
-
     for (const table of serviceTables) {
       try {
-        const { data: serviceData } = await supabaseClient
-          .from(table)
-          .select('created_at');
-
-        (serviceData || []).forEach(s => {
-          const date = new Date(s.created_at);
-          const monthKey = date.toLocaleString('default', { month: 'short' });
-          if (monthData[monthKey]) {
-            monthData[monthKey].requests++;
-          }
-        });
-      } catch (e) {
-        // Table might not exist
-      }
+        const { data } = await supabaseClient.from(table).select('created_at');
+        bucketize(data, 'requests');
+      } catch (e) { /* skip */ }
     }
 
-    // Fetch place reviews
+    // Fetch & bucketize: places (as a proxy for reviews activity)
     try {
-      const { data: placesData } = await supabaseClient
-        .from('places')
-        .select('created_at');
+      const { data } = await supabaseClient.from('places').select('created_at');
+      bucketize(data, 'reviews');
+    } catch (e) { console.warn('Could not fetch places:', e); }
 
-      (placesData || []).forEach(p => {
-        const date = new Date(p.created_at);
-        const monthKey = date.toLocaleString('default', { month: 'short' });
-        if (monthData[monthKey]) {
-          monthData[monthKey].reviews++;
-        }
-      });
-    } catch (e) {
-      console.warn('Could not fetch places:', e);
-    }
+    // Prepare chart data arrays
+    const reportsCounts = labels.map(l => dataBuckets[l]?.reports || 0);
+    const newsCounts     = labels.map(l => dataBuckets[l]?.news || 0);
+    const requestsCounts = labels.map(l => dataBuckets[l]?.requests || 0);
+    const reviewsCounts  = labels.map(l => dataBuckets[l]?.reviews || 0);
 
-    // Prepare data for chart
-    const reportsCounts = monthLabels.map(m => monthData[m].reports);
-    const newsCounts = monthLabels.map(m => monthData[m].news);
-    const requestsCounts = monthLabels.map(m => monthData[m].requests);
-    const reviewsCounts = monthLabels.map(m => monthData[m].reviews);
+    console.log('Performance Trend —', filterValue, { labels, reportsCounts, newsCounts, requestsCounts, reviewsCounts });
 
-    console.log('Chart data:', { monthLabels, reportsCounts, newsCounts, requestsCounts, reviewsCounts });
-
-    // Wait for Chart.js to be available
     if (typeof Chart === 'undefined') {
       console.error('Chart.js is not loaded');
       return;
     }
 
     const ctx = document.getElementById('performanceTrendChart');
-    if (!ctx) {
-      console.error('Canvas element not found');
-      return;
-    }
+    if (!ctx) { console.error('Canvas element not found'); return; }
 
-    // Destroy existing chart if it exists
+    // Destroy previous chart
     if (window.performanceTrendChart instanceof Chart) {
       window.performanceTrendChart.destroy();
     }
 
-    // Create chart
+    // Detect dark mode for axis colours
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const axisColor = isDark ? '#9ca3af' : '#6b7280';
+    const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+
     window.performanceTrendChart = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: monthLabels,
+        labels: labels,
         datasets: [
           {
             label: 'Place Review',
@@ -1173,7 +1246,7 @@ async function loadPerformanceTrend() {
             pointBackgroundColor: '#9C27B0',
             pointBorderColor: '#fff',
             pointBorderWidth: 2,
-            pointRadius: 5,
+            pointRadius: 4,
             pointHoverRadius: 7
           },
           {
@@ -1187,7 +1260,7 @@ async function loadPerformanceTrend() {
             pointBackgroundColor: '#4CAF50',
             pointBorderColor: '#fff',
             pointBorderWidth: 2,
-            pointRadius: 5,
+            pointRadius: 4,
             pointHoverRadius: 7
           },
           {
@@ -1201,11 +1274,11 @@ async function loadPerformanceTrend() {
             pointBackgroundColor: '#FF9800',
             pointBorderColor: '#fff',
             pointBorderWidth: 2,
-            pointRadius: 5,
+            pointRadius: 4,
             pointHoverRadius: 7
           },
           {
-            label: 'Users',
+            label: 'News',
             data: newsCounts,
             borderColor: '#2196F3',
             backgroundColor: 'rgba(33, 150, 243, 0.05)',
@@ -1215,7 +1288,7 @@ async function loadPerformanceTrend() {
             pointBackgroundColor: '#2196F3',
             pointBorderColor: '#fff',
             pointBorderWidth: 2,
-            pointRadius: 5,
+            pointRadius: 4,
             pointHoverRadius: 7
           }
         ]
@@ -1228,51 +1301,29 @@ async function loadPerformanceTrend() {
             display: true,
             position: 'top',
             labels: {
-              font: {
-                size: 12,
-                weight: '500'
-              },
+              font: { size: 12, weight: '500' },
               padding: 15,
               usePointStyle: true,
-              color: '#6b7280'
+              color: axisColor
             }
           }
         },
         scales: {
           y: {
             beginAtZero: true,
-            grid: {
-              drawBorder: false,
-              color: 'rgba(0, 0, 0, 0.05)'
-            },
-            ticks: {
-              font: {
-                size: 12
-              },
-              color: '#6b7280'
-            }
+            grid: { drawBorder: false, color: gridColor },
+            ticks: { font: { size: 12 }, color: axisColor, stepSize: 1 }
           },
           x: {
-            grid: {
-              display: false,
-              drawBorder: false
-            },
-            ticks: {
-              font: {
-                size: 12
-              },
-              color: '#6b7280'
-            }
+            grid: { display: false, drawBorder: false },
+            ticks: { font: { size: 10 }, color: axisColor, maxRotation: filterValue === 'weekly' ? 45 : 30 }
           }
         },
-        interaction: {
-          intersect: false,
-          mode: 'index'
-        }
+        interaction: { intersect: false, mode: 'index' }
       }
     });
 
-    console.log('Chart created successfully');
+    console.log('Performance trend chart updated (' + filterValue + ')');
   } catch (error) {
     console.error('Error loading performance trend:', error);
   }
@@ -2680,6 +2731,15 @@ async function saveNews() {
         ? `Article "${title}" scheduled for ${new Date(payload.scheduled_at).toLocaleString()}`
         : `Article "${title}" has been updated`;
       addNotification('News Updated', message, 'success');
+      if (!isScheduled) {
+        sendNewsPushNotification({
+          title,
+          description: content,
+          image_url: imageUrl,
+          topic: 'news_updates',
+          type: 'news',
+        });
+      }
     } else {
       console.log('Creating new news with payload:', payload, 'editId was:', editId);
       const { error } = await supabaseClient.from('news').insert(payload);
@@ -2692,6 +2752,13 @@ async function saveNews() {
       } else {
         showToast('News added successfully!', 'success');
         addNotification('News Created', `Article "${title}" has been published`, 'success');
+        sendNewsPushNotification({
+          title,
+          description: content,
+          image_url: imageUrl,
+          topic: 'news_updates',
+          type: 'news',
+        });
       }
     }
 
@@ -2704,6 +2771,29 @@ async function saveNews() {
   } finally {
     saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save';
     saveBtn.disabled = false;
+  }
+}
+
+async function sendNewsPushNotification(payload) {
+  try {
+    const response = await fetch('/api/send-notification', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Failed to send news push:', response.status, errorText);
+      return;
+    }
+
+    const result = await response.json();
+    console.log('News push notification sent:', result);
+  } catch (error) {
+    console.error('Error sending news push notification:', error);
   }
 }
 
@@ -6007,12 +6097,6 @@ function renderUsersTable(usersData) {
     tdAddress.textContent = u.address || u.user_metadata?.address || 'N/A';
     tdAddress.style.fontSize = '13px';
 
-    const tdStatus = document.createElement('td');
-    const statusBadge = document.createElement('span');
-    statusBadge.className = 'status-badge ' + (u.user_metadata?.status === 'suspended' ? 'status-rejected' : 'status-resolved');
-    statusBadge.textContent = (u.user_metadata?.status || 'active').charAt(0).toUpperCase() + (u.user_metadata?.status || 'active').slice(1);
-    tdStatus.appendChild(statusBadge);
-
     const tdCreated = document.createElement('td');
     tdCreated.textContent = formatDate(u.created_at);
     tdCreated.style.fontSize = '13px';
@@ -6041,7 +6125,6 @@ function renderUsersTable(usersData) {
     tr.appendChild(tdFullName);
     tr.appendChild(tdPhone);
     tr.appendChild(tdAddress);
-    tr.appendChild(tdStatus);
     tr.appendChild(tdCreated);
     tr.appendChild(tdActions);
 
@@ -6109,10 +6192,9 @@ function openEditUserModal(userId, userData) {
   document.getElementById('userModalTitle').textContent = 'Edit User';
   document.getElementById('userEditId').value = userId;
   document.getElementById('userEmail').value = userData.email || '';
-  document.getElementById('userFullName').value = userData.display_name || userData.user_metadata?.full_name || '';
-  document.getElementById('userPhone').value = userData.phone || userData.user_metadata?.phone || '';
-  document.getElementById('userAddress').value = userData.address || userData.user_metadata?.address || '';
-  document.getElementById('userStatus').value = userData.user_metadata?.status || 'active';
+  document.getElementById('userFullName').value = userData.display_name || '';
+  document.getElementById('userPhone').value = userData.phone || '';
+  document.getElementById('userAddress').value = userData.address || '';
 
   document.getElementById('userModal').classList.add('active');
 }
@@ -6126,7 +6208,6 @@ async function saveUser() {
   const fullName = document.getElementById('userFullName').value.trim();
   const phone = document.getElementById('userPhone').value.trim();
   const address = document.getElementById('userAddress').value.trim();
-  const status = document.getElementById('userStatus').value;
 
   if (!fullName) {
     showToast('Please enter full name', 'error');
@@ -6139,12 +6220,7 @@ async function saveUser() {
       .update({
         display_name: fullName,
         phone: phone,
-        address: address,
-        user_metadata: {
-          phone: phone,
-          address: address,
-          status: status
-        }
+        address: address
       })
       .eq('id', userId);
 
@@ -6189,9 +6265,9 @@ function filterUsers() {
 
   const filtered = allUsers.filter(u => {
     const email = (u.email || '').toLowerCase();
-    const fullName = (u.display_name || u.user_metadata?.full_name || '').toLowerCase();
-    const phone = (u.phone || u.user_metadata?.phone || '').toLowerCase();
-    const address = (u.address || u.user_metadata?.address || '').toLowerCase();
+    const fullName = (u.display_name || '').toLowerCase();
+    const phone = (u.phone || '').toLowerCase();
+    const address = (u.address || '').toLowerCase();
 
     return email.includes(searchTerm) ||
            fullName.includes(searchTerm) ||
@@ -6201,6 +6277,34 @@ function filterUsers() {
 
   renderUsersTable(filtered);
 }
+
+// -------- AUTO DATA-LABEL OBSERVER --------
+// Whenever a table's tbody changes, re-apply data-labels from thead.
+(function observeTableMutations() {
+  var pageContent = document.getElementById('pageContent');
+  if (!pageContent) return;
+  var observer = new MutationObserver(function(mutations) {
+    var shouldApply = false;
+    for (var i = 0; i < mutations.length; i++) {
+      var m = mutations[i];
+      if (m.type === 'childList' && m.target.closest) {
+        // Only care about mutations inside .data-table or when rows are added
+        if (m.target.closest('.data-table') || m.addedNodes.length > 0) {
+          shouldApply = true;
+          break;
+        }
+      }
+    }
+    if (shouldApply) {
+      // Small delay to let DOM settle
+      clearTimeout(window._dataLabelTimer);
+      window._dataLabelTimer = setTimeout(applyAllTableDataLabels, 50);
+    }
+  });
+  observer.observe(pageContent, { childList: true, subtree: true });
+  // Initial pass
+  setTimeout(applyAllTableDataLabels, 300);
+})();
 
 // ============================================================
 // PLACE REVIEWS
@@ -6297,9 +6401,7 @@ function validateFileUpload(file, allowedTypes, maxSizeBytes) {
   return { valid: true };
 }
 
-/**
- * Sanitizes a filename by removing special characters and spaces.
- */
+
 function sanitizeText(name) {
   if (!name) return '';
   return name

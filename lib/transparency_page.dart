@@ -12,37 +12,43 @@ class TransparencyPage extends StatelessWidget {
 
   static final List<_TransparencyItem> _items = [
     _TransparencyItem(
-      title: 'Program and Projects',
+      title: 'Programs & Projects',
+      subtitle: 'Ongoing initiatives',
       icon: Icons.account_balance_wallet_rounded,
       iconColor: const Color(0xFFF3C746),
       builder: (_) => const TransparencyProgramsPage(),
     ),
     _TransparencyItem(
-      title: 'Bids and Projects',
+      title: 'Bids & Projects',
+      subtitle: 'Procurement details',
       icon: Icons.work_rounded,
       iconColor: const Color(0xFF6F46D9),
       builder: (_) => const TransparencyBidsPage(),
     ),
     _TransparencyItem(
       title: 'Financial Reports',
+      subtitle: 'Budget utilization',
       icon: Icons.show_chart_rounded,
       iconColor: const Color(0xFF78D8E6),
       builder: (_) => const TransparencyFinancialReportsPage(),
     ),
     _TransparencyItem(
       title: 'Annual Budget',
+      subtitle: 'Yearly allocations',
       icon: Icons.account_balance_rounded,
       iconColor: const Color(0xFFF26A45),
       builder: (_) => const TransparencyAnnualBudgetPage(),
     ),
     _TransparencyItem(
       title: 'Legislative Ordinances',
+      subtitle: 'Local laws & policies',
       icon: Icons.location_city_rounded,
       iconColor: const Color(0xFFF15B3D),
       builder: (_) => const TransparencyLegislativeOrdinancesPage(),
     ),
     _TransparencyItem(
       title: 'Executive Orders',
+      subtitle: 'Official directives',
       icon: Icons.checkroom_rounded,
       iconColor: const Color(0xFFF3C746),
       builder: (_) => const TransparencyExecutiveOrdersPage(),
@@ -68,6 +74,19 @@ class TransparencyPage extends StatelessWidget {
             Color(0xFFEAEAEA),
           ];
 
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    // Make the grid more compact on smaller screens to avoid overflow.
+    double aspectRatio;
+    if (screenHeight < 700 || screenWidth < 360) {
+      aspectRatio = 0.9;
+    } else if (screenHeight < 850) {
+      aspectRatio = 0.96;
+    } else {
+      aspectRatio = 1.03;
+    }
+
     return Scaffold(
       backgroundColor: backgroundColor,
       body: Stack(
@@ -92,12 +111,14 @@ class TransparencyPage extends StatelessWidget {
                     children: [
                       IconButton(
                         onPressed: () => Navigator.pop(context),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         icon: const Icon(
-                          Icons.arrow_back_ios_new_rounded,
+                          Icons.arrow_back_rounded,
                           color: Colors.white,
                         ),
                       ),
-                      const SizedBox(width: 2),
+                      const SizedBox(width: 10),
                       const Expanded(
                         child: Text(
                           'Transparency',
@@ -113,12 +134,13 @@ class TransparencyPage extends StatelessWidget {
                 ),
                 Expanded(
                   child: GridView.builder(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                    physics: const BouncingScrollPhysics(),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 1.08,
+                      crossAxisSpacing: 14,
+                      mainAxisSpacing: 14,
+                      childAspectRatio: aspectRatio,
                     ),
                     itemCount: _items.length,
                     itemBuilder: (context, index) {
@@ -415,12 +437,14 @@ class _TransparencyRecordsPageState extends State<_TransparencyRecordsPage> {
                     children: [
                       IconButton(
                         onPressed: () => Navigator.pop(context),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         icon: const Icon(
-                          Icons.arrow_back_ios_new_rounded,
+                          Icons.arrow_back_rounded,
                           color: Colors.white,
                         ),
                       ),
-                      const SizedBox(width: 2),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           widget.title,
@@ -502,12 +526,14 @@ class TransparencyRecordDetailPage extends StatelessWidget {
                     children: [
                       IconButton(
                         onPressed: () => Navigator.pop(context),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         icon: const Icon(
-                          Icons.arrow_back_ios_new_rounded,
+                          Icons.arrow_back_rounded,
                           color: Colors.white,
                         ),
                       ),
-                      const SizedBox(width: 2),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           record.title,
@@ -763,42 +789,50 @@ class _TransparencyCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF262631) : Colors.white,
             borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.08),
-                blurRadius: 12,
-                offset: const Offset(0, 6),
-              ),
-            ],
             border: Border.all(
               color: isDark ? Colors.white10 : const Color(0xFFE3E6EB),
             ),
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(
-                  width: 36,
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: item.iconColor.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   child: Icon(
                     item.icon,
                     color: item.iconColor,
-                    size: 34,
+                    size: 28,
                   ),
                 ),
-                const SizedBox(width: 18),
-                Expanded(
-                  child: Text(
-                    item.title,
-                    maxLines: 3,
-                    overflow: TextOverflow.visible,
-                    style: TextStyle(
-                      color: isDark ? Colors.white : const Color(0xFF20242C),
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      height: 1.25,
-                    ),
+                const Spacer(),
+                Text(
+                  item.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : const Color(0xFF111827),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    height: 1.18,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  item.subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: isDark ? Colors.white70 : const Color(0xFF6B7280),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
                   ),
                 ),
               ],
@@ -845,13 +879,6 @@ class _TransparencyRecordCard extends StatelessWidget {
             border: Border.all(
               color: isDark ? const Color(0xFF334155) : const Color(0xFFE3EEF9),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.07),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
           ),
           child: Padding(
             padding: const EdgeInsets.all(18),
@@ -1355,12 +1382,14 @@ class TransparencyProgramRecord extends TransparencyRecord {
 class _TransparencyItem {
   const _TransparencyItem({
     required this.title,
+    required this.subtitle,
     required this.icon,
     required this.iconColor,
     this.builder,
   });
 
   final String title;
+  final String subtitle;
   final IconData icon;
   final Color iconColor;
   final WidgetBuilder? builder;

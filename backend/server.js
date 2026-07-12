@@ -87,11 +87,18 @@ app.post('/api/sync-users', async (req, res) => {
         ? user.displayName
         : (user.email || `User ${user.uid.substring(0, 8)}`);
 
+      // Convert Firebase creationTime (e.g. "Mon, 01 Jan 2024 00:00:00 GMT") to ISO string
+      let createdAt = null;
+      if (user.metadata && user.metadata.creationTime) {
+        createdAt = new Date(user.metadata.creationTime).toISOString();
+      }
+
       return {
         id: user.uid,
         email: user.email || '',
         display_name: displayName,
         photo_url: user.photoURL || null,
+        created_at: createdAt,
         updated_at: new Date().toISOString()
       };
     });

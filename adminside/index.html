@@ -15,6 +15,9 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+  <!-- Sidebar Overlay (mobile) -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
   <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
@@ -293,8 +296,7 @@
           <!-- Service Request Status Breakdown -->
           <div class="card analytics-card">
             <div class="card-header">
-              <h2>Service Request Status</h2>
-              <span class="card-badge">This Month</span>
+            <h2>Service Request Status</h2>
             </div>
             <div class="status-breakdown">
               <div class="status-item">
@@ -334,9 +336,9 @@
           <div class="card-header">
             <h2>Performance trend</h2>
             <select class="status-filter" id="performanceTrendFilter" style="margin-left: auto;" onchange="loadPerformanceTrend()">
-              <option value="6">Last 6 Months</option>
-              <option value="3">Last 3 Months</option>
-              <option value="12">Last 12 Months</option>
+              <option value="daily">Daily</option>
+              <option value="weekly" selected>Weekly</option>
+              <option value="yearly">Yearly</option>
             </select>
           </div>
           <div style="position: relative; height: 350px; width: 100%; padding: 20px 0;">
@@ -732,14 +734,13 @@
                   <th>Full Name</th>
                   <th>Phone</th>
                   <th>Address</th>
-                  <th>Status</th>
                   <th>Created</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="usersTableBody">
                 <tr>
-                  <td colspan="7" class="empty-state">Loading...</td>
+                  <td colspan="6" class="empty-state">Loading...</td>
                 </tr>
               </tbody>
             </table>
@@ -1533,14 +1534,6 @@
         <div class="form-group">
           <label for="userAddress">Address</label>
           <textarea id="userAddress" rows="3" placeholder="Enter address"></textarea>
-        </div>
-        <div class="form-group">
-          <label for="userStatus">Status <span class="required">*</span></label>
-          <select id="userStatus">
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="suspended">Suspended</option>
-          </select>
         </div>
         <input type="hidden" id="userEditId" />
       </div>

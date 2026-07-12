@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'shared_widgets.dart';
+
 class NewsDetailPage extends StatelessWidget {
   final Map<String, dynamic> news;
 
@@ -32,6 +34,10 @@ class NewsDetailPage extends StatelessWidget {
             Color(0xFF90CAF9),
             Color(0xFFEAEAEA),
           ];
+
+    final category = news['category']?.toString().trim().isNotEmpty == true
+        ? news['category'].toString()
+        : 'General';
 
     return Scaffold(
       backgroundColor: scaffoldBackground,
@@ -73,6 +79,8 @@ class NewsDetailPage extends StatelessWidget {
                         height: 300,
                         width: double.infinity,
                         fit: BoxFit.cover,
+                        cacheWidth: 1200,
+                        cacheHeight: 900,
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
                             height: 300,
@@ -109,6 +117,29 @@ class NewsDetailPage extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                           color: titleColor,
                           height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0xFF1E293B)
+                              : const Color(0xFFE8F3FF),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          category,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: isDark
+                                ? Colors.lightBlue[100]
+                                : AppColors.primary,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),

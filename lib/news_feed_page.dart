@@ -105,20 +105,7 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
     });
   }
 
-  String _formatCacheUpdatedAt() {
-    final value = cacheUpdatedAt;
-    if (value == null) {
-      return 'previous session';
-    }
-
-    final local = value.toLocal();
-    final month = local.month.toString().padLeft(2, '0');
-    final day = local.day.toString().padLeft(2, '0');
-    final hour = local.hour.toString().padLeft(2, '0');
-    final minute = local.minute.toString().padLeft(2, '0');
-
-    return '$month/$day ${local.year} $hour:$minute';
-  }
+  
 
   @override
   Widget build(BuildContext context) {
@@ -180,42 +167,7 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
                       ),
                     ),
 
-                    if (isShowingCachedData)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF4D6),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: const Color(0xFFE0BE63),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.offline_bolt_rounded,
-                                color: Color(0xFF8A6200),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Offline mode: showing cached news from ${_formatCacheUpdatedAt()}.',
-                                  style: const TextStyle(
-                                    color: Color(0xFF6B4F00),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+
                     if (filteredNews.isEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 80),
