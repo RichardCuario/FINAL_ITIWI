@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="./admin_roles_logic.js"></script>
 </head>
 <body>
   <!-- Sidebar Overlay (mobile) -->
@@ -68,6 +69,10 @@
       <a href="#" class="nav-item" data-page="users">
         <i class="fa-solid fa-users"></i>
         <span>Manage Users</span>
+      </a>
+      <a href="#" class="nav-item" data-page="manage-admin">
+        <i class="fa-solid fa-user-shield"></i>
+        <span>Manage Admin</span>
       </a>
     </nav>
 
@@ -720,6 +725,13 @@
           <div class="card-header">
             <h2>All Users</h2>
             <div class="card-header-actions">
+              <select id="usersVerificationFilter" class="status-filter" aria-label="Filter users by verification status">
+                <option value="">All verification statuses</option>
+                <option value="verified">Verified</option>
+                <option value="pending">Pending</option>
+                <option value="rejected">Rejected</option>
+                <option value="not_submitted">Not submitted</option>
+              </select>
               <div class="search-box table-search">
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input type="text" placeholder="Search users..." id="usersSearch" autocomplete="nope" autocorrect="off" autocapitalize="off" spellcheck="false" data-form-type="other" />
@@ -734,13 +746,14 @@
                   <th>Full Name</th>
                   <th>Phone</th>
                   <th>Address</th>
+                  <th>Verification</th>
                   <th>Created</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="usersTableBody">
                 <tr>
-                  <td colspan="6" class="empty-state">Loading...</td>
+                  <td colspan="7" class="empty-state">Loading...</td>
                 </tr>
               </tbody>
             </table>
@@ -748,6 +761,76 @@
           <div class="table-footer">
             <span class="showing-text" id="usersShowing">Showing 0 of 0 entries</span>
             <div class="pagination" id="usersPagination"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Manage Admin Page -->
+      <section class="page manage-admin-page" id="manageAdminPage">
+        <div class="page-header">
+          <h1>Manage Admin</h1>
+          <p class="page-subtitle">Create and control admin roles by feature access.</p>
+        </div>
+
+        <div class="admin-role-grid">
+          <div class="card">
+            <div class="card-header">
+              <h2>Create Admin Role</h2>
+            </div>
+            <div class="card-body admin-role-form">
+              <div class="form-group">
+                <label for="adminRoleEmail">Admin Email <span class="required">*</span></label>
+                <input type="email" id="adminRoleEmail" placeholder="admin@tiwi.gov.ph" />
+              </div>
+
+              <div class="form-group">
+                <label for="adminRolePassword">Password <span class="required">*</span></label>
+                <input type="password" id="adminRolePassword" placeholder="Enter secure password" />
+              </div>
+
+              <div class="form-group">
+                <label for="adminRoleName">Role Name <span class="required">*</span></label>
+                <input type="text" id="adminRoleName" placeholder="e.g. News Manager" />
+              </div>
+
+              <div class="form-group">
+                <label for="adminRoleFeature">Feature Access <span class="required">*</span></label>
+                <select id="adminRoleFeature">
+                  <option value="">Select a feature</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="adminRoleUserSelect">Assign to Existing User</label>
+                <select id="adminRoleUserSelect">
+                  <option value="">No user assignment</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="adminRoleIsSuperAdmin" />
+                  <span>Mark this role as Super Admin</span>
+                </label>
+                <p class="form-help-text">Super admin access keeps all feature pages unlocked.</p>
+              </div>
+
+              <button class="btn btn-primary" onclick="createAdminRole()">
+                <i class="fa-solid fa-user-plus"></i>
+                Create Admin Account
+              </button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2>Existing Roles</h2>
+            </div>
+            <div class="card-body">
+              <div id="adminRoleList" class="admin-role-list">
+                <p class="empty-state">Loading roles...</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -1024,6 +1107,34 @@
         <button class="btn btn-danger" id="deleteConfirmBtn" onclick="confirmDelete()">
           <i class="fa-solid fa-trash"></i>
           Delete
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Block/Unblock User Confirmation Modal -->
+  <div class="modal-overlay" id="userAccessModal">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h2 id="userAccessModalTitle">Block User</h2>
+        <button class="modal-close" onclick="closeUserAccessModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="access-confirm" id="userAccessConfirmContent">
+          <div class="access-confirm-icon" id="userAccessConfirmIcon">
+            <i class="fa-solid fa-user-slash"></i>
+          </div>
+          <p id="userAccessMessage">This user will no longer be able to access the application.</p>
+          <strong id="userAccessEmail"></strong>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeUserAccessModal()">Cancel</button>
+        <button class="btn btn-danger" id="userAccessConfirmBtn" onclick="confirmUserAccessChange()">
+          <i class="fa-solid fa-user-slash"></i>
+          Block User
         </button>
       </div>
     </div>
@@ -1464,8 +1575,13 @@
           <select id="hotlineCategory">
             <option value="">Select category</option>
             <option value="Emergency">Emergency</option>
-            <option value="Health">Health</option>
+            <option value="Emergency Services">Emergency Services</option>
+            <option value="Fire & Rescue">Fire &amp; Rescue</option>
+            <option value="Law Enforcement">Law Enforcement</option>
+            <option value="Disaster Management">Disaster Management</option>
+            <option value="Local Government">Local Government</option>
             <option value="Public Safety">Public Safety</option>
+            <option value="Health">Health</option>
             <option value="Social Services">Social Services</option>
             <option value="Infrastructure">Infrastructure</option>
             <option value="Administrative">Administrative</option>
@@ -1545,6 +1661,101 @@
         </button>
       </div>
     </div>
+  </div>
+
+  <!-- Review User Identity Modal -->
+  <div class="modal-overlay" id="reviewUserModal">
+    <div class="modal modal-xl">
+      <div class="modal-header">
+        <h2>Review Identity Verification</h2>
+        <button class="modal-close" onclick="closeReviewUserModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid-2col">
+          <div class="form-group">
+            <label>Applicant</label>
+            <div id="reviewUserName" class="field-readonly">-</div>
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <div id="reviewUserEmail" class="field-readonly">-</div>
+          </div>
+          <div class="form-group">
+            <label>Verification Status</label>
+            <div id="reviewUserStatusWrap"><span id="reviewUserStatus" class="status-badge status-not-submitted">Not Submitted</span></div>
+          </div>
+          <div class="form-group">
+            <label>Submitted</label>
+            <div id="reviewSubmittedAt" class="field-readonly">-</div>
+          </div>
+        </div>
+
+        <div class="form-grid-2col" style="margin-top: 18px;">
+          <div class="form-group">
+            <label>Full Name</label>
+            <div id="reviewFullName" class="field-readonly">-</div>
+          </div>
+          <div class="form-group">
+            <label>ID Type</label>
+            <div id="reviewIdType" class="field-readonly">-</div>
+          </div>
+          <div class="form-group">
+            <label>ID Number</label>
+            <div id="reviewIdNumber" class="field-readonly">-</div>
+          </div>
+          <div class="form-group">
+            <label>Date of Birth</label>
+            <div id="reviewDob" class="field-readonly">-</div>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 18px;">
+          <label for="reviewVerificationReason">Rejection Reason</label>
+          <textarea id="reviewVerificationReason" rows="3" placeholder="Optional note for rejection, or leave empty when approving."></textarea>
+        </div>
+
+        <div class="form-group" style="margin-top: 18px;">
+          <label>Uploaded ID Photos</label>
+          <div class="verification-preview-grid">
+            <div class="verification-preview-item">
+              <span class="preview-label">Front</span>
+              <div id="reviewIdFrontPreview" class="verification-preview-empty">No image</div>
+            </div>
+            <div class="verification-preview-item">
+              <span class="preview-label">Back</span>
+              <div id="reviewIdBackPreview" class="verification-preview-empty">No image</div>
+            </div>
+            <div class="verification-preview-item">
+              <span class="preview-label">Selfie</span>
+              <div id="reviewSelfiePreview" class="verification-preview-empty">No image</div>
+            </div>
+          </div>
+        </div>
+
+        <input type="hidden" id="reviewUserId" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeReviewUserModal()">Cancel</button>
+        <button class="btn btn-danger" id="reviewRejectBtn" onclick="rejectUserVerification()">
+          <i class="fa-solid fa-ban"></i>
+          Reject
+        </button>
+        <button class="btn btn-primary" id="reviewApproveBtn" onclick="approveUserVerification()">
+          <i class="fa-solid fa-check"></i>
+          Approve
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full-size verification image viewer -->
+  <div class="image-lightbox" id="imageLightbox" role="dialog" aria-modal="true" aria-label="Full-size verification image">
+    <button class="image-lightbox-close" type="button" onclick="closeImageLightbox()" aria-label="Close image viewer">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+    <img id="imageLightboxImage" src="" alt="Full-size verification image" />
   </div>
 
   <!-- Logout Confirmation Modal -->
