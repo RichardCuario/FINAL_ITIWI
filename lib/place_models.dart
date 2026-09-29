@@ -40,12 +40,13 @@ class Place {
       id: (map['id'] ?? '').toString(),
       name: (map['name'] ?? map['title'] ?? 'Unknown place').toString(),
       description: (map['description'] ?? '').toString(),
-      location: (map['location'] ??
-              map['short_location'] ??
-              map['full_address'] ??
-              map['barangay'] ??
-              '')
-          .toString(),
+      location:
+          (map['location'] ??
+                  map['short_location'] ??
+                  map['full_address'] ??
+                  map['barangay'] ??
+                  '')
+              .toString(),
       shortLocation: (map['short_location'] ?? '').toString(),
       fullAddress: (map['full_address'] ?? '').toString(),
       imageUrl: (map['image_url'] ?? map['imageUrl'] ?? '').toString(),
@@ -101,6 +102,27 @@ class Place {
     );
   }
 
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'description': description,
+      'location': location,
+      'short_location': shortLocation,
+      'full_address': fullAddress,
+      'image_url': imageUrl,
+      'category': category,
+      'phone': phone,
+      'website_url': websiteUrl,
+      'latitude': latitude,
+      'longitude': longitude,
+      'distance_label': distanceLabel,
+      'is_featured': isFeatured,
+      'average_rating': averageRating,
+      'review_count': reviewCount,
+    };
+  }
+
   static double _toDouble(dynamic value) {
     if (value is num) {
       return value.toDouble();
@@ -133,6 +155,7 @@ class PlaceReview {
     required this.rating,
     required this.reviewText,
     required this.reviewerName,
+    required this.reviewerPhotoUrl,
     required this.createdAt,
   });
 
@@ -141,6 +164,7 @@ class PlaceReview {
   final int rating;
   final String reviewText;
   final String reviewerName;
+  final String reviewerPhotoUrl;
   final DateTime? createdAt;
 
   factory PlaceReview.fromMap(Map<String, dynamic> map) {
@@ -148,8 +172,16 @@ class PlaceReview {
       id: (map['id'] ?? '').toString(),
       placeId: (map['place_id'] ?? '').toString(),
       rating: Place._toInt(map['rating']),
-      reviewText: (map['review'] ?? map['review_text'] ?? map['comment'] ?? '').toString(),
-      reviewerName: (map['reviewer_name'] ?? map['user_name'] ?? map['full_name'] ?? 'Anonymous').toString(),
+      reviewText: (map['review'] ?? map['review_text'] ?? map['comment'] ?? '')
+          .toString(),
+      reviewerName:
+          (map['reviewer_name'] ??
+                  map['user_name'] ??
+                  map['full_name'] ??
+                  'Anonymous')
+              .toString(),
+      reviewerPhotoUrl: (map['reviewer_photo_url'] ?? map['photo_url'] ?? '')
+          .toString(),
       createdAt: DateTime.tryParse((map['created_at'] ?? '').toString()),
     );
   }

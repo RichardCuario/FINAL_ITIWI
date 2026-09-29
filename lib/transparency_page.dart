@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -5,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import 'content_cache_service.dart';
 import 'shared_widgets.dart';
 
 class TransparencyPage extends StatelessWidget {
@@ -59,28 +62,26 @@ class TransparencyPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final backgroundColor =
-        isDark ? const Color(0xFF08142A) : const Color(0xFFEAEAEA);
+    final backgroundColor = isDark
+        ? const Color(0xFF08142A)
+        : const Color(0xFFEAEAEA);
 
     final topGradient = isDark
-        ? const [
-            Color(0xFF0F172A),
-            Color(0xFF172554),
-            Color(0xFF111827),
-          ]
-        : const [
-            Color(0xFF1E88E5),
-            Color(0xFF90CAF9),
-            Color(0xFFEAEAEA),
-          ];
+        ? const [Color(0xFF0F172A), Color(0xFF172554), Color(0xFF111827)]
+        : const [Color(0xFF1E88E5), Color(0xFF90CAF9), Color(0xFFEAEAEA)];
 
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
-    // Make the grid more compact on smaller screens to avoid overflow.
+    // Increase card height on compact screens to avoid content overflow.
+    final isVeryCompact = screenWidth < 360 || screenHeight < 700;
+    final isCompact = screenWidth < 400 || screenHeight < 820;
+
     double aspectRatio;
-    if (screenHeight < 700 || screenWidth < 360) {
-      aspectRatio = 0.9;
+    if (isVeryCompact) {
+      aspectRatio = 0.74;
+    } else if (isCompact) {
+      aspectRatio = 0.84;
     } else if (screenHeight < 850) {
       aspectRatio = 0.96;
     } else {
@@ -270,18 +271,37 @@ class _TransparencyRecordsPageState extends State<_TransparencyRecordsPage> {
   static const int _pageSize = 1000;
 
   final _supabase = Supabase.instance.client;
+  final _cacheService = const ContentCacheService();
   bool _isLoading = true;
+  bool _isShowingCachedData = false;
   String? _errorMessage;
   List<TransparencyRecord> _records = const [];
 
   @override
   void initState() {
     super.initState();
-    _loadRecords();
+    unawaited(_loadCachedRecordsThenRefresh());
   }
 
-  Future<void> _loadRecords() async {
-    if (mounted) {
+  Future<void> _loadCachedRecordsThenRefresh() async {
+    final cached = await _cacheService.getTransparencyRecords(widget.tableName);
+
+    if (!mounted) return;
+
+    if (cached.hasData) {
+      setState(() {
+        _records = cached.items.map(TransparencyRecord.fromMap).toList();
+        _isLoading = false;
+        _isShowingCachedData = true;
+        _errorMessage = null;
+      });
+    }
+
+    unawaited(_loadRecords(showLoading: !cached.hasData));
+  }
+
+  Future<void> _loadRecords({bool showLoading = true}) async {
+    if (showLoading && mounted) {
       setState(() {
         _isLoading = true;
         _errorMessage = null;
@@ -296,13 +316,29 @@ class _TransparencyRecordsPageState extends State<_TransparencyRecordsPage> {
       setState(() {
         _records = rows.map(TransparencyRecord.fromMap).toList();
         _isLoading = false;
+        _isShowingCachedData = false;
+        _errorMessage = null;
       });
+
+      // Keep the current records visible while fresh data is cached.
+      unawaited(
+        _cacheService.saveTransparencyRecords(
+          tableName: widget.tableName,
+          items: rows,
+        ),
+      );
     } catch (error) {
       if (!mounted) return;
 
       setState(() {
-        _errorMessage = widget.errorMessage;
         _isLoading = false;
+        // A background refresh must not replace usable cached records with an
+        // error page when the connection is temporarily unavailable.
+        if (_records.isEmpty) {
+          _errorMessage = widget.errorMessage;
+        } else {
+          _isShowingCachedData = true;
+        }
       });
     }
   }
@@ -341,10 +377,8 @@ class _TransparencyRecordsPageState extends State<_TransparencyRecordsPage> {
   void _openRecord(TransparencyRecord record) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => TransparencyRecordDetailPage(
-          title: widget.title,
-          record: record,
-        ),
+        builder: (_) =>
+            TransparencyRecordDetailPage(title: widget.title, record: record),
       ),
     );
   }
@@ -357,61 +391,55 @@ class _TransparencyRecordsPageState extends State<_TransparencyRecordsPage> {
         : const Color(0xFFF3F4F6);
 
     final topGradient = isDark
-        ? const [
-            Color(0xFF0F172A),
-            Color(0xFF172554),
-            Color(0xFF111827),
-          ]
-        : const [
-            Color(0xFF1E88E5),
-            Color(0xFF90CAF9),
-            Color(0xFFEAEAEA),
-          ];
+        ? const [Color(0xFF0F172A), Color(0xFF172554), Color(0xFF111827)]
+        : const [Color(0xFF1E88E5), Color(0xFF90CAF9), Color(0xFFEAEAEA)];
 
     Widget content = _isLoading
         ? const Center(child: CircularProgressIndicator())
         : _errorMessage != null
-            ? ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(24),
-                children: [
-                  _StatusCard(
-                    icon: Icons.cloud_off_rounded,
-                    title: 'Unable to load data',
-                    message: _errorMessage!,
-                    actionLabel: 'Try again',
-                    onPressed: _loadRecords,
-                  ),
-                ],
-              )
-            : _records.isEmpty
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(24),
-                    children: [
-                      _StatusCard(
-                        icon: Icons.folder_open_rounded,
-                        title: 'No records yet',
-                        message: widget.emptyMessage,
-                        actionLabel: 'Refresh',
-                        onPressed: _loadRecords,
-                      ),
-                    ],
-                  )
-                : ListView.separated(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-                    itemCount: _records.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(height: 14),
-                    itemBuilder: (context, index) {
-                      final record = _records[index];
-                      return _TransparencyRecordCard(
-                        record: record,
-                        onTap: () => _openRecord(record),
-                      );
-                    },
-                  );
+        ? ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(24),
+            children: [
+              _StatusCard(
+                icon: Icons.cloud_off_rounded,
+                title: 'Unable to load data',
+                message: _errorMessage!,
+                actionLabel: 'Try again',
+                onPressed: _loadRecords,
+              ),
+            ],
+          )
+        : _records.isEmpty
+        ? ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(24),
+            children: [
+              _StatusCard(
+                icon: Icons.folder_open_rounded,
+                title: 'No records yet',
+                message: widget.emptyMessage,
+                actionLabel: 'Refresh',
+                onPressed: _loadRecords,
+              ),
+            ],
+          )
+        : ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+            itemCount: _records.length + (_isShowingCachedData ? 1 : 0),
+            separatorBuilder: (context, index) => const SizedBox(height: 14),
+            itemBuilder: (context, index) {
+              if (_isShowingCachedData && index == 0) {
+                return const OfflineDataBanner();
+              }
+              final record = _records[index - (_isShowingCachedData ? 1 : 0)];
+              return _TransparencyRecordCard(
+                record: record,
+                onTap: () => _openRecord(record),
+              );
+            },
+          );
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -491,16 +519,8 @@ class TransparencyRecordDetailPage extends StatelessWidget {
         : const Color(0xFFF3F4F6);
 
     final topGradient = isDark
-        ? const [
-            Color(0xFF0F172A),
-            Color(0xFF172554),
-            Color(0xFF111827),
-          ]
-        : const [
-            Color(0xFF1E88E5),
-            Color(0xFF90CAF9),
-            Color(0xFFF3F4F6),
-          ];
+        ? const [Color(0xFF0F172A), Color(0xFF172554), Color(0xFF111827)]
+        : const [Color(0xFF1E88E5), Color(0xFF90CAF9), Color(0xFFF3F4F6)];
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -648,7 +668,8 @@ class TransparencyRecordDetailPage extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      if (record.pdfUrl != null && record.pdfUrl!.isNotEmpty) ...[
+                      if (record.pdfUrl != null &&
+                          record.pdfUrl!.isNotEmpty) ...[
                         AppSectionCard(
                           borderRadius: const BorderRadius.all(
                             Radius.circular(24),
@@ -710,13 +731,9 @@ class TransparencyRecordDetailPage extends StatelessWidget {
                                 ],
                               ),
                               const SizedBox(height: 16),
-                              _PdfActionBar(
-                                pdfUrl: record.pdfUrl!,
-                              ),
+                              _PdfActionBar(pdfUrl: record.pdfUrl!),
                               const SizedBox(height: 14),
-                              InlinePdfPreview(
-                                pdfUrl: record.pdfUrl!,
-                              ),
+                              InlinePdfPreview(pdfUrl: record.pdfUrl!),
                             ],
                           ),
                         ),
@@ -743,10 +760,7 @@ class TransparencyRecordDetailPage extends StatelessWidget {
 }
 
 class TransparencyProgramDetailPage extends StatelessWidget {
-  const TransparencyProgramDetailPage({
-    super.key,
-    required this.record,
-  });
+  const TransparencyProgramDetailPage({super.key, required this.record});
 
   final TransparencyProgramRecord record;
 
@@ -775,9 +789,7 @@ class _TransparencyCard extends StatelessWidget {
         onTap: () {
           final builder = item.builder;
           if (builder != null) {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: builder),
-            );
+            Navigator.of(context).push(MaterialPageRoute(builder: builder));
             return;
           }
 
@@ -794,7 +806,7 @@ class _TransparencyCard extends StatelessWidget {
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -805,11 +817,7 @@ class _TransparencyCard extends StatelessWidget {
                     color: item.iconColor.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Icon(
-                    item.icon,
-                    color: item.iconColor,
-                    size: 28,
-                  ),
+                  child: Icon(item.icon, color: item.iconColor, size: 28),
                 ),
                 const Spacer(),
                 Text(
@@ -820,19 +828,19 @@ class _TransparencyCard extends StatelessWidget {
                     color: isDark ? Colors.white : const Color(0xFF111827),
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    height: 1.18,
+                    height: 1.16,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   item.subtitle,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: isDark ? Colors.white70 : const Color(0xFF6B7280),
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    height: 1.4,
+                    height: 1.3,
                   ),
                 ),
               ],
@@ -845,10 +853,7 @@ class _TransparencyCard extends StatelessWidget {
 }
 
 class _TransparencyRecordCard extends StatelessWidget {
-  const _TransparencyRecordCard({
-    required this.record,
-    required this.onTap,
-  });
+  const _TransparencyRecordCard({required this.record, required this.onTap});
 
   final TransparencyRecord record;
   final VoidCallback onTap;
@@ -1030,25 +1035,20 @@ class _TransparencyRecordCard extends StatelessWidget {
 }
 
 class _PdfActionBar extends StatelessWidget {
-  const _PdfActionBar({
-    required this.pdfUrl,
-  });
+  const _PdfActionBar({required this.pdfUrl});
 
   final String pdfUrl;
 
   Future<void> _downloadPdf(BuildContext context) async {
     final uri = Uri.tryParse(pdfUrl);
     if (uri == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid PDF link.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Invalid PDF link.')));
       return;
     }
 
-    final launched = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
 
     if (!launched && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1077,10 +1077,7 @@ class _PdfActionBar extends StatelessWidget {
 }
 
 class InlinePdfPreview extends StatefulWidget {
-  const InlinePdfPreview({
-    super.key,
-    required this.pdfUrl,
-  });
+  const InlinePdfPreview({super.key, required this.pdfUrl});
 
   final String pdfUrl;
 
@@ -1159,9 +1156,7 @@ class _InlinePdfPreviewState extends State<InlinePdfPreview> {
           WebViewWidget(
             controller: _controller,
             gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-              Factory<OneSequenceGestureRecognizer>(
-                EagerGestureRecognizer.new,
-              ),
+              Factory<OneSequenceGestureRecognizer>(EagerGestureRecognizer.new),
             },
           ),
           if (_isLoading) const Center(child: CircularProgressIndicator()),
@@ -1210,10 +1205,7 @@ class _PreviewUnavailableCard extends StatelessWidget {
 }
 
 class _InfoChip extends StatelessWidget {
-  const _InfoChip({
-    required this.icon,
-    required this.label,
-  });
+  const _InfoChip({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -1307,10 +1299,7 @@ class _StatusCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
-          FilledButton(
-            onPressed: onPressed,
-            child: Text(actionLabel),
-          ),
+          FilledButton(onPressed: onPressed, child: Text(actionLabel)),
         ],
       ),
     );

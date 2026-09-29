@@ -171,6 +171,11 @@ app.post('/api/send-notification', async (req, res) => {
         if (s === 'approved') notificationTitle = `${label} request approved`;
         else if (s === 'rejected') notificationTitle = `${label} request rejected`;
         else notificationTitle = `${label} request updated`;
+      } else if (notificationType === 'identity_verification_status') {
+        const s = (status || '').toLowerCase();
+        if (s === 'verified') notificationTitle = 'Your identity verification was approved';
+        else if (s === 'rejected') notificationTitle = 'Your identity verification was rejected';
+        else notificationTitle = 'Your identity verification status was updated';
       } else {
         notificationTitle = 'New Announcement';
       }
@@ -198,6 +203,18 @@ app.post('/api/send-notification', async (req, res) => {
         if (s === 'approved') notificationBody = `The admin approved your ${label} request.${schedule}`;
         else if (s === 'rejected') notificationBody = `The admin rejected your ${label} request.${schedule}`;
         else notificationBody = `The admin updated your ${label} request status.${schedule}`;
+      } else if (notificationType === 'identity_verification_status') {
+        const s = (status || '').toLowerCase();
+        if (s === 'verified') {
+          notificationBody = 'Your identity verification has been approved. You can now access all verification-based features.';
+        } else if (s === 'rejected') {
+          const reason = rejectionReason || '';
+          notificationBody = reason
+            ? `Your identity verification was rejected. Reason: ${reason}`
+            : 'Your identity verification was rejected. Please review the requirements and resubmit.';
+        } else {
+          notificationBody = 'Your identity verification status was updated.';
+        }
       } else {
         notificationBody = 'Tap to view the latest news.';
       }
@@ -219,6 +236,12 @@ app.post('/api/send-notification', async (req, res) => {
       dataPayload.applicantName = applicantName || '';
       dataPayload.scheduleLabel = scheduleLabel || '';
       dataPayload.table = table || '';
+      dataPayload.title = notificationTitle;
+      dataPayload.description = notificationBody;
+    } else if (notificationType === 'identity_verification_status') {
+      dataPayload.userId = userId || '';
+      dataPayload.status = status || '';
+      dataPayload.rejectionReason = rejectionReason || '';
       dataPayload.title = notificationTitle;
       dataPayload.description = notificationBody;
     } else {

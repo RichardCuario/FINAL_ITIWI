@@ -1,14 +1,19 @@
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'identity_verification_page.dart';
+import 'verification_service.dart';
 
-class OnlineServicePage extends StatelessWidget {
+class OnlineServicePage extends StatefulWidget {
   const OnlineServicePage({
     super.key,
     this.initialTarget = OnlineServiceTarget.none,
   });
 
   final OnlineServiceTarget initialTarget;
+
+  @override
+  State<OnlineServicePage> createState() => _OnlineServicePageState();
 
   static const List<_OnlineServiceCategory> _categories = [
     _OnlineServiceCategory(
@@ -38,39 +43,11 @@ class OnlineServicePage extends StatelessWidget {
           opensDeathCertificateAppointmentForm: true,
         ),
         OnlineServiceItem(
-          title: 'CENOMAR (Certificate of No Marriage Record)',
-          icon: Icons.verified_user_rounded,
-          iconColor: Color(0xFFFFB300),
-          target: OnlineServiceTarget.cenomar,
-          opensCenomarAppointmentForm: true,
-        ),
-        OnlineServiceItem(
           title: 'CENODEATH (Certificate of No Death)',
           icon: Icons.fact_check_rounded,
           iconColor: Color(0xFF26A69A),
           target: OnlineServiceTarget.cenodeath,
           opensCenodeathAppointmentForm: true,
-        ),
-      ],
-    ),
-    _OnlineServiceCategory(
-      title: 'Facilities',
-      icon: Icons.apartment_rounded,
-      iconColor: Color(0xFF43A047),
-      services: [
-        OnlineServiceItem(
-          title: 'Tiwi Gymnasium',
-          icon: Icons.apartment_rounded,
-          iconColor: Color(0xFF43A047),
-          target: OnlineServiceTarget.tiwiGymnasium,
-          opensBorrowForm: true,
-        ),
-        OnlineServiceItem(
-          title: 'Libjo Facilities',
-          icon: Icons.location_city_rounded,
-          iconColor: Color(0xFF00897B),
-          target: OnlineServiceTarget.libjoFacilities,
-          opensBorrowForm: true,
         ),
       ],
     ),
@@ -173,6 +150,37 @@ class OnlineServicePage extends StatelessWidget {
       SnackBar(content: Text('${item.title} is coming soon.')),
     );
   }
+}
+
+class _OnlineServicePageState extends State<OnlineServicePage> {
+  final _verificationService = VerificationService();
+
+  firebase_auth.User? get _currentUser =>
+      firebase_auth.FirebaseAuth.instance.currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkVerificationAndNavigate();
+  }
+
+  Future<void> _checkVerificationAndNavigate() async {
+    if (_currentUser == null) return;
+    
+    final isVerified = await _verificationService.isUserVerified();
+    if (!isVerified && mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => IdentityVerificationPage(
+            onBack: () {
+              Navigator.pop(context);
+            },
+          ),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -238,12 +246,13 @@ class OnlineServicePage extends StatelessWidget {
                 Expanded(
                   child: ListView.separated(
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-                    itemCount: _categories.length,
+                    itemCount: OnlineServicePage._categories.length,
                     separatorBuilder: (context, index) =>
                         const SizedBox(height: 14),
                     itemBuilder: (context, index) {
-                      final category = _categories[index];
-                      return _OnlineServiceCategoryCard(category: category);
+                      final category = OnlineServicePage._categories[index];
+                      return _OnlineServiceCategoryCard(
+                          category: category);
                     },
                   ),
                 ),

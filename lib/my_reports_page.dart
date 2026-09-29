@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'content_cache_service.dart';
 import 'shared_widgets.dart';
+import 'identity_verification_page.dart';
+import 'verification_service.dart';
 
 class MyReportsPage extends StatefulWidget {
   final VoidCallback? onBack;
@@ -17,7 +19,9 @@ class MyReportsPage extends StatefulWidget {
 class _MyReportsPageState extends State<MyReportsPage> {
   final _supabase = Supabase.instance.client;
   final _cacheService = const ContentCacheService();
+  final _verificationService = VerificationService();
   late Future<List<Map<String, dynamic>>> _reportsFuture;
+  late Future<bool> _isVerifiedFuture;
   List<Map<String, dynamic>> _reports = const [];
   bool _isMutatingReport = false;
 
@@ -28,6 +32,12 @@ class _MyReportsPageState extends State<MyReportsPage> {
   void initState() {
     super.initState();
     _reportsFuture = _loadReports();
+    _isVerifiedFuture = _checkVerification();
+  }
+
+  Future<bool> _checkVerification() async {
+    if (_currentUser == null) return false;
+    return await _verificationService.isUserVerified();
   }
 
   void _refreshReports() {
@@ -934,7 +944,105 @@ class _MyReportsPageState extends State<MyReportsPage> {
                         );
                       }
 
-                      return RefreshIndicator(
+                      return FutureBuilder<bool>(
+                        future: _isVerifiedFuture,
+                        builder: (context, verificationSnapshot) {
+                          if (verificationSnapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+
+                          final isVerified = verificationSnapshot.data ?? false;
+
+                          if (!isVerified) {
+                            return Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 80,
+                                      height: 80,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF0066CC)
+                                            .withValues(alpha: 0.1),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.verified_user,
+                                        size: 40,
+                                        color: Color(0xFF0066CC),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    Text(
+                                      'Identity Verification Required',
+                                      style: TextStyle(
+                                        color: titleColor,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      'Please verify your identity to access reports.',
+                                      style: TextStyle(
+                                        color: subtitleColor,
+                                        fontSize: 14,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 32),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                IdentityVerificationPage(
+                                              onBack: () {
+                                                setState(() {
+                                                  _isVerifiedFuture =
+                                                      _checkVerification();
+                                                });
+                                                Navigator.pop(context);
+                                              },
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            const Color(0xFF0066CC),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 32,
+                                          vertical: 16,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'Verify Identity',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
+
+                          return RefreshIndicator(
                         onRefresh: () async {
                           _refreshReports();
                           await _reportsFuture;
@@ -1419,14 +1527,16 @@ class _MyReportsPageState extends State<MyReportsPage> {
                         ),
                       );
                     },
-                  ),
-                ),
-              ],
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    );
+    ],
+  ),
+);
   }
 }
 

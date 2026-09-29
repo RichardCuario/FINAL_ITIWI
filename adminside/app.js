@@ -71,6 +71,10 @@ async function checkAuthentication() {
 }
 
 function updateUserProfile(user) {
+  const accessSession = resolveAdminSession(user);
+  localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, JSON.stringify(accessSession));
+  applyAdminNavigationPermissions(user);
+
   const userNameElement = document.querySelector('.user-name-sidebar');
   if (userNameElement && user?.email) {
     const name = user.user_metadata?.full_name || user.email.split('@')[0];
@@ -79,8 +83,8 @@ function updateUserProfile(user) {
 
   // Update sidebar role
   const userRoleElement = document.querySelector('.user-role-sidebar');
-  if (userRoleElement && user?.user_metadata?.role) {
-    userRoleElement.textContent = user.user_metadata.role;
+  if (userRoleElement) {
+    userRoleElement.textContent = accessSession.roleName || 'Administrator';
   }
 
   // Update sidebar avatar with initials
@@ -110,10 +114,8 @@ function updateUserProfile(user) {
     headerUserName.textContent = fullName;
   }
 
-  if (headerUserRole && user?.user_metadata?.role) {
-    headerUserRole.textContent = user.user_metadata.role;
-  } else if (headerUserRole) {
-    headerUserRole.textContent = 'Administrator';
+  if (headerUserRole) {
+    headerUserRole.textContent = accessSession.roleName || 'Administrator';
   }
 
   // Update avatar with initials
@@ -513,6 +515,145 @@ let deleteTarget = null;
 let deleteType = null;
 
 const ITEMS_PER_PAGE = 10;
+const FEATURE_TO_PAGE_MAP = {
+  barangay: 'barangay',
+  news: 'news',
+  reports: 'reports',
+  transparency: 'transparency',
+  tourist: 'tourist',
+  services: 'services',
+  hotline: 'hotline'
+};
+const ALL_ADMIN_PAGES = ['dashboard', ...Object.values(FEATURE_TO_PAGE_MAP), 'users', 'manage-admin'];
+const ADMIN_ROLE_STORAGE_KEY = 'itiwi_admin_roles';
+const ADMIN_SESSION_STORAGE_KEY = 'itiwi_admin_session';
+
+function resolvePageId(page) {
+  if (!page) return null;
+  const directId = `${page}Page`;
+  if (document.getElementById(directId)) return directId;
+  const camel = page.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+  const camelId = `${camel}Page`;
+  return document.getElementById(camelId) ? camelId : directId;
+}
+
+function getAdminRoles() {
+  try {
+    const raw = localStorage.getItem(ADMIN_ROLE_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.warn('Failed to parse admin roles from storage:', error);
+    return [];
+  }
+}
+
+function saveAdminRoles(roles) {
+  localStorage.setItem(ADMIN_ROLE_STORAGE_KEY, JSON.stringify(roles));
+}
+
+function getCurrentAdminSession() {
+  try {
+    const raw = localStorage.getItem(ADMIN_SESSION_STORAGE_KEY);
+    if (!raw) return { isSuperAdmin: false, permissions: ['dashboard'], roleName: 'Administrator' };
+    const parsed = JSON.parse(raw);
+    return {
+      isSuperAdmin: Boolean(parsed?.isSuperAdmin),
+      permissions: Array.isArray(parsed?.permissions) ? parsed.permissions : ['dashboard'],
+      roleName: parsed?.roleName || 'Administrator'
+    };
+  } catch (error) {
+    return { isSuperAdmin: false, permissions: ['dashboard'], roleName: 'Administrator' };
+  }
+}
+
+function resolveAdminSession(user) {
+  const email = String(user?.email || '').toLowerCase();
+  const assignedRoles = getAdminRoles();
+  const matchingRole = assignedRoles.find(role => (role.assignedEmail || '').toLowerCase() === email);
+  const metadataRole = String(user?.user_metadata?.role || '').toLowerCase();
+
+  if (matchingRole?.isSuperAdmin || metadataRole.includes('super')) {
+    return {
+      isSuperAdmin: true,
+      permissions: ADMIN_FEATURES.map(feature => feature.value),
+      roleName: matchingRole?.roleName || 'Super Admin'
+    };
+  }
+
+  if (matchingRole) {
+    return {
+      isSuperAdmin: false,
+      permissions: Array.isArray(matchingRole.permissions) && matchingRole.permissions.length > 0
+        ? matchingRole.permissions
+        : buildPermissionSet(matchingRole.feature || matchingRole.permission),
+      roleName: matchingRole.roleName || 'Admin'
+    };
+  }
+
+  const fallbackRole = String(user?.user_metadata?.role || '').trim();
+  if (fallbackRole && fallbackRole.toLowerCase().includes('admin')) {
+    return {
+      isSuperAdmin: false,
+      permissions: ['dashboard'],
+      roleName: fallbackRole
+    };
+  }
+
+  return {
+    isSuperAdmin: false,
+    permissions: ['dashboard'],
+    roleName: 'Administrator'
+  };
+}
+
+function getAllowedPagesForSession(session) {
+  const allowed = new Set(['dashboard']);
+  if (!session || !session.permissions) return allowed;
+
+  if (session.isSuperAdmin) {
+    ALL_ADMIN_PAGES.forEach(page => allowed.add(page));
+    return allowed;
+  }
+
+  Object.entries(FEATURE_TO_PAGE_MAP).forEach(([feature, page]) => {
+    if (session.permissions.includes(feature)) {
+      allowed.add(page);
+    }
+  });
+
+  return allowed;
+}
+
+function canAccessPage(page) {
+  const session = getCurrentAdminSession();
+  if (page === 'dashboard') return true;
+  if (page === 'users') return Boolean(session.isSuperAdmin);
+  if (page === 'manage-admin') return Boolean(session.isSuperAdmin);
+
+  const allowedPages = getAllowedPagesForSession(session);
+  return allowedPages.has(page);
+}
+
+function applyAdminNavigationPermissions(user = null) {
+  const session = user ? resolveAdminSession(user) : getCurrentAdminSession();
+  localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, JSON.stringify(session));
+
+  const allowedPages = getAllowedPagesForSession(session);
+  document.querySelectorAll('.nav-item').forEach(item => {
+    const page = item.dataset.page;
+    const isVisible = allowedPages.has(page) || page === 'dashboard';
+    item.style.display = isVisible ? '' : 'none';
+  });
+
+  if (currentPage && !allowedPages.has(currentPage) && currentPage !== 'dashboard') {
+    const fallbackPage = 'dashboard';
+    if (canAccessPage(fallbackPage)) {
+      navigateTo(fallbackPage);
+    }
+  }
+}
 
 // Pagination state for each page
 const paginationState = {
@@ -589,7 +730,11 @@ document.addEventListener('DOMContentLoaded', () => {
   setupLogoutButton();
   setupRealtimeListeners();
 
-  // Restore the last visited page
+  const defaultRoleCount = getAdminRoles().length;
+  if (defaultRoleCount === 0) {
+    saveAdminRoles([]);
+  }
+
   const lastPage = localStorage.getItem('lastVisitedPage') || 'dashboard';
   navigateTo(lastPage);
 });
@@ -608,6 +753,18 @@ function setupNavigation() {
 }
 
 function navigateTo(page) {
+  if (!page) return;
+  const session = getCurrentAdminSession();
+  if (!canAccessPage(page)) {
+    showToast('You do not have access to this section.', 'error');
+    const fallbackPage = canAccessPage('dashboard') ? 'dashboard' : ALL_ADMIN_PAGES.find(item => canAccessPage(item)) || 'dashboard';
+    if (fallbackPage && fallbackPage !== page) {
+      page = fallbackPage;
+    } else {
+      return;
+    }
+  }
+
   currentPage = page;
 
   // Save current page to localStorage for persistence on refresh
@@ -618,7 +775,8 @@ function navigateTo(page) {
   });
 
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  const targetPage = document.getElementById(page + 'Page');
+  const targetPageId = resolvePageId(page);
+  const targetPage = targetPageId ? document.getElementById(targetPageId) : null;
   if (targetPage) {
     targetPage.classList.add('active');
   }
@@ -643,6 +801,8 @@ function navigateTo(page) {
     loadHotline();
   } else if (page === 'users') {
     loadUsers();
+  } else if (page === 'manage-admin') {
+    loadManageAdmin();
   }
 
   document.getElementById('sidebar').classList.remove('open');
@@ -720,6 +880,13 @@ function setupSidebarCollapse() {
   }
 
   const toggleSidebar = () => {
+    if (window.innerWidth <= 768) {
+      sidebar.classList.remove('open');
+      document.getElementById('sidebarOverlay')?.classList.remove('active');
+      body.style.overflow = '';
+      return;
+    }
+
     sidebar.classList.toggle('collapsed');
     body.classList.toggle('sidebar-collapsed');
     const collapsed = sidebar.classList.contains('collapsed');
@@ -2794,6 +2961,49 @@ async function sendNewsPushNotification(payload) {
     console.log('News push notification sent:', result);
   } catch (error) {
     console.error('Error sending news push notification:', error);
+  }
+}
+
+async function sendVerificationStatusPushNotification({ userId, status, rejectionReason = '' }) {
+  if (!userId) return;
+
+  try {
+    const normalizedStatus = String(status || '').toLowerCase();
+    const topic = `identity_verification_user_${userId}`;
+    const payload = {
+      topic,
+      type: 'identity_verification_status',
+      status: normalizedStatus,
+      userId,
+      rejectionReason,
+      title: normalizedStatus === 'verified'
+        ? 'Your identity verification was approved'
+        : 'Your identity verification was rejected',
+      description: normalizedStatus === 'verified'
+        ? 'Your identity verification has been approved. You can now access all verification-based features.'
+        : (rejectionReason
+          ? `Your identity verification was rejected. Reason: ${rejectionReason}`
+          : 'Your identity verification was rejected. Please review the requirements and resubmit.'),
+    };
+
+    const response = await fetch('/api/send-notification', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Failed to send verification status push:', response.status, errorText);
+      return;
+    }
+
+    const result = await response.json();
+    console.log('Verification status push notification sent:', result);
+  } catch (error) {
+    console.error('Error sending verification status push notification:', error);
   }
 }
 
@@ -5553,8 +5763,17 @@ function setupSearchListeners() {
   const usersSearch = document.getElementById('usersSearch');
   if (usersSearch) {
     usersSearch.addEventListener('input', debounce(() => {
+      paginationState.users.current = 1;
       filterUsers();
     }, 300));
+  }
+
+  const usersVerificationFilter = document.getElementById('usersVerificationFilter');
+  if (usersVerificationFilter) {
+    usersVerificationFilter.addEventListener('change', () => {
+      paginationState.users.current = 1;
+      filterUsers();
+    });
   }
 }
 
@@ -6029,6 +6248,38 @@ function closePlaceReviewsModal() {
 // ============================================================
 let allUsers = [];
 
+async function syncUsersFromFirebase() {
+  const syncEndpoint = window.location.protocol === 'file:'
+    ? 'http://localhost:5000/api/sync-users'
+    : '/api/sync-users';
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  const accessToken = sessionData?.session?.access_token;
+  if (!accessToken) {
+    throw new Error('Admin session is not available for user synchronization.');
+  }
+
+  const response = await fetch(syncEndpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`
+    }
+  });
+
+  let result = null;
+  try {
+    result = await response.json();
+  } catch {
+    result = null;
+  }
+
+  if (!response.ok || !result?.success) {
+    throw new Error(result?.error || `Sync failed with status ${response.status}`);
+  }
+
+  return result;
+}
+
 async function loadUsers() {
   const tbody = document.getElementById('usersTableBody');
   if (!tbody) return;
@@ -6040,18 +6291,247 @@ async function loadUsers() {
   }
 
   try {
+    try {
+      const syncResult = await syncUsersFromFirebase();
+      console.log(`Synced ${syncResult.usersSynced || 0} Firebase users before loading Manage Users.`);
+    } catch (syncError) {
+      console.warn('Firebase user sync unavailable; loading existing Supabase users:', syncError);
+      showToast(
+        'Firebase sync failed. Start the backend or open the deployed admin dashboard to load all users.',
+        'warning'
+      );
+    }
+
     const { data, error } = await supabaseClient
       .from('users')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(0, 9999);
 
     if (error) throw error;
-    allUsers = data || [];
+
+    const userIds = (data || []).map(user => user.id).filter(Boolean);
+    let verificationMap = {};
+
+    if (userIds.length > 0) {
+      const { data: verificationData, error: verificationError } = await supabaseClient
+        .from('identity_verification')
+        .select('user_id, verification_status')
+        .in('user_id', userIds);
+
+      if (verificationError) throw verificationError;
+
+      (verificationData || []).forEach(item => {
+        verificationMap[item.user_id] = item.verification_status || 'pending';
+      });
+    }
+
+    allUsers = (data || []).map(user => ({
+      ...user,
+      verification_status: verificationMap[user.id] || 'not_submitted'
+    }));
+
     renderUsersTable(allUsers);
   } catch (error) {
     console.error('Error loading users:', error);
     showToast('Failed to load users from database: ' + error.message, 'error');
   }
+}
+
+function getVerificationBadgeClass(status) {
+  if (status === 'verified') return 'status-verified';
+  if (status === 'pending') return 'status-pending';
+  if (status === 'rejected') return 'status-rejected';
+  return 'status-not-submitted';
+}
+
+function getVerificationBadgeText(status) {
+  if (status === 'verified') return 'Verified';
+  if (status === 'pending') return 'Pending';
+  if (status === 'rejected') return 'Rejected';
+  return 'Not Submitted';
+}
+
+function isRlsPolicyError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return Boolean(
+    error && (
+      error.code === '42501' ||
+      message.includes('row level security') ||
+      message.includes('policy') ||
+      message.includes('permission denied')
+    )
+  );
+}
+
+function populateAdminRoleFeatureOptions() {
+  const select = document.getElementById('adminRoleFeature');
+  if (!select) return;
+
+  select.innerHTML = '<option value="">Select a feature</option>' +
+    ADMIN_FEATURES.map(feature => `<option value="${feature.value}">${feature.label}</option>`).join('');
+}
+
+function populateAdminRoleUserOptions() {
+  const select = document.getElementById('adminRoleUserSelect');
+  if (!select) return;
+
+  const userOptions = [{ email: '', label: 'No user assignment' }].concat(
+    allUsers
+      .filter(user => user?.email)
+      .map(user => ({ email: user.email, label: `${user.display_name || user.user_metadata?.full_name || user.email} (${user.email})` }))
+  );
+
+  select.innerHTML = userOptions.map(option => {
+    const value = option.email || '';
+    const label = option.label || 'No user assignment';
+    return `<option value="${value}">${label}</option>`;
+  }).join('');
+}
+
+function loadManageAdmin() {
+  populateAdminRoleFeatureOptions();
+  if (allUsers.length === 0 && supabaseClient) {
+    loadUsers();
+  }
+  populateAdminRoleUserOptions();
+  renderAdminRoles();
+}
+
+function renderAdminRoles() {
+  const list = document.getElementById('adminRoleList');
+  if (!list) return;
+
+  const roles = getAdminRoles();
+  if (!roles.length) {
+    list.innerHTML = '<p class="empty-state">No admin roles created yet.</p>';
+    return;
+  }
+
+  list.innerHTML = roles.map(role => {
+    const permissions = Array.isArray(role.permissions) && role.permissions.length > 0
+      ? role.permissions
+      : buildPermissionSet(role.feature || role.permission || '');
+    const accessLabels = permissions.length
+      ? permissions.map(value => ADMIN_FEATURES.find(feature => feature.value === value)?.label || value).join(', ')
+      : 'No feature access';
+
+    return `
+      <div class="admin-role-item">
+        <div class="admin-role-header">
+          <div>
+            <h3>${escapeHtml(role.roleName || 'Unnamed Role')}</h3>
+            <div class="admin-role-meta">
+              <span class="admin-role-tag ${role.isSuperAdmin ? 'super' : ''}">${role.isSuperAdmin ? 'Super Admin' : 'Feature Access'}</span>
+              ${role.assignedEmail ? `<span class="admin-role-email">${escapeHtml(role.assignedEmail)}</span>` : '<span class="admin-role-email">Unassigned</span>'}
+            </div>
+          </div>
+          <button class="btn btn-sm btn-delete" onclick="deleteAdminRole('${role.id}')">
+            <i class="fa-solid fa-trash"></i>
+            Remove
+          </button>
+        </div>
+        <p class="admin-role-access"><strong>Access:</strong> ${escapeHtml(accessLabels)}</p>
+      </div>
+    `;
+  }).join('');
+}
+
+async function createAdminRole() {
+  const email = document.getElementById('adminRoleEmail')?.value.trim();
+  const password = document.getElementById('adminRolePassword')?.value || '';
+  const roleName = document.getElementById('adminRoleName')?.value.trim();
+  const selectedFeature = document.getElementById('adminRoleFeature')?.value || '';
+  const selectedUserEmail = document.getElementById('adminRoleUserSelect')?.value || '';
+  const isSuperAdmin = document.getElementById('adminRoleIsSuperAdmin')?.checked || false;
+
+  if (!email) {
+    showToast('Please enter an admin email.', 'error');
+    return;
+  }
+
+  if (!password || password.length < 8) {
+    showToast('Password must be at least 8 characters long.', 'error');
+    return;
+  }
+
+  if (!roleName) {
+    showToast('Please enter a role name.', 'error');
+    return;
+  }
+
+  if (!isSuperAdmin && !selectedFeature) {
+    showToast('Please select a feature for this admin role.', 'error');
+    return;
+  }
+
+  if (!supabaseClient) {
+    showToast('Supabase is not available. Please refresh the page.', 'error');
+    return;
+  }
+
+  try {
+    const payload = buildAdminAccountCreationPayload({
+      email,
+      password,
+      roleName,
+      feature: selectedFeature,
+      isSuperAdmin
+    });
+
+    const { data, error } = await supabaseClient.auth.signUp(payload);
+    if (error) {
+      throw error;
+    }
+
+    const assignedEmail = data?.user?.email || email;
+    const newRole = {
+      id: `role_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      roleName,
+      feature: isSuperAdmin ? 'all' : selectedFeature,
+      permissions: isSuperAdmin ? ADMIN_FEATURES.map(item => item.value) : buildPermissionSet(selectedFeature),
+      isSuperAdmin,
+      assignedEmail: selectedUserEmail || assignedEmail,
+      createdAt: new Date().toISOString(),
+      authUserId: data?.user?.id || null
+    };
+
+    const roles = getAdminRoles();
+    const existingIndex = roles.findIndex(role => role.roleName.toLowerCase() === roleName.toLowerCase() && role.feature === newRole.feature);
+    if (existingIndex >= 0) {
+      showToast('A role with that name and feature already exists.', 'error');
+      return;
+    }
+
+    roles.push(newRole);
+    saveAdminRoles(roles);
+
+    document.getElementById('adminRoleEmail').value = '';
+    document.getElementById('adminRolePassword').value = '';
+    document.getElementById('adminRoleName').value = '';
+    document.getElementById('adminRoleFeature').value = '';
+    document.getElementById('adminRoleUserSelect').value = '';
+    document.getElementById('adminRoleIsSuperAdmin').checked = false;
+    renderAdminRoles();
+    showToast('Admin account created successfully. Email confirmation may be required.', 'success');
+  } catch (error) {
+    console.error('Create admin role error:', error);
+    showToast(error?.message || 'Failed to create admin account.', 'error');
+  }
+}
+
+function deleteAdminRole(roleId) {
+  const roles = getAdminRoles();
+  const role = roles.find(item => item.id === roleId);
+  if (!role) return;
+
+  const confirmed = window.confirm(`Delete the role "${role.roleName}"?`);
+  if (!confirmed) return;
+
+  const updatedRoles = roles.filter(item => item.id !== roleId);
+  saveAdminRoles(updatedRoles);
+  renderAdminRoles();
+  showToast('Admin role removed.', 'success');
 }
 
 function renderUsersTable(usersData) {
@@ -6097,6 +6577,12 @@ function renderUsersTable(usersData) {
     tdAddress.textContent = u.address || u.user_metadata?.address || 'N/A';
     tdAddress.style.fontSize = '13px';
 
+    const tdVerification = document.createElement('td');
+    const statusBadge = document.createElement('span');
+    statusBadge.className = `status-badge ${getVerificationBadgeClass(u.verification_status)}`;
+    statusBadge.textContent = getVerificationBadgeText(u.verification_status);
+    tdVerification.appendChild(statusBadge);
+
     const tdCreated = document.createElement('td');
     tdCreated.textContent = formatDate(u.created_at);
     tdCreated.style.fontSize = '13px';
@@ -6105,11 +6591,25 @@ function renderUsersTable(usersData) {
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'action-btns';
 
+    const reviewBtn = document.createElement('button');
+    reviewBtn.className = 'btn btn-sm btn-info btn-icon';
+    reviewBtn.title = 'Review ID';
+    reviewBtn.innerHTML = '<i class="fa-solid fa-id-card"></i>';
+    reviewBtn.addEventListener('click', () => openReviewUserModal(u.id, u));
+
     const editBtn = document.createElement('button');
     editBtn.className = 'btn btn-sm btn-edit btn-icon';
     editBtn.title = 'Edit';
     editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
     editBtn.addEventListener('click', () => openEditUserModal(u.id, u));
+
+    const blockBtn = document.createElement('button');
+    blockBtn.className = `btn btn-sm btn-icon ${u.is_active === false ? 'btn-info' : 'btn-delete'}`;
+    blockBtn.title = u.is_active === false ? 'Unblock user' : 'Block user';
+    blockBtn.innerHTML = u.is_active === false
+      ? '<i class="fa-solid fa-unlock"></i>'
+      : '<i class="fa-solid fa-user-slash"></i>';
+    blockBtn.addEventListener('click', () => toggleUserActiveState(u));
 
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'btn btn-sm btn-delete btn-icon';
@@ -6117,7 +6617,9 @@ function renderUsersTable(usersData) {
     deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
     deleteBtn.addEventListener('click', () => openDeleteUser(u.id, u.email || 'User'));
 
+    actionsDiv.appendChild(reviewBtn);
     actionsDiv.appendChild(editBtn);
+    actionsDiv.appendChild(blockBtn);
     actionsDiv.appendChild(deleteBtn);
     tdActions.appendChild(actionsDiv);
 
@@ -6125,6 +6627,7 @@ function renderUsersTable(usersData) {
     tr.appendChild(tdFullName);
     tr.appendChild(tdPhone);
     tr.appendChild(tdAddress);
+    tr.appendChild(tdVerification);
     tr.appendChild(tdCreated);
     tr.appendChild(tdActions);
 
@@ -6132,6 +6635,369 @@ function renderUsersTable(usersData) {
   });
 
   renderUsersPagination(totalItems);
+}
+
+async function toggleUserActiveState(user) {
+  const isBlocked = user.is_active === false;
+  const action = isBlocked ? 'unblock' : 'block';
+  const modal = document.getElementById('userAccessModal');
+  const title = document.getElementById('userAccessModalTitle');
+  const message = document.getElementById('userAccessMessage');
+  const email = document.getElementById('userAccessEmail');
+  const icon = document.getElementById('userAccessConfirmIcon');
+  const button = document.getElementById('userAccessConfirmBtn');
+
+  if (!modal || !title || !message || !email || !icon || !button) return;
+
+  window.pendingUserAccessChange = { user, isBlocked };
+  title.textContent = isBlocked ? 'Unblock User' : 'Block User';
+  message.textContent = isBlocked
+    ? 'This user will regain access to the application.'
+    : 'This user will no longer be able to access the application.';
+  email.textContent = user.email || 'Selected user';
+  icon.classList.toggle('is-unblocking', isBlocked);
+  icon.innerHTML = isBlocked
+    ? '<i class="fa-solid fa-user-check"></i>'
+    : '<i class="fa-solid fa-user-slash"></i>';
+  button.className = `btn ${isBlocked ? 'btn-primary' : 'btn-danger'}`;
+  button.innerHTML = isBlocked
+    ? '<i class="fa-solid fa-user-check"></i> Unblock User'
+    : '<i class="fa-solid fa-user-slash"></i> Block User';
+  modal.classList.add('active');
+}
+
+function closeUserAccessModal() {
+  document.getElementById('userAccessModal')?.classList.remove('active');
+  window.pendingUserAccessChange = null;
+}
+
+async function confirmUserAccessChange() {
+  const pending = window.pendingUserAccessChange;
+  if (!pending) return;
+
+  const { user, isBlocked } = pending;
+  const action = isBlocked ? 'unblock' : 'block';
+  const button = document.getElementById('userAccessConfirmBtn');
+  if (button) {
+    button.disabled = true;
+    button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+  }
+
+  try {
+    const { error } = await supabaseClient
+      .from('users')
+      .update({ is_active: isBlocked })
+      .eq('id', user.id);
+
+    if (error) throw error;
+
+    showToast(`User ${isBlocked ? 'unblocked' : 'blocked'} successfully.`, 'success');
+    closeUserAccessModal();
+    await loadUsers();
+  } catch (error) {
+    console.error(`Error trying to ${action} user:`, error);
+    showToast(`Failed to ${action} user: ${error.message}`, 'error');
+    if (button) {
+      button.disabled = false;
+      button.innerHTML = isBlocked
+        ? '<i class="fa-solid fa-user-check"></i> Unblock User'
+        : '<i class="fa-solid fa-user-slash"></i> Block User';
+    }
+  }
+}
+
+async function openReviewUserModal(userId, userData) {
+  const reviewModal = document.getElementById('reviewUserModal');
+  const reviewUserName = document.getElementById('reviewUserName');
+  const reviewUserEmail = document.getElementById('reviewUserEmail');
+  const reviewUserStatus = document.getElementById('reviewUserStatus');
+  const reviewSubmittedAt = document.getElementById('reviewSubmittedAt');
+  const reviewFullName = document.getElementById('reviewFullName');
+  const reviewIdType = document.getElementById('reviewIdType');
+  const reviewIdNumber = document.getElementById('reviewIdNumber');
+  const reviewDob = document.getElementById('reviewDob');
+  const reviewVerificationReason = document.getElementById('reviewVerificationReason');
+
+  if (!reviewModal || !reviewUserName || !reviewUserEmail || !reviewUserStatus) return;
+
+  const record = userData || allUsers.find(u => u.id === userId) || {};
+  const userName = record.display_name || record.user_metadata?.full_name || 'Unknown User';
+  const userEmail = record.email || 'N/A';
+
+  document.getElementById('reviewUserId').value = userId;
+  reviewUserName.textContent = userName;
+  reviewUserEmail.textContent = userEmail;
+  reviewUserStatus.textContent = 'Pending';
+  reviewUserStatus.className = 'status-badge status-pending';
+  reviewSubmittedAt.textContent = '—';
+  reviewFullName.textContent = '—';
+  reviewIdType.textContent = '—';
+  reviewIdNumber.textContent = '—';
+  reviewDob.textContent = '—';
+  reviewVerificationReason.value = '';
+
+  const frontPreview = document.getElementById('reviewIdFrontPreview');
+  const backPreview = document.getElementById('reviewIdBackPreview');
+  const selfiePreview = document.getElementById('reviewSelfiePreview');
+  frontPreview.innerHTML = '<div class="verification-preview-empty">No image</div>';
+  backPreview.innerHTML = '<div class="verification-preview-empty">No image</div>';
+  selfiePreview.innerHTML = '<div class="verification-preview-empty">No image</div>';
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('identity_verification')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!data) {
+      reviewUserStatus.textContent = 'Not Submitted';
+      reviewUserStatus.className = 'status-badge status-not-submitted';
+      showToast('No identity verification record found for this user.', 'warning');
+      reviewModal.classList.add('active');
+      return;
+    }
+
+    const status = data.verification_status || 'pending';
+    reviewUserStatus.textContent = getVerificationBadgeText(status);
+    reviewUserStatus.className = `status-badge ${getVerificationBadgeClass(status)}`;
+    reviewSubmittedAt.textContent = data.submitted_at ? formatDate(data.submitted_at) : '—';
+    reviewFullName.textContent = data.full_name || '—';
+    reviewIdType.textContent = data.id_type || '—';
+    reviewIdNumber.textContent = data.id_number || '—';
+    reviewDob.textContent = data.date_of_birth ? formatDate(data.date_of_birth) : '—';
+    reviewVerificationReason.value = data.rejection_reason || '';
+
+    const setPreview = (container, imageUrl, label) => {
+      if (!imageUrl) {
+        container.innerHTML = '<div class="verification-preview-empty">No image</div>';
+        return;
+      }
+
+      const img = document.createElement('img');
+      img.src = imageUrl;
+      img.alt = label;
+      img.classList.add('verification-preview-image');
+      img.tabIndex = 0;
+      img.title = 'Click to view full size';
+      const openImage = () => openImageLightbox(imageUrl, label);
+      img.addEventListener('click', openImage);
+      img.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openImage();
+        }
+      });
+      img.onerror = () => {
+        container.innerHTML = '<div class="verification-preview-empty">Image unavailable</div>';
+      };
+      container.innerHTML = '';
+      container.appendChild(img);
+    };
+
+    const storageFallback = await getUserIdentityStorageUrls(userId);
+    const frontUrl = data.id_front_photo_url || storageFallback.front;
+    const backUrl = data.id_back_photo_url || storageFallback.back;
+    const selfieUrl = data.selfie_photo_url || storageFallback.selfie;
+
+    setPreview(frontPreview, frontUrl, 'Front ID');
+    setPreview(backPreview, backUrl, 'Back ID');
+    setPreview(selfiePreview, selfieUrl, 'Selfie');
+  } catch (error) {
+    console.error('Error loading identity verification:', error);
+    showToast('Failed to load verification record: ' + error.message, 'error');
+  }
+
+  reviewModal.classList.add('active');
+}
+
+function openImageLightbox(imageUrl, label = 'Verification image') {
+  const lightbox = document.getElementById('imageLightbox');
+  const lightboxImage = document.getElementById('imageLightboxImage');
+  if (!lightbox || !lightboxImage || !imageUrl) return;
+
+  lightboxImage.src = imageUrl;
+  lightboxImage.alt = label;
+  lightbox.classList.add('active');
+  document.body.classList.add('image-lightbox-open');
+}
+
+function closeImageLightbox() {
+  const lightbox = document.getElementById('imageLightbox');
+  const lightboxImage = document.getElementById('imageLightboxImage');
+  if (!lightbox || !lightboxImage) return;
+
+  lightbox.classList.remove('active');
+  lightboxImage.removeAttribute('src');
+  document.body.classList.remove('image-lightbox-open');
+}
+
+document.getElementById('imageLightbox')?.addEventListener('click', (event) => {
+  if (event.target.id === 'imageLightbox') closeImageLightbox();
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeImageLightbox();
+});
+
+async function getUserIdentityStorageUrls(userId) {
+  if (!supabaseClient || !userId) return { front: null, back: null, selfie: null };
+
+  try {
+    const { data: files, error } = await supabaseClient
+      .storage
+      .from('identity-uploads')
+      .list(userId, { limit: 50, offset: 0 });
+
+    if (error || !files || !Array.isArray(files)) {
+      return { front: null, back: null, selfie: null };
+    }
+
+    const item = (name) => {
+      const match = files.find(file => file.name && file.name.toLowerCase().includes(name));
+      return match ? `${userId}/${match.name}` : null;
+    };
+
+    const frontPath = item('id_front');
+    const backPath = item('id_back');
+    const selfiePath = item('selfie');
+
+    const toSignedUrl = async (storagePath) => {
+      if (!storagePath) return null;
+      const { data, error: signedError } = await supabaseClient.storage
+        .from('identity-uploads')
+        .createSignedUrl(storagePath, 60 * 60 * 24);
+
+      if (signedError || !data?.signedUrl) return null;
+      return data.signedUrl;
+    };
+
+    return {
+      front: await toSignedUrl(frontPath),
+      back: await toSignedUrl(backPath),
+      selfie: await toSignedUrl(selfiePath)
+    };
+  } catch (error) {
+    console.warn('Could not load identity image URLs from storage:', error);
+    return { front: null, back: null, selfie: null };
+  }
+}
+
+function closeReviewUserModal() {
+  const reviewModal = document.getElementById('reviewUserModal');
+  if (reviewModal) {
+    reviewModal.classList.remove('active');
+  }
+}
+
+async function approveUserVerification() {
+  const userId = document.getElementById('reviewUserId').value;
+  if (!userId) {
+    showToast('No user selected', 'error');
+    return;
+  }
+
+  try {
+    const timestamp = new Date().toISOString();
+    const { error: verificationError } = await supabaseClient
+      .from('identity_verification')
+      .update({
+        verification_status: 'verified',
+        rejection_reason: null,
+        verified_at: timestamp,
+        updated_at: timestamp
+      })
+      .eq('user_id', userId);
+
+    if (verificationError) throw verificationError;
+
+    const { error: userError } = await supabaseClient
+      .from('users')
+      .update({
+        is_verified: true,
+        verification_completed_at: timestamp
+      })
+      .eq('id', userId);
+
+    if (userError) throw userError;
+
+    await sendVerificationStatusPushNotification({
+      userId,
+      status: 'verified',
+      rejectionReason: ''
+    });
+
+    showToast('User identity approved successfully!', 'success');
+    addNotification('Identity Approved', 'User verification has been approved and unlocked features are now available.', 'success');
+    closeReviewUserModal();
+    loadUsers();
+  } catch (error) {
+    console.error('Error approving user verification:', error);
+    if (isRlsPolicyError(error)) {
+      showToast('Approval blocked by Supabase RLS. Run the SQL fix in supabase/fix_identity_verification_rls.sql, then retry.', 'error');
+    } else {
+      showToast('Failed to approve user: ' + error.message, 'error');
+    }
+  }
+}
+
+async function rejectUserVerification() {
+  const userId = document.getElementById('reviewUserId').value;
+  const rejectionReason = document.getElementById('reviewVerificationReason').value.trim();
+
+  if (!userId) {
+    showToast('No user selected', 'error');
+    return;
+  }
+
+  if (!rejectionReason) {
+    showToast('Please provide a rejection reason before rejecting this ID.', 'error');
+    return;
+  }
+
+  try {
+    const timestamp = new Date().toISOString();
+    const { error: verificationError } = await supabaseClient
+      .from('identity_verification')
+      .update({
+        verification_status: 'rejected',
+        rejection_reason: rejectionReason,
+        updated_at: timestamp
+      })
+      .eq('user_id', userId);
+
+    if (verificationError) throw verificationError;
+
+    const { error: userError } = await supabaseClient
+      .from('users')
+      .update({
+        is_verified: false,
+        verification_completed_at: null
+      })
+      .eq('id', userId);
+
+    if (userError) throw userError;
+
+    await sendVerificationStatusPushNotification({
+      userId,
+      status: 'rejected',
+      rejectionReason
+    });
+
+    showToast('User verification rejected.', 'warning');
+    addNotification('Identity Rejected', `User verification was rejected: ${rejectionReason}`, 'warning');
+    closeReviewUserModal();
+    loadUsers();
+  } catch (error) {
+    console.error('Error rejecting user verification:', error);
+    if (isRlsPolicyError(error)) {
+      showToast('Rejection blocked by Supabase RLS. Run the SQL fix in supabase/fix_identity_verification_rls.sql, then retry.', 'error');
+    } else {
+      showToast('Failed to reject user verification: ' + error.message, 'error');
+    }
+  }
 }
 
 function renderUsersPagination(totalItems) {
@@ -6262,6 +7128,7 @@ async function deleteUser() {
 
 function filterUsers() {
   const searchTerm = (document.getElementById('usersSearch').value || '').toLowerCase();
+  const verificationFilter = document.getElementById('usersVerificationFilter')?.value || '';
 
   const filtered = allUsers.filter(u => {
     const email = (u.email || '').toLowerCase();
@@ -6269,10 +7136,13 @@ function filterUsers() {
     const phone = (u.phone || '').toLowerCase();
     const address = (u.address || '').toLowerCase();
 
-    return email.includes(searchTerm) ||
+    const matchesSearch = email.includes(searchTerm) ||
            fullName.includes(searchTerm) ||
            phone.includes(searchTerm) ||
            address.includes(searchTerm);
+
+    return matchesSearch &&
+      (!verificationFilter || u.verification_status === verificationFilter);
   });
 
   renderUsersTable(filtered);

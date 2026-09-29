@@ -6,10 +6,7 @@ class CachedContentResult {
   final List<Map<String, dynamic>> items;
   final DateTime? updatedAt;
 
-  const CachedContentResult({
-    required this.items,
-    required this.updatedAt,
-  });
+  const CachedContentResult({required this.items, required this.updatedAt});
 
   bool get hasData => items.isNotEmpty;
 }
@@ -21,9 +18,14 @@ class ContentCacheService {
   static const String _barangaysUpdatedAtKey = 'cached_barangays_updated_at';
   static const String _hotlinesKey = 'cached_hotlines';
   static const String _hotlinesUpdatedAtKey = 'cached_hotlines_updated_at';
+  static const String _placesKey = 'cached_places';
+  static const String _placesUpdatedAtKey = 'cached_places_updated_at';
+  static const String _transparencyKeyPrefix = 'cached_transparency_';
   static const String _latestNewsMarkerKey = 'latest_news_marker';
   static const String _seenNewsMarkerKey = 'seen_news_marker';
   static const String _dismissedNewsIdsKey = 'dismissed_news_ids';
+  static const String _notificationHistoryInitializedKey =
+      'notification_history_initialized';
   static const String _reportStatusSnapshotKey = 'report_status_snapshot';
   static const String _reportNotificationsKey = 'report_notifications';
 
@@ -38,10 +40,7 @@ class ContentCacheService {
   }
 
   Future<CachedContentResult> getNews() {
-    return _readItems(
-      dataKey: _newsKey,
-      updatedAtKey: _newsUpdatedAtKey,
-    );
+    return _readItems(dataKey: _newsKey, updatedAtKey: _newsUpdatedAtKey);
   }
 
   Future<void> saveBarangays(List<Map<String, dynamic>> items) {
@@ -71,6 +70,36 @@ class ContentCacheService {
     return _readItems(
       dataKey: _hotlinesKey,
       updatedAtKey: _hotlinesUpdatedAtKey,
+    );
+  }
+
+  Future<void> savePlaces(List<Map<String, dynamic>> items) {
+    return _saveItems(
+      dataKey: _placesKey,
+      updatedAtKey: _placesUpdatedAtKey,
+      items: items,
+    );
+  }
+
+  Future<CachedContentResult> getPlaces() {
+    return _readItems(dataKey: _placesKey, updatedAtKey: _placesUpdatedAtKey);
+  }
+
+  Future<void> saveTransparencyRecords({
+    required String tableName,
+    required List<Map<String, dynamic>> items,
+  }) {
+    return _saveItems(
+      dataKey: '$_transparencyKeyPrefix$tableName',
+      updatedAtKey: '$_transparencyKeyPrefix${tableName}_updated_at',
+      items: items,
+    );
+  }
+
+  Future<CachedContentResult> getTransparencyRecords(String tableName) {
+    return _readItems(
+      dataKey: '$_transparencyKeyPrefix$tableName',
+      updatedAtKey: '$_transparencyKeyPrefix${tableName}_updated_at',
     );
   }
 
@@ -113,6 +142,16 @@ class ContentCacheService {
     } catch (_) {
       return {};
     }
+  }
+
+  Future<bool> isNotificationHistoryInitialized() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_notificationHistoryInitializedKey) ?? false;
+  }
+
+  Future<void> markNotificationHistoryInitialized() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_notificationHistoryInitializedKey, true);
   }
 
   Future<void> saveReportStatusSnapshot(Map<String, dynamic> snapshot) async {

@@ -55,6 +55,14 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
             ? data['description'].toString().trim()
             : _bgFallbackBody(type, data));
 
+    if (type == 'identity_verification_status') {
+      await _persistBackgroundIdentityVerificationNotification(
+        data,
+        title,
+        body,
+      );
+    }
+
     final notificationId = _bgNotificationId(type, data);
 
     await plugin.show(
@@ -80,6 +88,33 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   } catch (e) {
     debugPrint('Background notification handler error: $e');
   }
+}
+
+Future<void> _persistBackgroundIdentityVerificationNotification(
+  Map<String, dynamic> data,
+  String title,
+  String description,
+) async {
+  final userId = data['userId']?.toString().trim() ?? '';
+  if (userId.isEmpty) return;
+
+  final notifications = await const ContentCacheService()
+      .getReportNotifications();
+  notifications.removeWhere(
+    (item) => item['id']?.toString() == 'identity_verification_$userId',
+  );
+  notifications.insert(0, {
+    'id': 'identity_verification_$userId',
+    'type': 'identity_verification_status',
+    'title': title,
+    'description': description,
+    'created_at': DateTime.now().toIso8601String(),
+    'user_id': userId,
+    'verification_status': data['status']?.toString() ?? 'pending',
+    'rejection_reason': data['rejectionReason']?.toString() ?? '',
+  });
+
+  await const ContentCacheService().saveReportNotifications(notifications);
 }
 
 /// Fallback title builder used in the background isolate (no access to instance methods).
@@ -124,6 +159,18 @@ String _bgFallbackBody(String? type, Map<String, dynamic> data) {
     if (status == 'rejected' || status == 'reject') return 'The admin rejected your $serviceLabel request.$suffix';
     return 'The admin updated your $serviceLabel request status.$suffix';
   }
+  if (type == 'identity_verification_status') {
+    final status = (data['status']?.toString() ?? '').trim().toLowerCase();
+    if (status == 'verified') {
+      return 'Your identity verification has been approved. You can now access all verification-based features.';
+    }
+    if (status == 'rejected') {
+      final reason = data['rejectionReason']?.toString().trim() ?? '';
+      if (reason.isNotEmpty) return 'Your identity verification was rejected. Reason: $reason';
+      return 'Your identity verification was rejected. Please review the requirements and resubmit.';
+    }
+    return 'Your identity verification status was updated.';
+  }
   return 'Tap to view the latest news.';
 }
 
@@ -147,6 +194,15 @@ int _bgNotificationId(String? type, Map<String, dynamic> data) {
     }
     return 1003;
   }
+  if (type == 'identity_verification_status') {
+    final userId = data['userId']?.toString().trim();
+    if (userId != null && userId.isNotEmpty) {
+      return userId.codeUnits.fold<int>(
+        4000, (hash, unit) => ((hash * 31) + unit) & 0x7fffffff,
+      );
+    }
+    return 1004;
+  }
   return 1001;
 }
 class NewsNotificationService {
@@ -169,6 +225,7 @@ class NewsNotificationService {
   String? _lastKnownToken;
   String? _lastSubscribedReportTopic;
   String? _lastSubscribedOnlineServiceTopic;
+  String? _lastSubscribedIdentityVerificationTopic;
 
   Future<void> initialize({String? externalUserId}) async {
     if (_initialized) {
@@ -271,6 +328,12 @@ class NewsNotificationService {
     return 'online_service_user_${normalized.isEmpty ? 'anonymous' : normalized}';
   }
 
+  String _buildIdentityVerificationTopic(String? userId) {
+    final raw = userId?.trim() ?? '';
+    final normalized = raw.replaceAll(RegExp(r'[^a-zA-Z0-9\-_.~%]'), '_');
+    return 'identity_verification_user_${normalized.isEmpty ? 'anonymous' : normalized}';
+  }
+
   Future<void> syncUser(String? externalUserId) async {
     if (!_initialized) {
       await initialize(externalUserId: externalUserId);
@@ -280,6 +343,9 @@ class NewsNotificationService {
     final normalizedUserId = externalUserId?.trim();
     final nextReportTopic = _buildReportStatusTopic(normalizedUserId);
     final nextOnlineServiceTopic = _buildOnlineServiceStatusTopic(
+      normalizedUserId,
+    );
+    final nextIdentityVerificationTopic = _buildIdentityVerificationTopic(
       normalizedUserId,
     );
 
@@ -301,6 +367,16 @@ class NewsNotificationService {
     if (_lastSubscribedOnlineServiceTopic != nextOnlineServiceTopic) {
       await _messaging.subscribeToTopic(nextOnlineServiceTopic);
       _lastSubscribedOnlineServiceTopic = nextOnlineServiceTopic;
+    }
+
+    if (_lastSubscribedIdentityVerificationTopic != null &&
+        _lastSubscribedIdentityVerificationTopic != nextIdentityVerificationTopic) {
+      await _messaging.unsubscribeFromTopic(_lastSubscribedIdentityVerificationTopic!);
+    }
+
+    if (_lastSubscribedIdentityVerificationTopic != nextIdentityVerificationTopic) {
+      await _messaging.subscribeToTopic(nextIdentityVerificationTopic);
+      _lastSubscribedIdentityVerificationTopic = nextIdentityVerificationTopic;
     }
 
     final token = await _messaging.getToken();
@@ -368,6 +444,11 @@ class NewsNotificationService {
 
     if (type == 'online_service_status') {
       await _persistOnlineServiceStatusNotification(data);
+      return;
+    }
+
+    if (type == 'identity_verification_status') {
+      await _persistIdentityVerificationStatusNotification(data);
     }
   }
 
@@ -454,6 +535,40 @@ class NewsNotificationService {
     await _cacheService.saveReportNotifications(notifications);
   }
 
+  Future<void> _persistIdentityVerificationStatusNotification(
+    Map<String, dynamic> data,
+  ) async {
+    if (data['type']?.toString() != 'identity_verification_status') {
+      return;
+    }
+
+    final userId = data['userId']?.toString().trim() ?? '';
+    if (userId.isEmpty) {
+      return;
+    }
+
+    final status = data['status']?.toString().trim() ?? 'pending';
+    final createdAt = DateTime.now().toIso8601String();
+    final rejectionReason = data['rejectionReason']?.toString().trim() ?? '';
+    final notifications = await _cacheService.getReportNotifications();
+
+    notifications.removeWhere(
+      (item) => item['id']?.toString() == 'identity_verification_$userId',
+    );
+    notifications.insert(0, {
+      'id': 'identity_verification_$userId',
+      'type': 'identity_verification_status',
+      'title': _buildIdentityVerificationStatusTitle(status),
+      'description': _buildIdentityVerificationStatusBody(status, rejectionReason),
+      'created_at': createdAt,
+      'user_id': userId,
+      'verification_status': status,
+      'rejection_reason': rejectionReason,
+    });
+
+    await _cacheService.saveReportNotifications(notifications);
+  }
+
   int _buildNotificationId(String? type, Map<String, dynamic> data) {
     if (type == 'report_status') {
       return _buildStableNotificationId(data['reportId']?.toString(), 2000, 1002);
@@ -464,6 +579,14 @@ class NewsNotificationService {
         data['requestId']?.toString(),
         3000,
         1003,
+      );
+    }
+
+    if (type == 'identity_verification_status') {
+      return _buildStableNotificationId(
+        data['userId']?.toString(),
+        4000,
+        1004,
       );
     }
 
@@ -498,6 +621,12 @@ class NewsNotificationService {
       return 'Online service status updated';
     }
 
+    if (type == 'identity_verification_status') {
+      return _buildIdentityVerificationStatusTitle(
+        data['status']?.toString() ?? '',
+      );
+    }
+
     return 'New Announcement';
   }
 
@@ -510,6 +639,13 @@ class NewsNotificationService {
       return _buildOnlineServiceStatusBody(data);
     }
 
+    if (type == 'identity_verification_status') {
+      return _buildIdentityVerificationStatusBody(
+        data['status']?.toString() ?? '',
+        data['rejectionReason']?.toString() ?? '',
+      );
+    }
+
     return 'Tap to view the latest news.';
   }
 
@@ -520,6 +656,10 @@ class NewsNotificationService {
 
     if (type == 'online_service_status') {
       return 'online_service_status_update';
+    }
+
+    if (type == 'identity_verification_status') {
+      return 'identity_verification_status_update';
     }
 
     return 'news_update';
@@ -631,6 +771,37 @@ class NewsNotificationService {
       default:
         return 'The admin updated your $serviceLabel request status.$suffix';
     }
+  }
+
+  String _buildIdentityVerificationStatusTitle(String status) {
+    final normalized = status.trim().toLowerCase();
+    if (normalized == 'verified') {
+      return 'Your identity verification was approved';
+    }
+    if (normalized == 'rejected') {
+      return 'Your identity verification was rejected';
+    }
+    return 'Your identity verification status was updated';
+  }
+
+  String _buildIdentityVerificationStatusBody(
+    String status,
+    String rejectionReason,
+  ) {
+    final normalized = status.trim().toLowerCase();
+
+    if (normalized == 'verified') {
+      return 'Your identity verification has been approved. You can now access all verification-based features.';
+    }
+
+    if (normalized == 'rejected') {
+      if (rejectionReason.trim().isNotEmpty) {
+        return 'Your identity verification was rejected. Reason: $rejectionReason';
+      }
+      return 'Your identity verification was rejected. Please review the requirements and resubmit.';
+    }
+
+    return 'Your identity verification status was updated.';
   }
 
   Future<void> showNewNewsNotification({

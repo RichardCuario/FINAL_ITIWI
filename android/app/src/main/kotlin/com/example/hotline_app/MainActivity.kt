@@ -1,4 +1,4 @@
-package com.example.hotline_app
+package com.ecoimpact.itiwi
 
 import io.flutter.embedding.android.FlutterActivity
 

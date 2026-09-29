@@ -9,6 +9,7 @@ import 'home_page.dart';
 import 'news_feed_page.dart';
 import 'news_notification_service.dart';
 import 'onboarding_page.dart';
+import 'user_access_service.dart';
 
 const _defaultSupabaseUrl = 'https://jbhlbukxankrtcwhqoll.supabase.co';
 const _defaultSupabaseAnonKey =
@@ -38,8 +39,14 @@ Future<void> main() async {
       ),
     );
 
-    await NewsNotificationService.instance.initialize(
-      externalUserId: FirebaseAuth.instance.currentUser?.uid,
+    unawaited(
+      NewsNotificationService.instance
+          .initialize(
+            externalUserId: FirebaseAuth.instance.currentUser?.uid,
+          )
+          .catchError((error, stackTrace) {
+            debugPrint('Notification service startup skipped: $error');
+          }),
     );
 
     runApp(const MyApp());
@@ -110,22 +117,36 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _isDarkMode = false;
   late final Stream<User?> _authStateStream;
   User? _currentUser;
   StreamSubscription<User?>? _authSubscription;
+  Future<bool>? _accessCheck;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _authStateStream = _buildAuthStateStream();
     _authSubscription = _authStateStream.listen((user) {
       _currentUser = user;
+      _accessCheck = user == null ? null : UserAccessService.isActive(user);
       NewsNotificationService.instance.syncUser(user?.uid);
       if (user != null) {
         _syncUserToDatabase(user);
       }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || _currentUser == null) return;
+
+    final user = _currentUser!;
+    final accessCheck = UserAccessService.isActive(user);
+    setState(() {
+      _accessCheck = accessCheck;
     });
   }
 
@@ -283,6 +304,7 @@ class _MyAppState extends State<MyApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
     super.dispose();
   }
@@ -312,9 +334,24 @@ class _MyAppState extends State<MyApp> {
         builder: (context, snapshot) {
           final user = snapshot.data ?? _currentUser;
           if (user != null) {
-            return HomePage(
-              isDarkMode: _isDarkMode,
-              onToggleDarkMode: _toggleDarkMode,
+            return FutureBuilder<bool>(
+              future: _accessCheck ??= UserAccessService.isActive(user),
+              builder: (context, accessSnapshot) {
+                if (accessSnapshot.connectionState != ConnectionState.done) {
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                if (accessSnapshot.data == false) {
+                  return const _BlockedAccountPage();
+                }
+
+                return HomePage(
+                  isDarkMode: _isDarkMode,
+                  onToggleDarkMode: _toggleDarkMode,
+                );
+              },
             );
           }
 
@@ -323,6 +360,43 @@ class _MyAppState extends State<MyApp> {
             onToggleDarkMode: _toggleDarkMode,
           );
         },
+      ),
+    );
+  }
+}
+
+class _BlockedAccountPage extends StatelessWidget {
+  const _BlockedAccountPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.block_rounded, size: 72, color: Colors.redAccent),
+              const SizedBox(height: 20),
+              const Text(
+                'Account blocked',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Your account has been blocked by an administrator. Please contact support for assistance.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: () => FirebaseAuth.instance.signOut(),
+                icon: const Icon(Icons.logout_rounded),
+                label: const Text('Sign out'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

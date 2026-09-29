@@ -19,11 +19,7 @@ import 'tourist_guide_page.dart';
 import 'transparency_page.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({
-    super.key,
-    this.isDarkMode = false,
-    this.onToggleDarkMode,
-  });
+  const HomePage({super.key, this.isDarkMode = false, this.onToggleDarkMode});
 
   final bool isDarkMode;
   final ValueChanged<bool>? onToggleDarkMode;
@@ -63,7 +59,8 @@ class _HomePageState extends State<HomePage> {
 
   List<Place> get _promoDestinations => _promoPlaces;
 
-  int get _promoPageCount => _promoDestinations.isNotEmpty ? _promoDestinations.length : 3;
+  int get _promoPageCount =>
+      _promoDestinations.isNotEmpty ? _promoDestinations.length : 3;
 
   void _startPromoAutoScroll() {
     _promoTimer?.cancel();
@@ -108,9 +105,10 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadPromoPlaces() async {
     try {
       final places = await _placeService.fetchPlaces();
+      final randomPromoPlaces = List<Place>.from(places)..shuffle();
       if (!mounted) return;
       setState(() {
-        _promoPlaces = places;
+        _promoPlaces = randomPromoPlaces.take(3).toList();
         if (_currentPromoPage >= _promoPageCount) {
           _currentPromoPage = 0;
           _promoPageController.jumpToPage(0);
@@ -123,7 +121,9 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadUnreadNotifications() async {
     final cachedNews = await _cacheService.getNews();
-    final latestNews = cachedNews.items.isNotEmpty ? cachedNews.items.first : null;
+    final latestNews = cachedNews.items.isNotEmpty
+        ? cachedNews.items.first
+        : null;
     final latestNewsMarker = latestNews == null
         ? null
         : '${latestNews['id']?.toString() ?? ''}|${latestNews['created_at']?.toString() ?? ''}|${latestNews['updated_at']?.toString() ?? ''}';
@@ -134,9 +134,7 @@ class _HomePageState extends State<HomePage> {
     final hasUnreadNews =
         latestNewsMarker != null &&
         latestNewsMarker != seenNewsMarker &&
-        !dismissedNewsIds.contains(
-          latestNewsMarker.split('|').first,
-        );
+        !dismissedNewsIds.contains(latestNewsMarker.split('|').first);
 
     final hasUnreadReports = reportNotifications.isNotEmpty;
 
@@ -148,9 +146,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _openPage(Widget page) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => page)).then((_) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page)).then((
+      _,
+    ) {
       _loadUnreadNotifications();
     });
   }
@@ -171,189 +169,140 @@ class _HomePageState extends State<HomePage> {
   }
 
   List<_SearchDestination> get _baseSearchDestinations => [
-        _SearchDestination(
-          title: 'Barangay',
-          subtitle: 'Find barangay information and local updates',
-          keywords: const ['barangay', 'local', 'community', 'village'],
-          icon: Icons.account_balance_rounded,
-          onTap: () => _openPage(const BarangayPage()),
+    _SearchDestination(
+      title: 'Barangay',
+      subtitle: 'Find barangay information and local updates',
+      keywords: const ['barangay', 'local', 'community', 'village'],
+      icon: Icons.account_balance_rounded,
+      onTap: () => _openPage(const BarangayPage()),
+    ),
+    _SearchDestination(
+      title: 'Tourist Guide',
+      subtitle: 'Explore attractions, destinations, and local spots',
+      keywords: const ['tourist', 'travel', 'destination', 'spots'],
+      icon: Icons.location_on_rounded,
+      onTap: () => _openPage(const TouristGuidePage()),
+    ),
+    _SearchDestination(
+      title: 'Emergency Hotline',
+      subtitle: 'View police, fire, rescue, and emergency numbers',
+      keywords: const ['emergency', 'hotline', 'call', 'rescue', 'police'],
+      icon: Icons.warning_amber_rounded,
+      onTap: () => _openPage(const HotlinePage()),
+    ),
+    _SearchDestination(
+      title: 'Transparency',
+      subtitle: 'Access public documents and transparency records',
+      keywords: const [
+        'transparency',
+        'documents',
+        'records',
+        'budget',
+        'ordinance',
+        'bids',
+        'financial reports',
+        'executive order',
+        'programs',
+      ],
+      icon: Icons.description_rounded,
+      onTap: () => _openPage(const TransparencyPage()),
+    ),
+    _SearchDestination(
+      title: 'Report',
+      subtitle: 'Submit a concern or incident report',
+      keywords: const ['report', 'concern', 'complaint', 'issue'],
+      icon: Icons.report_problem_rounded,
+      onTap: () => _openPage(const ReportPage()),
+    ),
+    _SearchDestination(
+      title: 'Online Service',
+      subtitle: 'Open available digital municipal services',
+      keywords: const ['service', 'online', 'permit', 'request', 'form'],
+      icon: Icons.language_rounded,
+      onTap: _openOnlineServicePage,
+    ),
+    _SearchDestination(
+      title: 'Birth Certificate',
+      subtitle: 'Open the online birth certificate appointment service',
+      keywords: const [
+        'birthcertificate',
+        'birth certificate',
+        'psa',
+        'certificate of live birth',
+        'appointment',
+        'document request',
+      ],
+      icon: Icons.child_friendly_rounded,
+      onTap: () => _openOnlineServicePage(
+        initialTarget: OnlineServiceTarget.birthCertificate,
+      ),
+    ),
+    _SearchDestination(
+      title: 'Marriage Certificate',
+      subtitle: 'Open the online marriage certificate appointment service',
+      keywords: const [
+        'marriagecertificate',
+        'marriage certificate',
+        'wedding certificate',
+        'appointment',
+        'document request',
+      ],
+      icon: Icons.favorite_rounded,
+      onTap: () => _openOnlineServicePage(
+        initialTarget: OnlineServiceTarget.marriageCertificate,
+      ),
+    ),
+    _SearchDestination(
+      title: 'Death Certificate',
+      subtitle: 'Open the online death certificate appointment service',
+      keywords: const [
+        'deathcertificate',
+        'death certificate',
+        'certificate of death',
+        'appointment',
+        'document request',
+      ],
+      icon: Icons.local_florist_rounded,
+      onTap: () => _openOnlineServicePage(
+        initialTarget: OnlineServiceTarget.deathCertificate,
+      ),
+    ),
+    _SearchDestination(
+      title: 'CENODEATH',
+      subtitle: 'Open the online CENODEATH appointment service',
+      keywords: const ['cenodeath', 'certificate of no death', 'appointment'],
+      icon: Icons.fact_check_rounded,
+      onTap: () =>
+          _openOnlineServicePage(initialTarget: OnlineServiceTarget.cenodeath),
+    ),
+    _SearchDestination(
+      title: 'News',
+      subtitle: 'Read the latest municipal announcements and updates',
+      keywords: const ['news', 'announcement', 'updates', 'advisory'],
+      icon: Icons.campaign_rounded,
+      onTap: () => _openPage(const NewsPage()),
+    ),
+    _SearchDestination(
+      title: 'Profile',
+      subtitle: 'View account details, settings, and preferences',
+      keywords: const ['profile', 'account', 'settings', 'user'],
+      icon: Icons.person_rounded,
+      onTap: () => _openPage(
+        ProfilePage(
+          isDarkMode: widget.isDarkMode,
+          onToggleDarkMode: widget.onToggleDarkMode ?? (_) {},
+          onNavigate: _handleBottomNavigation,
         ),
-        _SearchDestination(
-          title: 'Tourist Guide',
-          subtitle: 'Explore attractions, destinations, and local spots',
-          keywords: const ['tourist', 'travel', 'destination', 'spots'],
-          icon: Icons.location_on_rounded,
-          onTap: () => _openPage(const TouristGuidePage()),
-        ),
-        _SearchDestination(
-          title: 'Emergency Hotline',
-          subtitle: 'View police, fire, rescue, and emergency numbers',
-          keywords: const ['emergency', 'hotline', 'call', 'rescue', 'police'],
-          icon: Icons.warning_amber_rounded,
-          onTap: () => _openPage(const HotlinePage()),
-        ),
-        _SearchDestination(
-          title: 'Transparency',
-          subtitle: 'Access public documents and transparency records',
-          keywords: const [
-            'transparency',
-            'documents',
-            'records',
-            'budget',
-            'ordinance',
-            'bids',
-            'financial reports',
-            'executive order',
-            'programs',
-          ],
-          icon: Icons.description_rounded,
-          onTap: () => _openPage(const TransparencyPage()),
-        ),
-        _SearchDestination(
-          title: 'Report',
-          subtitle: 'Submit a concern or incident report',
-          keywords: const ['report', 'concern', 'complaint', 'issue'],
-          icon: Icons.report_problem_rounded,
-          onTap: () => _openPage(const ReportPage()),
-        ),
-        _SearchDestination(
-          title: 'Online Service',
-          subtitle: 'Open available digital municipal services',
-          keywords: const ['service', 'online', 'permit', 'request', 'form'],
-          icon: Icons.language_rounded,
-          onTap: _openOnlineServicePage,
-        ),
-        _SearchDestination(
-          title: 'Birth Certificate',
-          subtitle: 'Open the online birth certificate appointment service',
-          keywords: const [
-            'birthcertificate',
-            'birth certificate',
-            'psa',
-            'certificate of live birth',
-            'appointment',
-            'document request',
-          ],
-          icon: Icons.child_friendly_rounded,
-          onTap: () => _openOnlineServicePage(
-            initialTarget: OnlineServiceTarget.birthCertificate,
-          ),
-        ),
-        _SearchDestination(
-          title: 'Marriage Certificate',
-          subtitle: 'Open the online marriage certificate appointment service',
-          keywords: const [
-            'marriagecertificate',
-            'marriage certificate',
-            'wedding certificate',
-            'appointment',
-            'document request',
-          ],
-          icon: Icons.favorite_rounded,
-          onTap: () => _openOnlineServicePage(
-            initialTarget: OnlineServiceTarget.marriageCertificate,
-          ),
-        ),
-        _SearchDestination(
-          title: 'Death Certificate',
-          subtitle: 'Open the online death certificate appointment service',
-          keywords: const [
-            'deathcertificate',
-            'death certificate',
-            'certificate of death',
-            'appointment',
-            'document request',
-          ],
-          icon: Icons.local_florist_rounded,
-          onTap: () => _openOnlineServicePage(
-            initialTarget: OnlineServiceTarget.deathCertificate,
-          ),
-        ),
-        _SearchDestination(
-          title: 'CENOMAR',
-          subtitle: 'Open the online CENOMAR appointment service',
-          keywords: const [
-            'cenomar',
-            'certificate of no marriage record',
-            'single status',
-            'appointment',
-          ],
-          icon: Icons.verified_user_rounded,
-          onTap: () => _openOnlineServicePage(
-            initialTarget: OnlineServiceTarget.cenomar,
-          ),
-        ),
-        _SearchDestination(
-          title: 'CENODEATH',
-          subtitle: 'Open the online CENODEATH appointment service',
-          keywords: const [
-            'cenodeath',
-            'certificate of no death',
-            'appointment',
-          ],
-          icon: Icons.fact_check_rounded,
-          onTap: () => _openOnlineServicePage(
-            initialTarget: OnlineServiceTarget.cenodeath,
-          ),
-        ),
-        _SearchDestination(
-          title: 'Tiwi Gymnasium',
-          subtitle: 'Open the facility borrowing request page',
-          keywords: const [
-            'gymnasium',
-            'tiwi gym',
-            'facility',
-            'borrow',
-            'reservation',
-          ],
-          icon: Icons.apartment_rounded,
-          onTap: () => _openOnlineServicePage(
-            initialTarget: OnlineServiceTarget.tiwiGymnasium,
-          ),
-        ),
-        _SearchDestination(
-          title: 'Libjo Facilities',
-          subtitle: 'Open the facility borrowing request page',
-          keywords: const [
-            'libjo',
-            'facility',
-            'borrow',
-            'reservation',
-            'venue',
-          ],
-          icon: Icons.location_city_rounded,
-          onTap: () => _openOnlineServicePage(
-            initialTarget: OnlineServiceTarget.libjoFacilities,
-          ),
-        ),
-        _SearchDestination(
-          title: 'News',
-          subtitle: 'Read the latest municipal announcements and updates',
-          keywords: const ['news', 'announcement', 'updates', 'advisory'],
-          icon: Icons.campaign_rounded,
-          onTap: () => _openPage(const NewsPage()),
-        ),
-        _SearchDestination(
-          title: 'Profile',
-          subtitle: 'View account details, settings, and preferences',
-          keywords: const ['profile', 'account', 'settings', 'user'],
-          icon: Icons.person_rounded,
-          onTap: () => _openPage(
-            ProfilePage(
-              isDarkMode: widget.isDarkMode,
-              onToggleDarkMode: widget.onToggleDarkMode ?? (_) {},
-              onNavigate: _handleBottomNavigation,
-            ),
-          ),
-        ),
-        _SearchDestination(
-          title: 'FAQs',
-          subtitle: 'Read common questions and app help information',
-          keywords: const ['faq', 'help', 'questions', 'support'],
-          icon: Icons.help_center_rounded,
-          onTap: () => _openPage(const FaqPage()),
-        ),
-      ];
+      ),
+    ),
+    _SearchDestination(
+      title: 'FAQs',
+      subtitle: 'Read common questions and app help information',
+      keywords: const ['faq', 'help', 'questions', 'support'],
+      icon: Icons.help_center_rounded,
+      onTap: () => _openPage(const FaqPage()),
+    ),
+  ];
 
   List<_SearchDestination> get _barangaySearchDestinations => _barangays
       .map(
@@ -376,9 +325,9 @@ class _HomePageState extends State<HomePage> {
       .toList();
 
   List<_SearchDestination> get _searchDestinations => [
-        ..._baseSearchDestinations,
-        ..._barangaySearchDestinations,
-      ];
+    ..._baseSearchDestinations,
+    ..._barangaySearchDestinations,
+  ];
 
   List<_SearchDestination> get _filteredSearchDestinations {
     final query = _searchController.text.trim().toLowerCase();
@@ -438,13 +387,14 @@ class _HomePageState extends State<HomePage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final backgroundColor =
-        isDark ? const Color(0xFF08142A) : const Color(0xFFEAEAEA);
+    final backgroundColor = isDark ? const Color(0xFF08142A) : Colors.white;
     final sectionTextColor = isDark ? Colors.white : Colors.black;
-    final accentColor =
-        isDark ? const Color(0xFF9FD0FF) : const Color(0xFF2196F3);
-    final iconBackground =
-        isDark ? const Color(0xFF1A2A47) : const Color(0xFFE5E5E5);
+    final accentColor = isDark
+        ? const Color(0xFF9FD0FF)
+        : const Color(0xFF2196F3);
+    final iconBackground = isDark
+        ? const Color(0xFF1A2A47)
+        : const Color(0xFFE5F2FF);
     final iconColor = accentColor;
 
     return Scaffold(
@@ -468,60 +418,60 @@ class _HomePageState extends State<HomePage> {
             final horizontalPadding = extraCompact
                 ? 14.0
                 : compact
-                    ? 16.0
-                    : 20.0;
+                ? 16.0
+                : 20.0;
             final topPadding = extraCompact
                 ? 14.0
                 : compact
-                    ? 16.0
-                    : 20.0;
+                ? 16.0
+                : 20.0;
             final headerHeight = (screenHeight * 0.33).clamp(190.0, 255.0);
             final headerGap = extraCompact
                 ? 28.0
                 : compact
-                    ? 38.0
-                    : 56.0;
+                ? 38.0
+                : 56.0;
             final titleFontSize = extraCompact
                 ? 20.0
                 : compact
-                    ? 23.0
-                    : 27.0;
+                ? 23.0
+                : 27.0;
             final logoSize = extraCompact
                 ? 68.0
                 : compact
-                    ? 78.0
-                    : 96.0;
+                ? 78.0
+                : 96.0;
             final sectionTitleSize = extraCompact
                 ? 18.0
                 : compact
-                    ? 20.0
-                    : 23.0;
+                ? 20.0
+                : 23.0;
             final gridSpacing = extraCompact
                 ? 8.0
                 : compact
-                    ? 10.0
-                    : 12.0;
+                ? 10.0
+                : 12.0;
             final promoHeight = extraCompact
                 ? 96.0
                 : compact
-                    ? 108.0
-                    : 120.0;
+                ? 108.0
+                : 120.0;
             final indicatorSpacing = extraCompact ? 6.0 : 10.0;
             final shortcutIconSize = extraCompact
                 ? 54.0
                 : compact
-                    ? 62.0
-                    : 76.0;
+                ? 62.0
+                : 76.0;
             final shortcutLabelSize = extraCompact
                 ? 11.0
                 : compact
-                    ? 12.0
-                    : 13.0;
+                ? 12.0
+                : 13.0;
             final gridAspectRatio = extraCompact
                 ? 1.0
                 : compact
-                    ? 0.96
-                    : 0.92;
+                ? 0.96
+                : 0.92;
 
             return Stack(
               clipBehavior: Clip.none,
@@ -537,324 +487,388 @@ class _HomePageState extends State<HomePage> {
                             child: Stack(
                               clipBehavior: Clip.none,
                               children: [
-                            Positioned.fill(
-                              child: Image.asset(
-                                'assets/municipal_hall.jpg',
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            Positioned.fill(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      Colors.black.withValues(alpha: 0.40),
-                                      const Color(0xFF0A3D73).withValues(
-                                        alpha: 0.32,
+                                Positioned.fill(
+                                  child: Image.asset(
+                                    'assets/municipal_hall.jpg',
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                Positioned.fill(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Colors.black.withValues(alpha: 0.40),
+                                          const Color(
+                                            0xFF0A3D73,
+                                          ).withValues(alpha: 0.32),
+                                          const Color(
+                                            0xFF2196F3,
+                                          ).withValues(alpha: 0.42),
+                                        ],
                                       ),
-                                      const Color(0xFF2196F3).withValues(
-                                        alpha: 0.42,
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(
+                                    horizontalPadding,
+                                    topPadding,
+                                    horizontalPadding,
+                                    0,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Builder(
+                                            builder: (buttonContext) =>
+                                                _TopActionButton(
+                                                  icon: Icons.menu_rounded,
+                                                  compact:
+                                                      compact || extraCompact,
+                                                  onTap: () {
+                                                    Scaffold.of(
+                                                      buttonContext,
+                                                    ).openDrawer();
+                                                  },
+                                                ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: _SearchPill(
+                                              hintText:
+                                                  'Search services, certificates, barangays...',
+                                              compact: compact || extraCompact,
+                                              controller: _searchController,
+                                              onChanged: (_) => setState(() {}),
+                                              onClear: () {
+                                                _searchController.clear();
+                                                setState(() {});
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          _TopActionButton(
+                                            icon: Icons
+                                                .notifications_none_rounded,
+                                            compact: compact || extraCompact,
+                                            showBadge: _hasUnreadNotifications,
+                                            onTap: () => _openPage(
+                                              const NotificationPage(),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: headerGap),
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              'Basta Tiwinhon\nOragon!',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: titleFontSize,
+                                                fontWeight: FontWeight.w800,
+                                                height: 1.08,
+                                              ),
+                                            ),
+                                          ),
+                                          Container(
+                                            width: logoSize,
+                                            height: logoSize,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.1,
+                                                ),
+                                                width: 2.4,
+                                              ),
+                                              image: const DecorationImage(
+                                                image: AssetImage(
+                                                  'assets/logo.png',
+                                                ),
+                                                fit: BoxFit.cover,
+                                              ),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black
+                                                      .withValues(alpha: 0.18),
+                                                  blurRadius: 14,
+                                                  offset: const Offset(0, 6),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
-                            Padding(
-                              padding: EdgeInsets.fromLTRB(
-                                horizontalPadding,
-                                topPadding,
-                                horizontalPadding,
-                                0,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Builder(
-                                        builder: (buttonContext) =>
-                                            _TopActionButton(
-                                          icon: Icons.menu_rounded,
-                                          compact: compact || extraCompact,
-                                          onTap: () {
-                                            Scaffold.of(buttonContext)
-                                                .openDrawer();
-                                          },
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: _SearchPill(
-                                          hintText:
-                                              'Search services, certificates, barangays...',
-                                          compact: compact || extraCompact,
-                                          controller: _searchController,
-                                          onChanged: (_) => setState(() {}),
-                                          onClear: () {
-                                            _searchController.clear();
-                                            setState(() {});
-                                          },
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      _TopActionButton(
-                                        icon: Icons.notifications_none_rounded,
-                                        compact: compact || extraCompact,
-                                        showBadge: _hasUnreadNotifications,
-                                        onTap: () =>
-                                            _openPage(const NotificationPage()),
-                                      ),
-                                    ],
+                          ),
+                          Expanded(
+                            child: Transform.translate(
+                              offset: const Offset(0, -24),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? const Color(0xFF08142A)
+                                      : Colors.white,
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(28),
+                                    topRight: Radius.circular(28),
                                   ),
-                                  SizedBox(height: headerGap),
-                                  Row(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                ),
+                                child: Padding(
+                                  padding: EdgeInsets.fromLTRB(
+                                    horizontalPadding,
+                                    compact ? 22 : 26,
+                                    horizontalPadding,
+                                    0,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Expanded(
-                                        child: Text(
-                                          'Basta Tiwinhon\nOragon!',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: titleFontSize,
-                                            fontWeight: FontWeight.w800,
-                                            height: 1.08,
-                                          ),
+                                      Text(
+                                        'What would you like to do?',
+                                        style: TextStyle(
+                                          color: sectionTextColor,
+                                          fontSize: sectionTitleSize,
+                                          fontWeight: FontWeight.w800,
                                         ),
                                       ),
-                                      Container(
-                                        width: logoSize,
-                                        height: logoSize,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.1,
-                                            ),
-                                            width: 2.4,
-                                          ),
-                                          image: const DecorationImage(
-                                            image: AssetImage('assets/logo.png'),
-                                            fit: BoxFit.cover,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withValues(
-                                                alpha: 0.18,
+                                      SizedBox(height: compact ? 10 : 14),
+                                      Expanded(
+                                        child: GridView.count(
+                                          crossAxisCount: 3,
+                                          shrinkWrap: true,
+                                          physics:
+                                              const NeverScrollableScrollPhysics(),
+                                          crossAxisSpacing: gridSpacing,
+                                          mainAxisSpacing: gridSpacing,
+                                          childAspectRatio: gridAspectRatio,
+                                          children: [
+                                            _HomeShortcut(
+                                              icon:
+                                                  Icons.account_balance_rounded,
+                                              label: 'Barangay',
+                                              iconBackground: iconBackground,
+                                              iconColor: iconColor,
+                                              iconContainerSize:
+                                                  shortcutIconSize,
+                                              labelFontSize: shortcutLabelSize,
+                                              onTap: () => _openPage(
+                                                const BarangayPage(),
                                               ),
-                                              blurRadius: 14,
-                                              offset: const Offset(0, 6),
+                                            ),
+                                            _HomeShortcut(
+                                              icon: Icons.location_on_rounded,
+                                              label: 'Tourist Guide',
+                                              iconBackground: iconBackground,
+                                              iconColor: iconColor,
+                                              iconContainerSize:
+                                                  shortcutIconSize,
+                                              labelFontSize: shortcutLabelSize,
+                                              onTap: () => _openPage(
+                                                const TouristGuidePage(),
+                                              ),
+                                            ),
+                                            _HomeShortcut(
+                                              icon: Icons.warning_amber_rounded,
+                                              label: 'Emergency',
+                                              iconBackground: iconBackground,
+                                              iconColor: iconColor,
+                                              iconContainerSize:
+                                                  shortcutIconSize,
+                                              labelFontSize: shortcutLabelSize,
+                                              onTap: () => _openPage(
+                                                const HotlinePage(),
+                                              ),
+                                            ),
+                                            _HomeShortcut(
+                                              icon: Icons.description_rounded,
+                                              label: 'Transparency',
+                                              iconBackground: iconBackground,
+                                              iconColor: iconColor,
+                                              iconContainerSize:
+                                                  shortcutIconSize,
+                                              labelFontSize: shortcutLabelSize,
+                                              onTap: () => _openPage(
+                                                const TransparencyPage(),
+                                              ),
+                                            ),
+                                            _HomeShortcut(
+                                              icon:
+                                                  Icons.report_problem_rounded,
+                                              label: 'Report',
+                                              iconBackground: iconBackground,
+                                              iconColor: iconColor,
+                                              iconContainerSize:
+                                                  shortcutIconSize,
+                                              labelFontSize: shortcutLabelSize,
+                                              onTap: () =>
+                                                  _openPage(const ReportPage()),
+                                            ),
+                                            _HomeShortcut(
+                                              icon: Icons.language_rounded,
+                                              label: 'Online Service',
+                                              iconBackground: iconBackground,
+                                              iconColor: iconColor,
+                                              iconContainerSize:
+                                                  shortcutIconSize,
+                                              labelFontSize: shortcutLabelSize,
+                                              onTap: () => _openPage(
+                                                const OnlineServicePage(),
+                                              ),
                                             ),
                                           ],
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                          Expanded(
-                            child: Padding(
-                              padding: EdgeInsets.fromLTRB(
-                                horizontalPadding,
-                                compact ? 14 : 18,
-                                horizontalPadding,
-                                0,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'What would you like to do?',
-                                    style: TextStyle(
-                                      color: sectionTextColor,
-                                      fontSize: sectionTitleSize,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  SizedBox(height: compact ? 10 : 14),
-                                  Expanded(
-                                    child: GridView.count(
-                                      crossAxisCount: 3,
-                                      shrinkWrap: true,
-                                      physics:
-                                          const NeverScrollableScrollPhysics(),
-                                      crossAxisSpacing: gridSpacing,
-                                      mainAxisSpacing: gridSpacing,
-                                      childAspectRatio: gridAspectRatio,
-                                      children: [
-                                        _HomeShortcut(
-                                          icon: Icons.account_balance_rounded,
-                                          label: 'Barangay',
-                                          iconBackground: iconBackground,
-                                          iconColor: iconColor,
-                                          iconContainerSize: shortcutIconSize,
-                                          labelFontSize: shortcutLabelSize,
-                                          onTap: () =>
-                                              _openPage(const BarangayPage()),
-                                        ),
-                                        _HomeShortcut(
-                                          icon: Icons.location_on_rounded,
-                                          label: 'Tourist Guide',
-                                          iconBackground: iconBackground,
-                                          iconColor: iconColor,
-                                          iconContainerSize: shortcutIconSize,
-                                          labelFontSize: shortcutLabelSize,
-                                          onTap: () => _openPage(
-                                            const TouristGuidePage(),
-                                          ),
-                                        ),
-                                        _HomeShortcut(
-                                          icon: Icons.warning_amber_rounded,
-                                          label: 'Emergency',
-                                          iconBackground: iconBackground,
-                                          iconColor: iconColor,
-                                          iconContainerSize: shortcutIconSize,
-                                          labelFontSize: shortcutLabelSize,
-                                          onTap: () =>
-                                              _openPage(const HotlinePage()),
-                                        ),
-                                        _HomeShortcut(
-                                          icon: Icons.description_rounded,
-                                          label: 'Transparency',
-                                          iconBackground: iconBackground,
-                                          iconColor: iconColor,
-                                          iconContainerSize: shortcutIconSize,
-                                          labelFontSize: shortcutLabelSize,
-                                          onTap: () => _openPage(
-                                            const TransparencyPage(),
-                                          ),
-                                        ),
-                                        _HomeShortcut(
-                                          icon: Icons.report_problem_rounded,
-                                          label: 'Report',
-                                          iconBackground: iconBackground,
-                                          iconColor: iconColor,
-                                          iconContainerSize: shortcutIconSize,
-                                          labelFontSize: shortcutLabelSize,
-                                          onTap: () =>
-                                              _openPage(const ReportPage()),
-                                        ),
-                                        _HomeShortcut(
-                                          icon: Icons.language_rounded,
-                                          label: 'Online Service',
-                                          iconBackground: iconBackground,
-                                          iconColor: iconColor,
-                                          iconContainerSize: shortcutIconSize,
-                                          labelFontSize: shortcutLabelSize,
-                                          onTap: () => _openPage(
-                                            const OnlineServicePage(),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  SizedBox(height: compact ? 8 : 10),
-                                  SizedBox(
-                                    height: promoHeight,
-                                    child: PageView(
-                                      controller: _promoPageController,
-                                      onPageChanged: (index) {
-                                        setState(() {
-                                          _currentPromoPage = index;
-                                        });
-                                      },
-                                      children: _promoDestinations.isNotEmpty
-                                          ? _promoDestinations.map(
-                                              (place) => _DestinationPromoCard(
-                                                title: place.name,
-                                                description: place.location.isNotEmpty
-                                                    ? place.location
-                                                    : place.description.isNotEmpty
-                                                        ? place.description
-                                                        : 'Discover this destination',
-                                                imageProvider: place.imageUrl.isNotEmpty
-                                                    ? NetworkImage(place.imageUrl)
-                                                    : const AssetImage('assets/card.jpg'),
-                                                compact: compact || extraCompact,
-                                                onTap: () => _openPage(
-                                                  PlaceDetailPage(
-                                                    place: place,
-                                                    placeService: _placeService,
+                                      SizedBox(height: compact ? 8 : 10),
+                                      SizedBox(
+                                        height: promoHeight,
+                                        child: PageView(
+                                          controller: _promoPageController,
+                                          onPageChanged: (index) {
+                                            setState(() {
+                                              _currentPromoPage = index;
+                                            });
+                                          },
+                                          children:
+                                              _promoDestinations.isNotEmpty
+                                              ? _promoDestinations
+                                                    .map(
+                                                      (
+                                                        place,
+                                                      ) => _DestinationPromoCard(
+                                                        title: place.name,
+                                                        description:
+                                                            place
+                                                                .location
+                                                                .isNotEmpty
+                                                            ? place.location
+                                                            : place
+                                                                  .description
+                                                                  .isNotEmpty
+                                                            ? place.description
+                                                            : 'Discover this destination',
+                                                        imageProvider:
+                                                            place
+                                                                .imageUrl
+                                                                .isNotEmpty
+                                                            ? NetworkImage(
+                                                                place.imageUrl,
+                                                              )
+                                                            : const AssetImage(
+                                                                'assets/card.jpg',
+                                                              ),
+                                                        compact:
+                                                            compact ||
+                                                            extraCompact,
+                                                        onTap: () => _openPage(
+                                                          PlaceDetailPage(
+                                                            place: place,
+                                                            placeService:
+                                                                _placeService,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    )
+                                                    .toList()
+                                              : [
+                                                  _DestinationPromoCard(
+                                                    title:
+                                                        "What's Your Next\nDestination?",
+                                                    description:
+                                                        "Whether it's a weekend trip or a month-long escape, make it unforgettable.",
+                                                    imageProvider:
+                                                        const AssetImage(
+                                                          'assets/card.jpg',
+                                                        ),
+                                                    compact:
+                                                        compact || extraCompact,
+                                                    onTap: () => _openPage(
+                                                      const TouristGuidePage(),
+                                                    ),
                                                   ),
-                                                ),
-                                              ),
-                                            ).toList()
-                                          : [
-                                              _DestinationPromoCard(
-                                                title:
-                                                    "What's Your Next\nDestination?",
-                                                description:
-                                                    "Whether it's a weekend trip or a month-long escape, make it unforgettable.",
-                                                imageProvider:
-                                                    const AssetImage('assets/card.jpg'),
-                                                compact: compact || extraCompact,
-                                                onTap: () => _openPage(
-                                                  const TouristGuidePage(),
-                                                ),
-                                              ),
-                                              _DestinationPromoCard(
-                                                title: 'Discover Tiwi\nHighlights',
-                                                description:
-                                                    'Find scenic spots, hot springs, and beautiful places waiting for your next visit.',
-                                                imageProvider:
-                                                    const AssetImage('assets/municipal_hall.jpg'),
-                                                compact: compact || extraCompact,
-                                                onTap: () => _openPage(
-                                                  const TouristGuidePage(),
-                                                ),
-                                              ),
-                                              _DestinationPromoCard(
-                                                title: 'Plan Your\nAdventure',
-                                                description:
-                                                    'Explore top attractions and local favorites with just a few taps.',
-                                                imageProvider:
-                                                    const AssetImage('assets/bg.jpg'),
-                                                compact: compact || extraCompact,
-                                                onTap: () => _openPage(
-                                                  const TouristGuidePage(),
-                                                ),
-                                              ),
-                                            ],
-                                    ),
-                                  ),
-                                  SizedBox(height: indicatorSpacing),
-                                  Center(
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: List.generate(
-                                        _promoPageCount,
-                                        (index) => AnimatedContainer(
-                                          duration: const Duration(
-                                            milliseconds: 250,
-                                          ),
-                                          margin: const EdgeInsets.symmetric(
-                                            horizontal: 4,
-                                          ),
-                                          width: _currentPromoPage == index
-                                              ? 18
-                                              : 8,
-                                          height: 8,
-                                          decoration: BoxDecoration(
-                                            color: _currentPromoPage == index
-                                                ? accentColor
-                                                : accentColor.withValues(
-                                                    alpha: 0.25,
+                                                  _DestinationPromoCard(
+                                                    title:
+                                                        'Discover Tiwi\nHighlights',
+                                                    description:
+                                                        'Find scenic spots, hot springs, and beautiful places waiting for your next visit.',
+                                                    imageProvider: const AssetImage(
+                                                      'assets/municipal_hall.jpg',
+                                                    ),
+                                                    compact:
+                                                        compact || extraCompact,
+                                                    onTap: () => _openPage(
+                                                      const TouristGuidePage(),
+                                                    ),
                                                   ),
-                                            borderRadius:
-                                                BorderRadius.circular(999),
+                                                  _DestinationPromoCard(
+                                                    title:
+                                                        'Plan Your\nAdventure',
+                                                    description:
+                                                        'Explore top attractions and local favorites with just a few taps.',
+                                                    imageProvider:
+                                                        const AssetImage(
+                                                          'assets/bg.jpg',
+                                                        ),
+                                                    compact:
+                                                        compact || extraCompact,
+                                                    onTap: () => _openPage(
+                                                      const TouristGuidePage(),
+                                                    ),
+                                                  ),
+                                                ],
+                                        ),
+                                      ),
+                                      SizedBox(height: indicatorSpacing),
+                                      Center(
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: List.generate(
+                                            _promoPageCount,
+                                            (index) => AnimatedContainer(
+                                              duration: const Duration(
+                                                milliseconds: 250,
+                                              ),
+                                              margin:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 4,
+                                                  ),
+                                              width: _currentPromoPage == index
+                                                  ? 18
+                                                  : 8,
+                                              height: 8,
+                                              decoration: BoxDecoration(
+                                                color:
+                                                    _currentPromoPage == index
+                                                    ? accentColor
+                                                    : accentColor.withValues(
+                                                        alpha: 0.25,
+                                                      ),
+                                                borderRadius:
+                                                    BorderRadius.circular(999),
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ),
-                                    ),
+                                      SizedBox(height: compact ? 10 : 12),
+                                    ],
                                   ),
-                                  SizedBox(height: compact ? 10 : 12),
-                                ],
+                                ),
                               ),
                             ),
                           ),
@@ -866,8 +880,9 @@ class _HomePageState extends State<HomePage> {
                       child: BottomNavigationBar(
                         currentIndex: _selectedIndex,
                         onTap: _handleBottomNavigation,
-                        backgroundColor:
-                            isDark ? const Color(0xFF111827) : Colors.white,
+                        backgroundColor: isDark
+                            ? const Color(0xFF111827)
+                            : Colors.white,
                         selectedItemColor: colorScheme.primary,
                         unselectedItemColor: isDark
                             ? Colors.white70
@@ -895,7 +910,8 @@ class _HomePageState extends State<HomePage> {
                 if (_searchController.text.trim().isNotEmpty)
                   Positioned(
                     top: topPadding + (compact || extraCompact ? 52 : 56),
-                    left: horizontalPadding + (compact || extraCompact ? 50 : 54),
+                    left:
+                        horizontalPadding + (compact || extraCompact ? 50 : 54),
                     right:
                         horizontalPadding + (compact || extraCompact ? 50 : 54),
                     child: _InlineSearchResults(
@@ -1094,11 +1110,7 @@ class _HomeShortcut extends StatelessWidget {
               color: iconBackground,
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              icon,
-              color: iconColor,
-              size: iconContainerSize * 0.45,
-            ),
+            child: Icon(icon, color: iconColor, size: iconContainerSize * 0.45),
           ),
           const SizedBox(height: 10),
           Text(
@@ -1164,7 +1176,9 @@ class _InlineSearchResults extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final panelColor = isDark ? const Color(0xFF111827) : const Color(0xFFF8F8F8);
+    final panelColor = isDark
+        ? const Color(0xFF111827)
+        : const Color(0xFFF8F8F8);
     final dividerColor = isDark
         ? Colors.white.withValues(alpha: 0.08)
         : const Color(0xFFE3E3E3);
@@ -1289,89 +1303,97 @@ class _DestinationPromoCard extends StatelessWidget {
     return Container(
       height: compact ? 96 : 108,
       width: double.infinity,
-      decoration: BoxDecoration(
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(28)),
+      child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
-        image: DecorationImage(
-          image: imageProvider,
-          fit: BoxFit.cover,
-        ),
-      ),
-      child: Container(
-        padding: EdgeInsets.fromLTRB(
-          compact ? 12 : 14,
-          compact ? 10 : 12,
-          compact ? 12 : 14,
-          compact ? 10 : 12,
-        ),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(28),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.black.withValues(alpha: 0.18),
-              Colors.black.withValues(alpha: 0.42),
-            ],
-          ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Image(
+              image: imageProvider,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) =>
+                  Image.asset('assets/card.jpg', fit: BoxFit.cover),
+            ),
+            Container(
+              padding: EdgeInsets.fromLTRB(
+                compact ? 12 : 14,
+                compact ? 10 : 12,
+                compact ? 12 : 14,
+                compact ? 10 : 12,
+              ),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.18),
+                    Colors.black.withValues(alpha: 0.42),
+                  ],
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  SizedBox(
-                    width: compact ? 118 : 140,
-                    child: Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: compact ? 11.5 : 13,
-                        fontWeight: FontWeight.w800,
-                        height: 1.0,
-                      ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        SizedBox(
+                          width: compact ? 118 : 140,
+                          child: Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: compact ? 11.5 : 13,
+                              fontWeight: FontWeight.w800,
+                              height: 1.0,
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          width: compact ? 132 : 160,
+                          child: Text(
+                            description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: compact ? 7.5 : 8.5,
+                              height: 1.2,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  SizedBox(
-                    width: compact ? 132 : 160,
+                  const SizedBox(width: 12),
+                  FilledButton(
+                    onPressed: onTap,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF8EC5FF),
+                      foregroundColor: Colors.white,
+                      minimumSize: Size(compact ? 82 : 92, compact ? 28 : 32),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: compact ? 10 : 12,
+                        vertical: 0,
+                      ),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
                     child: Text(
-                      description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      'Explore now!',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontSize: compact ? 7.5 : 8.5,
-                        height: 1.2,
-                        fontWeight: FontWeight.w500,
+                        fontSize: compact ? 9 : 10,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            FilledButton(
-              onPressed: onTap,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF8EC5FF),
-                foregroundColor: Colors.white,
-                minimumSize: Size(compact ? 82 : 92, compact ? 28 : 32),
-                padding: EdgeInsets.symmetric(
-                  horizontal: compact ? 10 : 12,
-                  vertical: 0,
-                ),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: Text(
-                'Explore now!',
-                style: TextStyle(
-                  fontSize: compact ? 9 : 10,
-                  fontWeight: FontWeight.w700,
-                ),
               ),
             ),
           ],

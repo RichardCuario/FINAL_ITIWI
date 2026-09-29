@@ -44,7 +44,7 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data
-                    android:scheme="com.example.hotline_app"
+                    android:scheme="com.ecoimpact.itiwi"
                     android:host="login-callback" />
             </intent-filter>
         </activity>

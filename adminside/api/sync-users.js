@@ -3,7 +3,7 @@ const { initFirebase, initSupabase } = require('./_lib/init');
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -18,7 +18,8 @@ module.exports = async (req, res) => {
   try {
     console.log('Starting user sync from Firebase to Supabase...');
     const admin = initFirebase();
-    const supabase = initSupabase();
+    const accessToken = req.headers.authorization?.replace(/^Bearer\s+/i, '').trim();
+    const supabase = initSupabase(accessToken);
 
     const listUsersResult = await admin.auth().listUsers(1000);
     const users = listUsersResult.users;

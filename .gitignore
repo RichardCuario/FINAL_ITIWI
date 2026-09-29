@@ -30,3 +30,20 @@ npm-debug.log*
 # Backend env
 backend/.env
 .env
+
+# Secrets and local credentials
+process.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*serviceAccount*.json
+*service-account*.json
+
+# Local tooling, temporary exports, and build artifacts
+temp/
+supabase/.temp/
+*.apk
+*.log

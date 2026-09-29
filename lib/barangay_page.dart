@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -31,16 +32,38 @@ class _BarangayPageState extends State<BarangayPage> {
   @override
   void initState() {
     super.initState();
-    fetchBarangays();
+    unawaited(_loadCachedBarangaysThenRefresh());
   }
 
-  Future<void> fetchBarangays() async {
-    setState(() => isLoading = true);
+  Future<void> _loadCachedBarangaysThenRefresh() async {
+    final cached = await _cacheService.getBarangays();
+
+    if (!mounted) return;
+
+    if (cached.hasData) {
+      setState(() {
+        barangays = cached.items;
+        isShowingCachedData = true;
+        cacheUpdatedAt = cached.updatedAt;
+        isLoading = false;
+        _applySearch(searchQuery);
+      });
+    }
+
+    unawaited(fetchBarangays(showLoading: !cached.hasData));
+  }
+
+  Future<void> fetchBarangays({bool showLoading = true}) async {
+    if (showLoading) {
+      setState(() => isLoading = true);
+    }
 
     try {
       final data = await supabase
           .from('barangays')
-          .select()
+          .select(
+            'name,description,geographic_data,officials,logo_url,barangay_img',
+          )
           .order('name', ascending: true);
 
       if (!mounted) return;
@@ -49,16 +72,16 @@ class _BarangayPageState extends State<BarangayPage> {
         (data as List).map((item) => Map<String, dynamic>.from(item as Map)),
       );
 
-      await _cacheService.saveBarangays(mapped);
-
       setState(() {
         barangays = mapped;
         isShowingCachedData = false;
         cacheUpdatedAt = DateTime.now();
         isLoading = false;
+        _applySearch(searchQuery);
       });
 
-      _applySearch(searchQuery);
+      // Do not delay rendering fresh content while it is written to storage.
+      unawaited(_cacheService.saveBarangays(mapped));
     } catch (e) {
       final cached = await _cacheService.getBarangays();
 
@@ -69,19 +92,20 @@ class _BarangayPageState extends State<BarangayPage> {
         isShowingCachedData = cached.hasData;
         cacheUpdatedAt = cached.updatedAt;
         isLoading = false;
+        _applySearch(searchQuery);
       });
 
-      _applySearch(searchQuery);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            cached.hasData
-                ? 'Offline mode: showing previously loaded barangays.'
-                : 'Error fetching barangays: $e',
+      if (showLoading || !cached.hasData) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              cached.hasData
+                  ? 'Offline mode: showing previously loaded barangays.'
+                  : 'Error fetching barangays: $e',
+            ),
           ),
-        ),
-      );
+        );
+      }
     }
   }
 
@@ -114,14 +138,10 @@ class _BarangayPageState extends State<BarangayPage> {
     });
   }
 
-  
-
   Future<void> openBarangayDetail(Map<String, dynamic> barangay) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => BarangayDetailPage(barangay: barangay),
-      ),
+      MaterialPageRoute(builder: (_) => BarangayDetailPage(barangay: barangay)),
     );
   }
 
@@ -140,10 +160,12 @@ class _BarangayPageState extends State<BarangayPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final pageBackground =
-        isDark ? theme.scaffoldBackgroundColor : const Color(0xFFF3F4F6);
-    final surfaceBackground =
-        isDark ? const Color(0xFF111827) : const Color(0xFFF8F8F8);
+    final pageBackground = isDark
+        ? theme.scaffoldBackgroundColor
+        : const Color(0xFFF3F4F6);
+    final surfaceBackground = isDark
+        ? const Color(0xFF111827)
+        : const Color(0xFFF8F8F8);
     final screenWidth = MediaQuery.of(context).size.width;
     final horizontalPadding = screenWidth < 600 ? 16.0 : 20.0;
     final gridCrossAxisCount = 2;
@@ -188,34 +210,38 @@ class _BarangayPageState extends State<BarangayPage> {
                           child: Center(child: CircularProgressIndicator()),
                         )
                       : filteredBarangays.isEmpty
-                          ? _EmptyBarangayState(searchQuery: searchQuery)
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                GridView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: filteredBarangays.length,
-                                  gridDelegate:
-                                      SliverGridDelegateWithFixedCrossAxisCount(
+                      ? _EmptyBarangayState(searchQuery: searchQuery)
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (isShowingCachedData) ...[
+                              const OfflineDataBanner(),
+                              const SizedBox(height: 16),
+                            ],
+                            GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: filteredBarangays.length,
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
                                     crossAxisCount: gridCrossAxisCount,
                                     crossAxisSpacing: gridSpacing,
                                     mainAxisSpacing: gridRunSpacing,
                                     childAspectRatio: gridAspectRatio,
                                   ),
-                                  itemBuilder: (context, index) {
-                                    final item = filteredBarangays[index];
-                                    return _BarangayGridCard(
-                                      barangay: item,
-                                      subtitle: _extractShortLocation(
-                                        item['name']?.toString() ?? '',
-                                      ),
-                                      onTap: () => openBarangayDetail(item),
-                                    );
-                                  },
-                                ),
-                              ],
+                              itemBuilder: (context, index) {
+                                final item = filteredBarangays[index];
+                                return _BarangayGridCard(
+                                  barangay: item,
+                                  subtitle: _extractShortLocation(
+                                    item['name']?.toString() ?? '',
+                                  ),
+                                  onTap: () => openBarangayDetail(item),
+                                );
+                              },
                             ),
+                          ],
+                        ),
                 ),
               ),
             ),
@@ -240,10 +266,9 @@ class BarangayDetailPage extends StatelessWidget {
         lowerGeo.contains('population') ||
         lowerGeo.contains('census');
 
-    final combined =
-        !looksLikeDescription && normalizedGeo.isNotEmpty
-            ? normalizedGeo
-            : name.trim();
+    final combined = !looksLikeDescription && normalizedGeo.isNotEmpty
+        ? normalizedGeo
+        : name.trim();
 
     if (combined.isEmpty) {
       return 'Tiwi, Albay';
@@ -277,19 +302,16 @@ class BarangayDetailPage extends StatelessWidget {
     double? latitude,
     double? longitude,
   }) async {
-    final query =
-        latitude != null && longitude != null
-            ? '$latitude,$longitude'
-            : address;
+    final query = latitude != null && longitude != null
+        ? '$latitude,$longitude'
+        : address;
 
     final candidates = <Uri>[
       Uri.parse('geo:0,0?q=${Uri.encodeComponent(query)}'),
       Uri.parse(
         'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(query)}',
       ),
-      Uri.parse(
-        'https://maps.google.com/?q=${Uri.encodeComponent(query)}',
-      ),
+      Uri.parse('https://maps.google.com/?q=${Uri.encodeComponent(query)}'),
     ];
 
     for (final uri in candidates) {
@@ -306,11 +328,7 @@ class BarangayDetailPage extends StatelessWidget {
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Unable to open map app for: $query',
-          ),
-        ),
+        SnackBar(content: Text('Unable to open map app for: $query')),
       );
     }
   }
@@ -351,19 +369,21 @@ class BarangayDetailPage extends StatelessWidget {
     final name = barangay['name']?.toString().trim() ?? 'Barangay';
     final description =
         barangay['description']?.toString().trim().isNotEmpty == true
-            ? barangay['description'].toString().trim()
-            : 'No history or description available yet.';
+        ? barangay['description'].toString().trim()
+        : 'No history or description available yet.';
     final geographicData =
         barangay['geographic_data']?.toString().trim().isNotEmpty == true
-            ? barangay['geographic_data'].toString().trim()
-            : 'No geographic data available yet.';
+        ? barangay['geographic_data'].toString().trim()
+        : 'No geographic data available yet.';
     final officialsData = _BarangayOfficialsData.fromRaw(barangay['officials']);
     final address = _buildAddress(name, geographicData);
     final latitude = _readCoordinate('latitude');
     final longitude = _readCoordinate('longitude');
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF3F4F6),
+      backgroundColor: isDark
+          ? const Color(0xFF0F172A)
+          : const Color(0xFFF3F4F6),
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
@@ -441,7 +461,9 @@ class BarangayDetailPage extends StatelessWidget {
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF111827) : const Color(0xFFF8F8F8),
+                  color: isDark
+                      ? const Color(0xFF111827)
+                      : const Color(0xFFF8F8F8),
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(28),
                   ),
@@ -458,14 +480,18 @@ class BarangayDetailPage extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w800,
-                            color: isDark ? Colors.white : const Color(0xFF151515),
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF151515),
                           ),
                         ),
                       ),
                       const SizedBox(height: 30),
                       _DetailSection(
                         title: 'History',
-                        titleColor: isDark ? Colors.white : const Color(0xFF151515),
+                        titleColor: isDark
+                            ? Colors.white
+                            : const Color(0xFF151515),
                         child: Text(
                           description,
                           style: TextStyle(
@@ -478,7 +504,9 @@ class BarangayDetailPage extends StatelessWidget {
                       const SizedBox(height: 30),
                       _DetailSection(
                         title: 'Geographic data',
-                        titleColor: isDark ? Colors.white : const Color(0xFF151515),
+                        titleColor: isDark
+                            ? Colors.white
+                            : const Color(0xFF151515),
                         child: _GeographicMapSection(
                           address: address,
                           geographicData: geographicData,
@@ -495,84 +523,92 @@ class BarangayDetailPage extends StatelessWidget {
                       const SizedBox(height: 30),
                       _DetailSection(
                         title: 'Barangay Officials',
-                        titleColor: isDark ? Colors.white : const Color(0xFF151515),
+                        titleColor: isDark
+                            ? Colors.white
+                            : const Color(0xFF151515),
                         child: officialsData.structuredRows.isNotEmpty
-                            ? _OfficialsTable(rows: officialsData.structuredRows)
+                            ? _OfficialsTable(
+                                rows: officialsData.structuredRows,
+                              )
                             : officialsData.fallbackLines.isEmpty
-                                ? Text(
-                                    'No officials listed yet.',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: isDark ? Colors.white70 : Colors.grey[700],
-                                    ),
-                                  )
-                                : Column(
-                                    children: officialsData.fallbackLines
-                                        .asMap()
-                                        .entries
-                                        .map(
-                                          (entry) => Container(
-                                            margin: EdgeInsets.only(
-                                              bottom: entry.key ==
-                                                      officialsData
-                                                              .fallbackLines
-                                                              .length -
-                                                          1
-                                                  ? 0
-                                                  : 10,
-                                            ),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                              vertical: 14,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: isDark ? const Color(0xFF1F2937) : Colors.white,
-                                              borderRadius:
-                                                  BorderRadius.circular(14),
-                                              border: Border.all(
+                            ? Text(
+                                'No officials listed yet.',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.grey[700],
+                                ),
+                              )
+                            : Column(
+                                children: officialsData.fallbackLines
+                                    .asMap()
+                                    .entries
+                                    .map(
+                                      (entry) => Container(
+                                        margin: EdgeInsets.only(
+                                          bottom:
+                                              entry.key ==
+                                                  officialsData
+                                                          .fallbackLines
+                                                          .length -
+                                                      1
+                                              ? 0
+                                              : 10,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 14,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: isDark
+                                              ? const Color(0xFF1F2937)
+                                              : Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                          border: Border.all(
+                                            color: isDark
+                                                ? Colors.white12
+                                                : Colors.grey.shade300,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 34,
+                                              height: 34,
+                                              decoration: BoxDecoration(
                                                 color: isDark
-                                                    ? Colors.white12
-                                                    : Colors.grey.shade300,
+                                                    ? const Color(0xFF243145)
+                                                    : const Color(0xFFEAF4FF),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(
+                                                Icons.person_outline,
+                                                color: AppColors.primary,
+                                                size: 18,
                                               ),
                                             ),
-                                            child: Row(
-                                              children: [
-                                                Container(
-                                                  width: 34,
-                                                  height: 34,
-                                                  decoration:
-                                                      BoxDecoration(
-                                                        color: isDark
-                                                            ? const Color(0xFF243145)
-                                                            : const Color(0xFFEAF4FF),
-                                                        shape: BoxShape.circle,
-                                                      ),
-                                                  child: const Icon(
-                                                    Icons.person_outline,
-                                                    color: AppColors.primary,
-                                                    size: 18,
-                                                  ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Text(
+                                                entry.value,
+                                                style: TextStyle(
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: isDark
+                                                      ? Colors.white
+                                                      : const Color(0xFF232323),
                                                 ),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  child: Text(
-                                                    entry.value,
-                                                    style: TextStyle(
-                                                      fontSize: 15,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      color: isDark
-                                                          ? Colors.white
-                                                          : const Color(0xFF232323),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
+                                              ),
                                             ),
-                                          ),
-                                        )
-                                        .toList(),
-                                  ),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
                       ),
                     ],
                   ),
@@ -598,8 +634,9 @@ class _BarangayHeroSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final searchBackground =
-        isDark ? const Color(0xFF1E293B).withValues(alpha: 0.88) : Colors.white.withValues(alpha: 0.70);
+    final searchBackground = isDark
+        ? const Color(0xFF1E293B).withValues(alpha: 0.88)
+        : Colors.white.withValues(alpha: 0.70);
     final searchText = isDark ? Colors.white : Colors.black87;
     final searchHint = isDark ? Colors.white60 : const Color(0xFF5F6368);
 
@@ -860,7 +897,8 @@ class _BarangaySeal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initials = fallbackText ??
+    final initials =
+        fallbackText ??
         title
             .split(RegExp(r'\s+'))
             .where((part) => part.trim().isNotEmpty)
@@ -936,11 +974,7 @@ class _BarangaySeal extends StatelessWidget {
       decoration: const BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
-          colors: [
-            Color(0xFF123E9B),
-            Color(0xFFF6C33B),
-            Color(0xFF2E7D32),
-          ],
+          colors: [Color(0xFF123E9B), Color(0xFFF6C33B), Color(0xFF2E7D32)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -1049,7 +1083,9 @@ class _GeographicMapSectionState extends State<_GeographicMapSection> {
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(18),
                   ),
-                  color: isDark ? const Color(0xFF243145) : const Color(0xFFEAF4FF),
+                  color: isDark
+                      ? const Color(0xFF243145)
+                      : const Color(0xFFEAF4FF),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Stack(
@@ -1089,7 +1125,9 @@ class _GeographicMapSectionState extends State<_GeographicMapSection> {
                               ),
                               decoration: BoxDecoration(
                                 color: isDark
-                                    ? const Color(0xFF0F172A).withValues(alpha: 0.92)
+                                    ? const Color(
+                                        0xFF0F172A,
+                                      ).withValues(alpha: 0.92)
                                     : Colors.white.withValues(alpha: 0.95),
                                 borderRadius: BorderRadius.circular(28),
                                 boxShadow: [
@@ -1105,7 +1143,9 @@ class _GeographicMapSectionState extends State<_GeographicMapSection> {
                                   Icon(
                                     Icons.search,
                                     size: 18,
-                                    color: isDark ? Colors.white70 : const Color(0xFF5F6368),
+                                    color: isDark
+                                        ? Colors.white70
+                                        : const Color(0xFF5F6368),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
@@ -1116,7 +1156,9 @@ class _GeographicMapSectionState extends State<_GeographicMapSection> {
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w500,
-                                        color: isDark ? Colors.white : const Color(0xFF202124),
+                                        color: isDark
+                                            ? Colors.white
+                                            : const Color(0xFF202124),
                                       ),
                                     ),
                                   ),
@@ -1130,7 +1172,9 @@ class _GeographicMapSectionState extends State<_GeographicMapSection> {
                             height: 40,
                             decoration: BoxDecoration(
                               color: isDark
-                                  ? const Color(0xFF0F172A).withValues(alpha: 0.92)
+                                  ? const Color(
+                                      0xFF0F172A,
+                                    ).withValues(alpha: 0.92)
                                   : Colors.white.withValues(alpha: 0.95),
                               shape: BoxShape.circle,
                               boxShadow: [
@@ -1146,7 +1190,9 @@ class _GeographicMapSectionState extends State<_GeographicMapSection> {
                               icon: Icon(
                                 Icons.open_in_new,
                                 size: 18,
-                                color: isDark ? Colors.white : const Color(0xFF202124),
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF202124),
                               ),
                             ),
                           ),
@@ -1174,7 +1220,9 @@ class _GeographicMapSectionState extends State<_GeographicMapSection> {
                           style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w700,
-                            color: isDark ? Colors.white70 : const Color(0xFF1F2937),
+                            color: isDark
+                                ? Colors.white70
+                                : const Color(0xFF1F2937),
                           ),
                         ),
                       ),
@@ -1201,7 +1249,9 @@ class _GeographicMapSectionState extends State<_GeographicMapSection> {
                       'Lat ${latitude.toStringAsFixed(6)}, Lng ${longitude.toStringAsFixed(6)}',
                       style: TextStyle(
                         fontSize: 12.5,
-                        color: isDark ? Colors.white60 : const Color(0xFF6B7280),
+                        color: isDark
+                            ? Colors.white60
+                            : const Color(0xFF6B7280),
                       ),
                     ),
                     if (!hasCoordinates) ...[
@@ -1210,7 +1260,9 @@ class _GeographicMapSectionState extends State<_GeographicMapSection> {
                         'Using the default Tiwi, Albay coordinates because this barangay has no saved latitude/longitude yet.',
                         style: TextStyle(
                           fontSize: 12.5,
-                          color: isDark ? Colors.white60 : const Color(0xFF6B7280),
+                          color: isDark
+                              ? Colors.white60
+                              : const Color(0xFF6B7280),
                           height: 1.4,
                         ),
                       ),
@@ -1225,9 +1277,7 @@ class _GeographicMapSectionState extends State<_GeographicMapSection> {
                             label: const Text('Directions'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: const Color(0xFF1A73E8),
-                              side: const BorderSide(
-                                color: Color(0xFFBFD3F2),
-                              ),
+                              side: const BorderSide(color: Color(0xFFBFD3F2)),
                               padding: const EdgeInsets.symmetric(vertical: 13),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
@@ -1420,9 +1470,7 @@ class _BarangayOfficialsData {
     final punongMatch = RegExp(
       r'"punong_barangay"\s*:\s*"([^"]*)"',
     ).firstMatch(text);
-    final skMatch = RegExp(
-      r'"sk_chairman"\s*:\s*"([^"]*)"',
-    ).firstMatch(text);
+    final skMatch = RegExp(r'"sk_chairman"\s*:\s*"([^"]*)"').firstMatch(text);
     final secretaryMatch = RegExp(
       r'"barangay_secretary"\s*:\s*"([^"]*)"',
     ).firstMatch(text);
@@ -1435,9 +1483,9 @@ class _BarangayOfficialsData {
 
     final kagawads = <String>[];
     if (kagawadBlockMatch != null) {
-      final kagawadMatches = RegExp(r'"([^"]+)"').allMatches(
-        kagawadBlockMatch.group(1) ?? '',
-      );
+      final kagawadMatches = RegExp(
+        r'"([^"]+)"',
+      ).allMatches(kagawadBlockMatch.group(1) ?? '');
 
       for (final match in kagawadMatches) {
         final value = (match.group(1) ?? '').trim();
@@ -1455,7 +1503,8 @@ class _BarangayOfficialsData {
       'barangay_treasurer': treasurerMatch?.group(1)?.trim() ?? '',
     };
 
-    final hasStructuredValue = (map['punong_barangay'] as String).isNotEmpty ||
+    final hasStructuredValue =
+        (map['punong_barangay'] as String).isNotEmpty ||
         kagawads.isNotEmpty ||
         (map['sk_chairman'] as String).isNotEmpty ||
         (map['barangay_secretary'] as String).isNotEmpty ||
@@ -1525,10 +1574,7 @@ class _OfficialRow {
   final String label;
   final String value;
 
-  const _OfficialRow({
-    required this.label,
-    required this.value,
-  });
+  const _OfficialRow({required this.label, required this.value});
 }
 
 class _DetailSection extends StatelessWidget {
@@ -1621,5 +1667,3 @@ class _EmptyBarangayState extends StatelessWidget {
     );
   }
 }
-
-

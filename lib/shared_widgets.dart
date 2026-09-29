@@ -515,6 +515,71 @@ class AppSectionCard extends StatelessWidget {
   }
 }
 
+class OfflineDataBanner extends StatelessWidget {
+  const OfflineDataBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = isDark
+        ? const Color(0xFF172033)
+        : const Color(0xFFF7FAFE);
+    final borderColor = isDark
+        ? const Color(0xFF93C5FD).withValues(alpha: 0.22)
+        : const Color(0xFFBFDBFE);
+    final iconBackground = isDark
+        ? const Color(0xFF1E3A5F)
+        : const Color(0xFFE0EFFF);
+    final iconColor = isDark ? const Color(0xFF93C5FD) : AppColors.primary;
+    final textColor = isDark ? const Color(0xFFE2E8F0) : const Color(0xFF475569);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.12 : 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: iconBackground,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.cloud_off_rounded,
+              size: 17,
+              color: iconColor,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Offline - showing saved data',
+              style: TextStyle(
+                color: textColor,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class RatingStars extends StatelessWidget {
   const RatingStars({
     super.key,

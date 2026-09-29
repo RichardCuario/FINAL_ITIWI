@@ -5,11 +5,11 @@ import 'place_models.dart';
 
 class PlaceService {
   PlaceService({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
 
-  Future<List<Place>> fetchPlaces() async {
+  Future<List<Place>> fetchPlaces({bool rethrowOnError = false}) async {
     try {
       final response = await _client
           .from('places')
@@ -25,27 +25,48 @@ class PlaceService {
           .where((place) => place.id.isNotEmpty && place.name.isNotEmpty)
           .toList();
 
-      final enrichedPlaces = await Future.wait(
-        places.map((place) async {
-          final reviews = await fetchReviews(place.id);
-          if (reviews.isEmpty) {
-            return place;
-          }
+      if (places.isEmpty) return const <Place>[];
 
-          final average = reviews.fold<int>(0, (sum, item) => sum + item.rating) / reviews.length;
-          return place.copyWith(
-            averageRating: average,
-            reviewCount: reviews.length,
-          );
-        }),
-      );
+      // Load ratings for all visible destinations in one request instead of
+      // making one request per place.
+      final reviewResponse = await _client
+          .from('place_reviews')
+          .select('place_id,rating')
+          .inFilter('place_id', places.map((place) => place.id).toList())
+          .eq('status', 'approved');
+      final ratingsByPlace = <String, List<int>>{};
+      for (final item in reviewResponse as List) {
+        final review = Map<String, dynamic>.from(item as Map);
+        final placeId = review['place_id']?.toString() ?? '';
+        final rawRating = review['rating'];
+        final rating = rawRating is num
+            ? rawRating.toInt()
+            : int.tryParse(rawRating?.toString() ?? '') ?? 0;
+        if (placeId.isNotEmpty && rating > 0) {
+          ratingsByPlace.putIfAbsent(placeId, () => <int>[]).add(rating);
+        }
+      }
+
+      final enrichedPlaces = places.map((place) {
+        final ratings = ratingsByPlace[place.id] ?? const <int>[];
+        if (ratings.isEmpty) return place;
+        final average =
+            ratings.reduce((sum, rating) => sum + rating) / ratings.length;
+        return place.copyWith(
+          averageRating: average,
+          reviewCount: ratings.length,
+        );
+      }).toList();
 
       enrichedPlaces.sort((a, b) => a.name.compareTo(b.name));
       return enrichedPlaces;
-    } catch (error) {
+    } catch (error, stackTrace) {
       // Helps surface Supabase/RLS issues while still keeping the UI stable.
       // ignore: avoid_print
       print('PlaceService.fetchPlaces error: $error');
+      if (rethrowOnError) {
+        Error.throwWithStackTrace(error, stackTrace);
+      }
       return const <Place>[];
     }
   }
@@ -87,46 +108,65 @@ class PlaceService {
 
     final metadata = supabaseUser?.userMetadata ?? const <String, dynamic>{};
     final firebaseDisplayName = firebaseUser?.displayName?.trim() ?? '';
+    final firebasePhotoUrl = firebaseUser?.photoURL?.trim() ?? '';
     final firebaseEmail = firebaseUser?.email?.trim() ?? '';
     final supabaseEmail = supabaseUser?.email?.trim() ?? '';
-    final primaryEmail = firebaseEmail.isNotEmpty ? firebaseEmail : supabaseEmail;
+    final primaryEmail = firebaseEmail.isNotEmpty
+        ? firebaseEmail
+        : supabaseEmail;
     final emailUsername = primaryEmail.contains('@')
         ? primaryEmail.split('@').first.trim()
         : '';
     final reviewerName =
-        (firebaseDisplayName.isNotEmpty
-                    ? firebaseDisplayName
-                    : null) ??
-                (metadata['username']?.toString().trim().isNotEmpty == true
-                    ? metadata['username'].toString().trim()
-                    : null) ??
-                (metadata['user_name']?.toString().trim().isNotEmpty == true
-                    ? metadata['user_name'].toString().trim()
-                    : null) ??
-                (metadata['preferred_username']?.toString().trim().isNotEmpty ==
-                        true
-                    ? metadata['preferred_username'].toString().trim()
-                    : null) ??
-                (metadata['display_name']?.toString().trim().isNotEmpty == true
-                    ? metadata['display_name'].toString().trim()
-                    : null) ??
-                (metadata['full_name']?.toString().trim().isNotEmpty == true
-                    ? metadata['full_name'].toString().trim()
-                    : null) ??
-                (metadata['name']?.toString().trim().isNotEmpty == true
-                    ? metadata['name'].toString().trim()
-                    : null) ??
-                (emailUsername.isNotEmpty ? emailUsername : null) ??
-                (primaryEmail.isNotEmpty ? primaryEmail : null) ??
-                'Anonymous';
+        (firebaseDisplayName.isNotEmpty ? firebaseDisplayName : null) ??
+        (metadata['username']?.toString().trim().isNotEmpty == true
+            ? metadata['username'].toString().trim()
+            : null) ??
+        (metadata['user_name']?.toString().trim().isNotEmpty == true
+            ? metadata['user_name'].toString().trim()
+            : null) ??
+        (metadata['preferred_username']?.toString().trim().isNotEmpty == true
+            ? metadata['preferred_username'].toString().trim()
+            : null) ??
+        (metadata['display_name']?.toString().trim().isNotEmpty == true
+            ? metadata['display_name'].toString().trim()
+            : null) ??
+        (metadata['full_name']?.toString().trim().isNotEmpty == true
+            ? metadata['full_name'].toString().trim()
+            : null) ??
+        (metadata['name']?.toString().trim().isNotEmpty == true
+            ? metadata['name'].toString().trim()
+            : null) ??
+        (emailUsername.isNotEmpty ? emailUsername : null) ??
+        (primaryEmail.isNotEmpty ? primaryEmail : null) ??
+        'Anonymous';
+    final reviewerPhotoUrl = firebasePhotoUrl.isNotEmpty
+        ? firebasePhotoUrl
+        : (metadata['photo_url'] ??
+                  metadata['avatar_url'] ??
+                  metadata['picture'] ??
+                  '')
+              .toString()
+              .trim();
 
-    await _client.from('place_reviews').insert({
+    final submission = <String, dynamic>{
       'place_id': placeId,
       'user_id': supabaseUser?.id,
       'rating': rating,
       'review_text': normalizedReviewText,
       'status': 'approved',
       'reviewer_name': reviewerName,
-    });
+      'reviewer_photo_url': reviewerPhotoUrl.isEmpty ? null : reviewerPhotoUrl,
+    };
+
+    try {
+      await _client.from('place_reviews').insert(submission);
+    } catch (error) {
+      // Existing deployments created before reviewer_photo_url can still
+      // submit reviews while the database migration is being applied.
+      if (!error.toString().contains('reviewer_photo_url')) rethrow;
+      submission.remove('reviewer_photo_url');
+      await _client.from('place_reviews').insert(submission);
+    }
   }
 }

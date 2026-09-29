@@ -35,6 +35,9 @@ module.exports = async (req, res) => {
       applicantName,
       scheduleLabel,
       table,
+
+      // Identity verification specific
+      userId,
     } = req.body;
 
     const admin = initFirebase();
@@ -58,6 +61,11 @@ module.exports = async (req, res) => {
         if (statusLower === 'approved') notificationTitle = `${label} request approved`;
         else if (statusLower === 'rejected') notificationTitle = `${label} request rejected`;
         else notificationTitle = `${label} request updated`;
+      } else if (notificationType === 'identity_verification_status') {
+        const statusLower = (status || '').toLowerCase();
+        if (statusLower === 'verified') notificationTitle = 'Your identity verification was approved';
+        else if (statusLower === 'rejected') notificationTitle = 'Your identity verification was rejected';
+        else notificationTitle = 'Your identity verification status was updated';
       } else {
         notificationTitle = 'New Announcement';
       }
@@ -91,6 +99,18 @@ module.exports = async (req, res) => {
         } else {
           notificationBody = `The admin updated your ${label} request status.${schedule}`;
         }
+      } else if (notificationType === 'identity_verification_status') {
+        const statusLower = (status || '').toLowerCase();
+        if (statusLower === 'verified') {
+          notificationBody = 'Your identity verification has been approved. You can now access all verification-based features.';
+        } else if (statusLower === 'rejected') {
+          const reason = rejectionReason || '';
+          notificationBody = reason
+            ? `Your identity verification was rejected. Reason: ${reason}`
+            : 'Your identity verification was rejected. Please review the requirements and resubmit.';
+        } else {
+          notificationBody = 'Your identity verification status was updated.';
+        }
       } else {
         notificationBody = 'Tap to view the latest news.';
       }
@@ -115,6 +135,12 @@ module.exports = async (req, res) => {
       dataPayload.applicantName = applicantName || '';
       dataPayload.scheduleLabel = scheduleLabel || '';
       dataPayload.table = table || '';
+      dataPayload.title = notificationTitle;
+      dataPayload.description = notificationBody;
+    } else if (notificationType === 'identity_verification_status') {
+      dataPayload.userId = userId || '';
+      dataPayload.status = status || '';
+      dataPayload.rejectionReason = rejectionReason || '';
       dataPayload.title = notificationTitle;
       dataPayload.description = notificationBody;
     } else {

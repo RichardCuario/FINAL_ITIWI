@@ -93,6 +93,7 @@ create table if not exists public.place_reviews (
   place_id uuid not null references public.places(id) on delete cascade,
   user_id uuid,
   reviewer_name text,
+  reviewer_photo_url text,
   rating smallint not null,
   review_text text,
   status text not null default 'pending',
@@ -108,6 +109,11 @@ create table if not exists public.place_reviews (
     review_text is null or btrim(review_text) <> ''
   )
 );
+
+-- create table if not exists does not add newly introduced columns to an
+-- existing installation, so keep this migration safe to rerun.
+alter table public.place_reviews
+  add column if not exists reviewer_photo_url text;
 
 create index if not exists place_reviews_place_id_idx
   on public.place_reviews using btree (place_id);
@@ -185,12 +191,13 @@ using (
 );
 
 drop policy if exists "Authenticated users can submit place reviews" on public.place_reviews;
+drop policy if exists "Anyone can submit place reviews" on public.place_reviews;
 create policy "Authenticated users can submit place reviews"
 on public.place_reviews
 for insert
 to authenticated
 with check (
-  status = 'pending'
+  status = 'approved'
   and rating between 1 and 5
   and (user_id is null or user_id = auth.uid())
   and exists (

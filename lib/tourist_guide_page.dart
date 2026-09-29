@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -5,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'place_models.dart';
 import 'place_service.dart';
+import 'content_cache_service.dart';
 import 'shared_widgets.dart';
 
 class TouristGuidePage extends StatefulWidget {
@@ -16,7 +19,10 @@ class TouristGuidePage extends StatefulWidget {
 
 class _TouristGuidePageState extends State<TouristGuidePage> {
   final PlaceService _placeService = PlaceService();
+  final ContentCacheService _cacheService = const ContentCacheService();
   late Future<List<Place>> _placesFuture;
+  List<Place> _cachedPlaces = const [];
+  bool _isShowingCachedData = false;
 
   static const List<String> _sectionOrder = [
     'Tiwi Resorts Near You',
@@ -28,30 +34,66 @@ class _TouristGuidePageState extends State<TouristGuidePage> {
   @override
   void initState() {
     super.initState();
-    _placesFuture = _placeService.fetchPlaces();
+    _placesFuture = _loadCachedPlacesThenRefresh();
+  }
+
+  Future<List<Place>> _loadCachedPlacesThenRefresh() async {
+    final cached = await _cacheService.getPlaces();
+    final cachedPlaces = cached.items.map(Place.fromMap).toList();
+
+    if (cachedPlaces.isNotEmpty) {
+      _cachedPlaces = cachedPlaces;
+      _isShowingCachedData = true;
+      if (mounted) {
+        unawaited(_refreshPlaces());
+      }
+      return cachedPlaces;
+    }
+
+    return _fetchAndCachePlaces();
+  }
+
+  Future<List<Place>> _fetchAndCachePlaces() async {
+    final places = await _placeService.fetchPlaces(rethrowOnError: true);
+    unawaited(
+      _cacheService.savePlaces(places.map((place) => place.toMap()).toList()),
+    );
+    if (mounted) {
+      setState(() {
+        _cachedPlaces = places;
+        _isShowingCachedData = false;
+      });
+    }
+    return places;
   }
 
   Future<void> _refreshPlaces() async {
-    final future = _placeService.fetchPlaces();
+    final future = _fetchAndCachePlaces();
     setState(() {
       _placesFuture = future;
     });
-    await future;
+    try {
+      await future;
+    } catch (_) {
+      // The FutureBuilder renders the offline state while preserving cached
+      // places, when available.
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final backgroundColor =
-        isDark ? theme.scaffoldBackgroundColor : const Color(0xFFF3F4F6);
+    final backgroundColor = isDark
+        ? theme.scaffoldBackgroundColor
+        : const Color(0xFFF3F4F6);
 
     return Scaffold(
       backgroundColor: backgroundColor,
       body: FutureBuilder<List<Place>>(
         future: _placesFuture,
         builder: (context, snapshot) {
-          final places = snapshot.data ?? const <Place>[];
+          final places = snapshot.data ?? _cachedPlaces;
           final groupedPlaces = _groupPlaces(places);
           final visibleSections = _sectionOrder
               .where((section) => (groupedPlaces[section] ?? []).isNotEmpty)
@@ -67,10 +109,44 @@ class _TouristGuidePageState extends State<TouristGuidePage> {
                   places: places,
                   onSearchTap: () => _openSearchSheet(context, places),
                 ),
-                if (snapshot.connectionState != ConnectionState.done)
+                if (_isShowingCachedData && places.isNotEmpty)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    child: OfflineDataBanner(),
+                  ),
+                if (snapshot.connectionState != ConnectionState.done &&
+                    places.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 48),
                     child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (snapshot.hasError && places.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                    child: AppSectionCard(
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.cloud_off_rounded,
+                            size: 52,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'You are offline',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Connect to the internet to load tourist spots for the first time.',
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
                   )
                 else if (places.isEmpty)
                   Padding(
@@ -93,7 +169,7 @@ class _TouristGuidePageState extends State<TouristGuidePage> {
                           ),
                           const SizedBox(height: 8),
                           const Text(
-                            'Pull down to refresh after places and reviews are added in Supabase.',
+                            'Pull down to refresh and check again later.',
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -145,10 +221,8 @@ class _TouristGuidePageState extends State<TouristGuidePage> {
           Navigator.of(context).pop();
           await Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) => PlaceDetailPage(
-                place: place,
-                placeService: _placeService,
-              ),
+              builder: (context) =>
+                  PlaceDetailPage(place: place, placeService: _placeService),
             ),
           );
           if (mounted) {
@@ -175,10 +249,8 @@ class _TouristGuidePageState extends State<TouristGuidePage> {
           Navigator.of(context).pop();
           await Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) => PlaceDetailPage(
-                place: place,
-                placeService: _placeService,
-              ),
+              builder: (context) =>
+                  PlaceDetailPage(place: place, placeService: _placeService),
             ),
           );
           if (mounted) {
@@ -190,9 +262,7 @@ class _TouristGuidePageState extends State<TouristGuidePage> {
   }
 
   Map<String, List<Place>> _groupPlaces(List<Place> places) {
-    final grouped = {
-      for (final section in _sectionOrder) section: <Place>[],
-    };
+    final grouped = {for (final section in _sectionOrder) section: <Place>[]};
 
     for (final place in places) {
       final section = _resolveSection(place);
@@ -271,7 +341,9 @@ class _TouristGuidePageState extends State<TouristGuidePage> {
   }
 
   int _sortPlaces(Place a, Place b) {
-    final featuredCompare = (b.isFeatured ? 1 : 0).compareTo(a.isFeatured ? 1 : 0);
+    final featuredCompare = (b.isFeatured ? 1 : 0).compareTo(
+      a.isFeatured ? 1 : 0,
+    );
     if (featuredCompare != 0) {
       return featuredCompare;
     }
@@ -286,10 +358,7 @@ class _TouristGuidePageState extends State<TouristGuidePage> {
 }
 
 class _TouristGuideHeader extends StatelessWidget {
-  const _TouristGuideHeader({
-    required this.places,
-    required this.onSearchTap,
-  });
+  const _TouristGuideHeader({required this.places, required this.onSearchTap});
 
   final List<Place> places;
   final VoidCallback onSearchTap;
@@ -310,16 +379,8 @@ class _TouristGuideHeader extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: isDark
-              ? const [
-                  Color(0xFF0F172A),
-                  Color(0xFF1E293B),
-                  Color(0xFF111827),
-                ]
-              : const [
-                  Color(0xFF4FA9F5),
-                  Color(0xFF7CBDF6),
-                  Color(0xFFF3F4F6),
-                ],
+              ? const [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF111827)]
+              : const [Color(0xFF4FA9F5), Color(0xFF7CBDF6), Color(0xFFF3F4F6)],
           stops: const [0.0, 0.62, 1.0],
         ),
       ),
@@ -360,7 +421,9 @@ class _TouristGuideHeader extends StatelessWidget {
                       text: TextSpan(
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w800,
-                          color: isDark ? Colors.white : const Color(0xFF111827),
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF111827),
                         ),
                         children: const [
                           TextSpan(text: 'Discover '),
@@ -452,15 +515,12 @@ class _CategorySection extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
                 ),
               ),
-              TextButton(
-                onPressed: onViewAll,
-                child: const Text('View all'),
-              ),
+              TextButton(onPressed: onViewAll, child: const Text('View all')),
             ],
           ),
           const SizedBox(height: 12),
@@ -486,10 +546,7 @@ class _CategorySection extends StatelessWidget {
 }
 
 class _CategoryPlaceCard extends StatelessWidget {
-  const _CategoryPlaceCard({
-    required this.place,
-    required this.onTap,
-  });
+  const _CategoryPlaceCard({required this.place, required this.onTap});
 
   final Place place;
   final VoidCallback onTap;
@@ -616,11 +673,7 @@ class _CategoryImagePlaceholder extends StatelessWidget {
         ),
       ),
       child: const Center(
-        child: Icon(
-          Icons.image_outlined,
-          color: Colors.white,
-          size: 46,
-        ),
+        child: Icon(Icons.image_outlined, color: Colors.white, size: 46),
       ),
     );
   }
@@ -647,16 +700,17 @@ class _CategoryPlacesSheet extends StatelessWidget {
           children: [
             Text(
               title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 16),
             Flexible(
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: places.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final place = places[index];
                   return _PlaceListTileCard(
@@ -674,10 +728,7 @@ class _CategoryPlacesSheet extends StatelessWidget {
 }
 
 class _PlaceSearchSheet extends StatefulWidget {
-  const _PlaceSearchSheet({
-    required this.places,
-    required this.onPlaceTap,
-  });
+  const _PlaceSearchSheet({required this.places, required this.onPlaceTap});
 
   final List<Place> places;
   final ValueChanged<Place> onPlaceTap;
@@ -733,7 +784,8 @@ class _PlaceSearchSheetState extends State<_PlaceSearchSheet> {
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: results.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final place = results[index];
                   return _PlaceListTileCard(
@@ -751,10 +803,7 @@ class _PlaceSearchSheetState extends State<_PlaceSearchSheet> {
 }
 
 class _PlaceListTileCard extends StatelessWidget {
-  const _PlaceListTileCard({
-    required this.place,
-    required this.onTap,
-  });
+  const _PlaceListTileCard({required this.place, required this.onTap});
 
   final Place place;
   final VoidCallback onTap;
@@ -884,29 +933,20 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final backgroundColor =
-        isDark ? theme.scaffoldBackgroundColor : const Color(0xFFF3F6FB);
+    final backgroundColor = isDark
+        ? theme.scaffoldBackgroundColor
+        : const Color(0xFFF3F6FB);
     final headerGradient = isDark ? _darkHeaderGradient : _lightHeaderGradient;
-    final softTextColor =
-        isDark ? Colors.white70 : const Color(0xFF5F6F85);
+    final softTextColor = isDark ? Colors.white70 : const Color(0xFF5F6F85);
     final detailLocation = _buildLocationText(place);
     final coordinatesText = _buildCoordinatesText(place);
 
     return Scaffold(
       backgroundColor: backgroundColor,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openReviewSheet,
-        backgroundColor:
-            isDark ? const Color(0xFF1E3A5F) : const Color(0xFFDDEBFF),
-        foregroundColor: isDark ? Colors.white : const Color(0xFF163B63),
-        elevation: 6,
-        icon: const Icon(Icons.rate_review_rounded),
-        label: const Text('Write Review'),
-      ),
       body: Stack(
         children: [
           Container(
-            height: 220,
+            height: 198,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -926,28 +966,42 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                   final average = reviews.isEmpty
                       ? place.averageRating
                       : reviews.fold<int>(0, (sum, item) => sum + item.rating) /
-                          reviews.length;
-                  final reviewCount =
-                      reviews.isEmpty ? place.reviewCount : reviews.length;
+                            reviews.length;
+                  final reviewCount = reviews.isEmpty
+                      ? place.reviewCount
+                      : reviews.length;
+                  final ratingCounts = <int, int>{
+                    for (var rating = 1; rating <= 5; rating++)
+                      rating: reviews
+                          .where((review) => review.rating == rating)
+                          .length,
+                  };
 
                   return ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 104),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
                     children: [
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(0, 2, 0, 18),
+                        padding: const EdgeInsets.fromLTRB(0, 4, 0, 16),
                         child: Row(
                           children: [
-                            IconButton(
-                              onPressed: () => Navigator.of(context).pop(),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              icon: const Icon(
-                                Icons.arrow_back_rounded,
-                                color: Colors.white,
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.18),
+                                shape: BoxShape.circle,
+                              ),
+                              child: IconButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                tooltip: 'Back',
+                                icon: const Icon(
+                                  Icons.arrow_back_rounded,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -963,21 +1017,58 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Place details',
+                                    'Discover Tiwi',
                                     style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: Colors.white.withValues(alpha: 0.82),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.82,
+                                      ),
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
+                            if (reviews.isNotEmpty) ...[
+                              const SizedBox(width: 10),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.08)
+                                      : Colors.white.withValues(alpha: 0.72),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.star_rounded,
+                                      size: 16,
+                                      color: Color(0xFFF4B400),
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      average.toStringAsFixed(1),
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
                       AppSectionCard(
                         padding: EdgeInsets.zero,
-                        borderRadius: const BorderRadius.all(Radius.circular(24)),
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(28),
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -986,15 +1077,16 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                                 if (place.imageUrl.isNotEmpty)
                                   ClipRRect(
                                     borderRadius: const BorderRadius.vertical(
-                                      top: Radius.circular(24),
+                                      top: Radius.circular(28),
                                     ),
                                     child: Image.network(
                                       place.imageUrl,
-                                      height: 250,
+                                      height: 272,
                                       width: double.infinity,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) =>
-                                          const _ImagePlaceholder(),
+                                      errorBuilder:
+                                          (context, error, stackTrace) =>
+                                              const _ImagePlaceholder(),
                                     ),
                                   )
                                 else
@@ -1017,58 +1109,115 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                                 Positioned(
                                   left: 16,
                                   right: 16,
-                                  bottom: 16,
-                                  child: Row(
+                                  bottom: 18,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Expanded(
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 8,
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.42,
                                           ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.black.withValues(
-                                              alpha: 0.42,
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(999),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
                                           ),
-                                          child: Text(
-                                            place.category.isNotEmpty
-                                                ? place.category
-                                                : 'Tourist spot',
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w700,
-                                            ),
+                                        ),
+                                        child: Text(
+                                          place.category.isNotEmpty
+                                              ? place.category
+                                              : 'Tourist spot',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w800,
                                           ),
                                         ),
                                       ),
-                                      if (place.isFeatured) ...[
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 8,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.92,
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(999),
-                                          ),
-                                          child: const Text(
-                                            'Featured',
-                                            style: TextStyle(
-                                              color: Color(0xFF163B63),
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        place.name,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.titleLarge
+                                            ?.copyWith(
+                                              color: Colors.white,
                                               fontWeight: FontWeight.w800,
+                                              height: 1.1,
                                             ),
-                                          ),
+                                      ),
+                                      if (detailLocation.isNotEmpty) ...[
+                                        const SizedBox(height: 5),
+                                        Text(
+                                          detailLocation,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.86,
+                                                ),
+                                                fontWeight: FontWeight.w500,
+                                              ),
                                         ),
                                       ],
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.star_rounded,
+                                            size: 20,
+                                            color: Color(0xFFFBBF24),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            average.toStringAsFixed(1),
+                                            style: theme.textTheme.titleSmall
+                                                ?.copyWith(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            '($reviewCount review${reviewCount == 1 ? '' : 's'})',
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.88),
+                                                ),
+                                          ),
+                                          if (place.isFeatured) ...[
+                                            const Spacer(),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 6,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.94,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(999),
+                                              ),
+                                              child: const Text(
+                                                'Featured',
+                                                style: TextStyle(
+                                                  color: Color(0xFF163B63),
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -1085,10 +1234,14 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                                         color: Colors.white.withValues(
                                           alpha: 0.95,
                                         ),
-                                        borderRadius: BorderRadius.circular(999),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.15),
+                                            color: Colors.black.withValues(
+                                              alpha: 0.15,
+                                            ),
                                             blurRadius: 8,
                                             offset: const Offset(0, 2),
                                           ),
@@ -1105,10 +1258,11 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                                           const SizedBox(width: 6),
                                           Text(
                                             place.distanceLabel,
-                                            style: theme.textTheme.bodySmall?.copyWith(
-                                              fontWeight: FontWeight.w700,
-                                              color: colorScheme.primary,
-                                            ),
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w700,
+                                                  color: colorScheme.primary,
+                                                ),
                                           ),
                                         ],
                                       ),
@@ -1117,13 +1271,18 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                               ],
                             ),
                             Padding(
-                              padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+                              padding: const EdgeInsets.fromLTRB(
+                                20,
+                                20,
+                                20,
+                                22,
+                              ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    place.name,
-                                    style: theme.textTheme.headlineSmall
+                                    'Overview',
+                                    style: theme.textTheme.titleMedium
                                         ?.copyWith(fontWeight: FontWeight.w800),
                                   ),
                                   const SizedBox(height: 8),
@@ -1136,112 +1295,31 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                                         if (detailLocation.isNotEmpty)
                                           detailLocation,
                                       ].join(' • '),
-                                      style: theme.textTheme.bodyMedium?.copyWith(
-                                        color: softTextColor,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: softTextColor,
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                     ),
-                                  const SizedBox(height: 14),
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: isDark
-                                          ? Colors.white.withValues(alpha: 0.05)
-                                          : const Color(0xFFF8FBFF),
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                        color: isDark
-                                            ? Colors.white10
-                                            : const Color(0xFFD8E7F8),
-                                      ),
-                                    ),
-                                    child: Wrap(
-                                      crossAxisAlignment:
-                                          WrapCrossAlignment.center,
-                                      spacing: 10,
-                                      runSpacing: 10,
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                            vertical: 10,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: isDark
-                                                ? const Color(0xFF1F3A5F)
-                                                : const Color(0xFFDDEBFF),
-                                            borderRadius:
-                                                BorderRadius.circular(16),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              RatingStars(
-                                                rating: average,
-                                                size: 18,
-                                              ),
-                                              const SizedBox(width: 10),
-                                              Text(
-                                                average.toStringAsFixed(1),
-                                                style: theme
-                                                    .textTheme.titleMedium
-                                                    ?.copyWith(
-                                                      fontWeight:
-                                                          FontWeight.w800,
-                                                      color: isDark
-                                                          ? Colors.white
-                                                          : const Color(
-                                                              0xFF163B63,
-                                                            ),
-                                                    ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                            vertical: 10,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: isDark
-                                                ? Colors.white.withValues(
-                                                    alpha: 0.06,
-                                                  )
-                                                : Colors.white,
-                                            borderRadius:
-                                                BorderRadius.circular(16),
-                                            border: Border.all(
-                                              color: isDark
-                                                  ? Colors.white10
-                                                  : const Color(0xFFE2E8F0),
-                                            ),
-                                          ),
-                                          child: Text(
-                                            '$reviewCount review${reviewCount == 1 ? '' : 's'}',
-                                            style: theme.textTheme.bodyMedium
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.w700,
-                                                  color: isDark
-                                                      ? Colors.white70
-                                                      : const Color(0xFF526172),
-                                                ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
                                   if (place.description.isNotEmpty) ...[
-                                    const SizedBox(height: 18),
+                                    const SizedBox(height: 24),
+                                    Text(
+                                      'About this place',
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 10),
                                     Text(
                                       place.description,
-                                      style: theme.textTheme.bodyLarge?.copyWith(
-                                        height: 1.7,
-                                        color: isDark
-                                            ? Colors.white70
-                                            : const Color(0xFF3E4C59),
-                                      ),
+                                      style: theme.textTheme.bodyLarge
+                                          ?.copyWith(
+                                            height: 1.7,
+                                            color: isDark
+                                                ? Colors.white70
+                                                : const Color(0xFF3E4C59),
+                                          ),
                                     ),
                                   ],
                                   if (_hasPlaceMapData(place)) ...[
@@ -1256,14 +1334,14 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                                     const SizedBox(height: 24),
                                     Container(
                                       width: double.infinity,
-                                      padding: const EdgeInsets.all(16),
+                                      padding: const EdgeInsets.all(18),
                                       decoration: BoxDecoration(
                                         color: isDark
                                             ? Colors.white.withValues(
                                                 alpha: 0.04,
                                               )
                                             : const Color(0xFFF8FAFC),
-                                        borderRadius: BorderRadius.circular(20),
+                                        borderRadius: BorderRadius.circular(18),
                                         border: Border.all(
                                           color: isDark
                                               ? Colors.white12
@@ -1275,7 +1353,7 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            'Place Information',
+                                            'Contact & details',
                                             style: theme.textTheme.titleMedium
                                                 ?.copyWith(
                                                   fontWeight: FontWeight.w800,
@@ -1323,8 +1401,20 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                         ),
                       ),
                       const SizedBox(height: 20),
+                      if (reviews.isNotEmpty) ...[
+                        _RatingSummary(
+                          average: average,
+                          reviewCount: reviewCount,
+                          ratingCounts: ratingCounts,
+                          theme: theme,
+                          isDark: isDark,
+                          softTextColor: softTextColor,
+                          margin: EdgeInsets.zero,
+                        ),
+                        const SizedBox(height: 14),
+                      ],
                       Container(
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           gradient: isDark
                               ? const LinearGradient(
@@ -1343,7 +1433,7 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
-                          borderRadius: BorderRadius.circular(24),
+                          borderRadius: BorderRadius.circular(20),
                           border: Border.all(
                             color: isDark
                                 ? Colors.white10
@@ -1360,37 +1450,38 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                         child: Row(
                           children: [
                             Container(
-                              width: 54,
-                              height: 54,
+                              width: 46,
+                              height: 46,
                               decoration: BoxDecoration(
                                 color: isDark
                                     ? Colors.white.withValues(alpha: 0.08)
                                     : const Color(0xFFDDEBFF),
-                                borderRadius: BorderRadius.circular(18),
+                                borderRadius: BorderRadius.circular(14),
                               ),
                               child: Icon(
-                                Icons.reviews_rounded,
+                                Icons.forum_rounded,
                                 color: isDark
                                     ? Colors.white
                                     : const Color(0xFF1E88E5),
                               ),
                             ),
-                            const SizedBox(width: 14),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Visitor Reviews',
-                                    style: theme.textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.w800,
-                                      color: colorScheme.onSurface,
-                                    ),
+                                    'Reviews from visitors',
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w800,
+                                          color: colorScheme.onSurface,
+                                        ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Recent feedback from guests and visitors',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                    '$reviewCount review${reviewCount == 1 ? '' : 's'} from guests and visitors',
+                                    style: theme.textTheme.bodySmall?.copyWith(
                                       color: softTextColor,
                                       height: 1.35,
                                     ),
@@ -1399,6 +1490,24 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                               ),
                             ),
                           ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: _openReviewSheet,
+                          icon: const Icon(Icons.rate_review_rounded, size: 18),
+                          label: const Text('Write a review'),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(46),
+                            backgroundColor: const Color(0xFF0B4C8C),
+                            foregroundColor: Colors.white,
+                            textStyle: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                            ),
+                            shape: const StadiumBorder(),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -1411,7 +1520,9 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                         Container(
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF111827) : Colors.white,
+                            color: isDark
+                                ? const Color(0xFF111827)
+                                : Colors.white,
                             borderRadius: BorderRadius.circular(24),
                             border: Border.all(
                               color: isDark
@@ -1485,25 +1596,27 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                               ),
                             ),
                           ),
-                        ...reviews.take(2).map(
-                          (review) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _ReviewCard(
-                              review: review,
-                              theme: theme,
-                              isDark: isDark,
-                              softTextColor: softTextColor,
-                              onTap: () => _showReviewDetailModal(
-                                context: context,
-                                review: review,
-                                placeName: place.name,
-                                theme: theme,
-                                isDark: isDark,
-                                softTextColor: softTextColor,
+                        ...reviews
+                            .take(2)
+                            .map(
+                              (review) => Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: _ReviewCard(
+                                  review: review,
+                                  theme: theme,
+                                  isDark: isDark,
+                                  softTextColor: softTextColor,
+                                  onTap: () => _showReviewDetailModal(
+                                    context: context,
+                                    review: review,
+                                    placeName: place.name,
+                                    theme: theme,
+                                    isDark: isDark,
+                                    softTextColor: softTextColor,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        ),
                       ],
                     ],
                   );
@@ -1556,53 +1669,7 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
 
   String _maskReviewerName(String name) {
     final trimmed = name.trim();
-    if (trimmed.isEmpty) {
-      return 'Anonymous';
-    }
-
-    final normalized = trimmed.toLowerCase();
-    if (normalized == 'anonymous' || normalized == 'anonymous reviewer') {
-      return 'Anonymous';
-    }
-
-    if (trimmed.contains('@')) {
-      final parts = trimmed.split('@');
-      final localPart = parts.first.trim();
-      final domain = parts.length > 1 ? parts[1].trim() : '';
-      if (localPart.isEmpty) {
-        return 'Anonymous';
-      }
-
-      final visibleLocal = localPart.length <= 2
-          ? '${localPart[0]}*'
-          : '${localPart.substring(0, 2)}${'*' * (localPart.length - 2)}';
-
-      return domain.isEmpty ? visibleLocal : '$visibleLocal@$domain';
-    }
-
-    final words = trimmed
-        .split(RegExp(r'\s+'))
-        .where((word) => word.isNotEmpty)
-        .toList();
-
-    if (words.length > 1) {
-      return words.map(_maskWord).join(' ');
-    }
-
-    return _maskWord(trimmed);
-  }
-
-  String _maskWord(String word) {
-    if (word.isEmpty) {
-      return 'Anonymous';
-    }
-    if (word.length == 1) {
-      return '*';
-    }
-    if (word.length == 2) {
-      return '${word[0]}*';
-    }
-    return '${word.substring(0, 2)}${'*' * (word.length - 2)}';
+    return trimmed.isEmpty ? 'Anonymous' : trimmed;
   }
 
   String _reviewInitial(String name) {
@@ -1688,34 +1755,12 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        gradient: isDark
-                            ? const LinearGradient(
-                                colors: [
-                                  Color(0xFF334155),
-                                  Color(0xFF1E293B),
-                                ],
-                              )
-                            : const LinearGradient(
-                                colors: [
-                                  Color(0xFF90CAF9),
-                                  Color(0xFF1E88E5),
-                                ],
-                              ),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        _reviewInitial(review.reviewerName),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 20,
-                        ),
-                      ),
+                    _ReviewerAvatar(
+                      photoUrl: review.reviewerPhotoUrl,
+                      initial: _reviewInitial(review.reviewerName),
+                      size: 56,
+                      borderRadius: 16,
+                      isDark: isDark,
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -1791,10 +1836,7 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                RatingStars(
-                  rating: review.rating.toDouble(),
-                  size: 20,
-                ),
+                RatingStars(rating: review.rating.toDouble(), size: 20),
                 if (review.reviewText.isNotEmpty) ...[
                   const SizedBox(height: 18),
                   Container(
@@ -1837,50 +1879,88 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
     required bool isDark,
     required Color softTextColor,
   }) {
-    showDialog(
+    final average = reviews.isEmpty
+        ? 0.0
+        : reviews.fold<int>(0, (total, review) => total + review.rating) /
+              reviews.length;
+    final ratingCounts = <int, int>{
+      for (var rating = 1; rating <= 5; rating++)
+        rating: reviews.where((review) => review.rating == rating).length,
+    };
+
+    showModalBottomSheet<void>(
       context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        backgroundColor: isDark ? const Color(0xFF111827) : Colors.white,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => FractionallySizedBox(
+        heightFactor: 0.88,
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF111827) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'All Reviews',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${reviews.length} visitor review${reviews.length == 1 ? '' : 's'}',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: softTextColor,
-                        ),
-                      ),
-                    ],
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white24 : const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(99),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
+                ),
               ),
-              const SizedBox(height: 20),
-              Flexible(
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 12, 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'All reviews',
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${reviews.length} visitor review${reviews.length == 1 ? '' : 's'}',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: softTextColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton.filledTonal(
+                      tooltip: 'Close reviews',
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              if (reviews.isNotEmpty)
+                _RatingSummary(
+                  average: average,
+                  reviewCount: reviews.length,
+                  ratingCounts: ratingCounts,
+                  theme: theme,
+                  isDark: isDark,
+                  softTextColor: softTextColor,
+                ),
+              Expanded(
                 child: ListView.separated(
-                  shrinkWrap: true,
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
                   itemCount: reviews.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 12),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final review = reviews[index];
                     return _ReviewCard(
@@ -1889,7 +1969,7 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                       isDark: isDark,
                       softTextColor: softTextColor,
                       onTap: () {
-                        Navigator.of(context).pop();
+                        Navigator.of(sheetContext).pop();
                         _showReviewDetailModal(
                           context: context,
                           review: review,
@@ -1907,6 +1987,164 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _RatingSummary extends StatelessWidget {
+  const _RatingSummary({
+    required this.average,
+    required this.reviewCount,
+    required this.ratingCounts,
+    required this.theme,
+    required this.isDark,
+    required this.softTextColor,
+    this.margin = const EdgeInsets.fromLTRB(20, 0, 20, 16),
+  });
+
+  final double average;
+  final int reviewCount;
+  final Map<int, int> ratingCounts;
+  final ThemeData theme;
+  final bool isDark;
+  final Color softTextColor;
+  final EdgeInsetsGeometry margin;
+
+  @override
+  Widget build(BuildContext context) {
+    final surfaceColor = isDark
+        ? const Color(0xFF172554)
+        : const Color(0xFFEFF6FF);
+    final primaryText = isDark ? Colors.white : const Color(0xFF163B63);
+    final trackColor = isDark ? Colors.white24 : const Color(0xFFD7E3F2);
+
+    return Container(
+      width: double.infinity,
+      margin: margin,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 66,
+            child: Column(
+              children: [
+                Text(
+                  average.toStringAsFixed(1),
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    color: primaryText,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const Icon(
+                  Icons.star_rounded,
+                  color: Color(0xFFF4B400),
+                  size: 20,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'out of 5',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: softTextColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 76,
+            color: isDark ? Colors.white12 : const Color(0xFFD3E1F0),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              children: [
+                for (var rating = 5; rating >= 1; rating--)
+                  Padding(
+                    padding: EdgeInsets.only(bottom: rating == 1 ? 0 : 6),
+                    child: _RatingDistributionRow(
+                      rating: rating,
+                      count: ratingCounts[rating] ?? 0,
+                      total: reviewCount,
+                      fillColor: const Color(0xFF0AA88A),
+                      trackColor: trackColor,
+                      textColor: softTextColor,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RatingDistributionRow extends StatelessWidget {
+  const _RatingDistributionRow({
+    required this.rating,
+    required this.count,
+    required this.total,
+    required this.fillColor,
+    required this.trackColor,
+    required this.textColor,
+  });
+
+  final int rating;
+  final int count;
+  final int total;
+  final Color fillColor;
+  final Color trackColor;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = total == 0 ? 0.0 : count / total;
+    final percentage = (progress * 100).round();
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 21,
+          child: Text(
+            '$rating★',
+            style: TextStyle(
+              color: textColor,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 6,
+              color: fillColor,
+              backgroundColor: trackColor,
+            ),
+          ),
+        ),
+        const SizedBox(width: 7),
+        SizedBox(
+          width: 28,
+          child: Text(
+            '$percentage%',
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -2035,7 +2273,7 @@ class _PlaceMapSectionState extends State<_PlaceMapSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Location Map',
+          'Location & directions',
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w800,
           ),
@@ -2061,7 +2299,7 @@ class _PlaceMapSectionState extends State<_PlaceMapSection> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                height: 220,
+                height: 232,
                 width: double.infinity,
                 decoration: BoxDecoration(
                   borderRadius: const BorderRadius.vertical(
@@ -2188,16 +2426,28 @@ class _PlaceMapSectionState extends State<_PlaceMapSection> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _mapAddress,
+                      'Find this place',
                       style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _mapAddress,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: isDark
+                            ? Colors.white70
+                            : const Color(0xFF4B5C70),
+                        height: 1.4,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Lat ${latitude.toStringAsFixed(6)}, Lng ${longitude.toStringAsFixed(6)}',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: isDark ? Colors.white60 : const Color(0xFF6B7280),
+                        color: isDark
+                            ? Colors.white60
+                            : const Color(0xFF6B7280),
                       ),
                     ),
                     if (!_hasCoordinates) ...[
@@ -2205,7 +2455,9 @@ class _PlaceMapSectionState extends State<_PlaceMapSection> {
                       Text(
                         'Using the default Tiwi, Albay coordinates because this place has no saved latitude/longitude yet.',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: isDark ? Colors.white60 : const Color(0xFF6B7280),
+                          color: isDark
+                              ? Colors.white60
+                              : const Color(0xFF6B7280),
                           height: 1.4,
                         ),
                       ),
@@ -2351,36 +2603,7 @@ class _ReviewCard extends StatelessWidget {
 
   String _maskReviewerName(String name) {
     final trimmed = name.trim();
-    if (trimmed.isEmpty) return 'Anonymous';
-
-    final normalized = trimmed.toLowerCase();
-    if (normalized == 'anonymous' || normalized == 'anonymous reviewer') {
-      return 'Anonymous';
-    }
-
-    if (trimmed.contains('@')) {
-      final parts = trimmed.split('@');
-      final localPart = parts.first.trim();
-      if (localPart.isEmpty) return 'Anonymous';
-
-      final visibleLocal = localPart.length <= 2
-          ? '${localPart[0]}*'
-          : '${localPart.substring(0, 2)}${'*' * (localPart.length - 2)}';
-      return visibleLocal;
-    }
-
-    final words = trimmed.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-    if (words.length > 1) {
-      return words.map((w) => _maskWord(w)).join(' ');
-    }
-    return _maskWord(trimmed);
-  }
-
-  String _maskWord(String word) {
-    if (word.isEmpty) return 'Anonymous';
-    if (word.length == 1) return '*';
-    if (word.length == 2) return '${word[0]}*';
-    return '${word.substring(0, 2)}${'*' * (word.length - 2)}';
+    return trimmed.isEmpty ? 'Anonymous' : trimmed;
   }
 
   String _reviewInitial(String name) {
@@ -2394,15 +2617,30 @@ class _ReviewCard extends StatelessWidget {
 
     if (trimmed.contains('@')) return trimmed[0].toUpperCase();
 
-    final words = trimmed.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final words = trimmed
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
     return words.isEmpty ? 'A' : words.first[0].toUpperCase();
   }
 
   String _formatDate(DateTime? date) {
     if (date == null) return 'Recently';
-    final month = date.month.toString().padLeft(2, '0');
-    final day = date.day.toString().padLeft(2, '0');
-    return '${date.year}-$month-$day';
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
   @override
@@ -2412,35 +2650,19 @@ class _ReviewCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      gradient: isDark
-                          ? const LinearGradient(
-                              colors: [Color(0xFF334155), Color(0xFF1E293B)],
-                            )
-                          : const LinearGradient(
-                              colors: [Color(0xFF90CAF9), Color(0xFF1E88E5)],
-                            ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      _reviewInitial(review.reviewerName),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                      ),
-                    ),
+                  _ReviewerAvatar(
+                    photoUrl: review.reviewerPhotoUrl,
+                    initial: _reviewInitial(review.reviewerName),
+                    size: 44,
+                    borderRadius: 12,
+                    isDark: isDark,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -2464,48 +2686,20 @@ class _ReviewCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? const Color(0xFF1F3A5F)
-                          : const Color(0xFFDDEBFF),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: isDark
-                            ? Colors.white12
-                            : const Color(0xFFBFDBFE),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        RatingStars(
-                          rating: review.rating.toDouble(),
-                          size: 14,
-                          activeColor: const Color(0xFFF4B400),
-                          inactiveColor: const Color(0xFFCBD5E1),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          review.rating.toStringAsFixed(1),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: isDark
-                                ? Colors.white
-                                : const Color(0xFF163B63),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _RatingBadge(rating: review.rating, isDark: isDark),
                 ],
               ),
+              const SizedBox(height: 12),
+              RatingStars(
+                rating: review.rating.toDouble(),
+                size: 17,
+                activeColor: const Color(0xFFF4B400),
+                inactiveColor: isDark
+                    ? Colors.white24
+                    : const Color(0xFFCBD5E1),
+              ),
               if (review.reviewText.isNotEmpty) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Text(
                   review.reviewText,
                   maxLines: 3,
@@ -2519,6 +2713,96 @@ class _ReviewCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ReviewerAvatar extends StatelessWidget {
+  const _ReviewerAvatar({
+    required this.photoUrl,
+    required this.initial,
+    required this.size,
+    required this.borderRadius,
+    required this.isDark,
+  });
+
+  final String photoUrl;
+  final String initial;
+  final double size;
+  final double borderRadius;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(borderRadius);
+    final fallback = Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: isDark
+            ? const LinearGradient(
+                colors: [Color(0xFF334155), Color(0xFF1E293B)],
+              )
+            : const LinearGradient(
+                colors: [Color(0xFF90CAF9), Color(0xFF1E88E5)],
+              ),
+        borderRadius: radius,
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initial,
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
+          fontSize: size * 0.36,
+        ),
+      ),
+    );
+
+    if (photoUrl.trim().isEmpty) return fallback;
+
+    return ClipRRect(
+      borderRadius: radius,
+      child: Image.network(
+        photoUrl,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => fallback,
+      ),
+    );
+  }
+}
+
+class _RatingBadge extends StatelessWidget {
+  const _RatingBadge({required this.rating, required this.isDark});
+
+  final int rating;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1F3A5F) : const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.star_rounded, size: 16, color: Color(0xFFF4B400)),
+          const SizedBox(width: 3),
+          Text(
+            rating.toStringAsFixed(1),
+            style: TextStyle(
+              color: isDark ? Colors.white : const Color(0xFF163B63),
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2548,6 +2832,21 @@ class _ReviewFormSheetState extends State<ReviewFormSheet> {
   void dispose() {
     _reviewController.dispose();
     super.dispose();
+  }
+
+  String get _ratingLabel {
+    switch (_selectedRating) {
+      case 5:
+        return 'Excellent';
+      case 4:
+        return 'Very good';
+      case 3:
+        return 'Good';
+      case 2:
+        return 'Fair';
+      default:
+        return 'Needs improvement';
+    }
   }
 
   Future<void> _submit() async {
@@ -2592,11 +2891,11 @@ class _ReviewFormSheetState extends State<ReviewFormSheet> {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF6FAFF),
+        color: isDark ? const Color(0xFF0F172A) : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 18, 16, 16 + viewInsets.bottom),
+        padding: EdgeInsets.fromLTRB(16, 14, 16, 14 + viewInsets.bottom),
         child: Form(
           key: _formKey,
           child: Wrap(
@@ -2611,61 +2910,83 @@ class _ReviewFormSheetState extends State<ReviewFormSheet> {
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 12),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  gradient: isDark
-                      ? const LinearGradient(
-                          colors: [Color(0xFF172554), Color(0xFF1E293B)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        )
-                      : const LinearGradient(
-                          colors: [Color(0xFF1E88E5), Color(0xFF90CAF9)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                  borderRadius: BorderRadius.circular(24),
+                  color: isDark
+                      ? const Color(0xFF172554)
+                      : const Color(0xFF0B4C8C),
+                  borderRadius: BorderRadius.circular(18),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Review ${widget.place.name}',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Share your experience to help other visitors.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.90),
-                        height: 1.4,
-                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.rate_review_rounded,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Write a review',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                widget.place.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.88),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Close review form',
+                          onPressed: _submitting
+                              ? null
+                              : () => Navigator.of(context).pop(),
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF111827) : Colors.white,
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 14,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2676,22 +2997,24 @@ class _ReviewFormSheetState extends State<ReviewFormSheet> {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Text(
-                      'Tap a star to rate this place',
+                      'Choose a rating that reflects your visit.',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: isDark ? Colors.white60 : const Color(0xFF6B7280),
+                        color: isDark
+                            ? Colors.white60
+                            : const Color(0xFF6B7280),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: isDark
                             ? Colors.white.withValues(alpha: 0.04)
                             : const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isDark
                               ? Colors.white10
@@ -2704,7 +3027,7 @@ class _ReviewFormSheetState extends State<ReviewFormSheet> {
                           Row(
                             children: [
                               Text(
-                                'Selected rating',
+                                _ratingLabel,
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -2720,7 +3043,7 @@ class _ReviewFormSheetState extends State<ReviewFormSheet> {
                                   borderRadius: BorderRadius.circular(999),
                                 ),
                                 child: Text(
-                                  '$_selectedRating/5',
+                                  '$_selectedRating out of 5',
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     fontWeight: FontWeight.w800,
                                     color: const Color(0xFFB45309),
@@ -2729,26 +3052,30 @@ class _ReviewFormSheetState extends State<ReviewFormSheet> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 6),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: List.generate(5, (index) {
                               final star = index + 1;
                               final selected = star <= _selectedRating;
-                              return GestureDetector(
-                                onTap: _submitting
-                                    ? null
-                                    : () {
-                                        setState(() {
+                              return Semantics(
+                                button: true,
+                                label: '$star star${star == 1 ? '' : 's'}',
+                                selected: selected,
+                                child: IconButton(
+                                  tooltip: '$star star${star == 1 ? '' : 's'}',
+                                  onPressed: _submitting
+                                      ? null
+                                      : () => setState(() {
                                           _selectedRating = star;
-                                        });
-                                      },
-                                child: Icon(
-                                  selected
-                                      ? Icons.star_rounded
-                                      : Icons.star_outline_rounded,
-                                  color: const Color(0xFFF4B400),
-                                  size: 32,
+                                        }),
+                                  icon: Icon(
+                                    selected
+                                        ? Icons.star_rounded
+                                        : Icons.star_outline_rounded,
+                                    color: const Color(0xFFF4B400),
+                                    size: 30,
+                                  ),
                                 ),
                               );
                             }),
@@ -2756,27 +3083,30 @@ class _ReviewFormSheetState extends State<ReviewFormSheet> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 12),
                     TextFormField(
                       controller: _reviewController,
-                      maxLines: 5,
+                      maxLines: 4,
+                      minLines: 3,
+                      maxLength: 500,
+                      textCapitalization: TextCapitalization.sentences,
                       decoration: InputDecoration(
-                        labelText: 'Your review',
+                        labelText: 'Tell us about your visit',
                         hintText:
-                            'Share what visitors should know about this place.',
+                            'What did you enjoy? What should other visitors know?',
                         alignLabelWithHint: true,
                         filled: true,
                         fillColor: isDark
                             ? Colors.white.withValues(alpha: 0.04)
                             : const Color(0xFFF8FAFC),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(16),
                           borderSide: const BorderSide(
                             color: Color(0xFFE2E8F0),
                           ),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(16),
                           borderSide: BorderSide(
                             color: isDark
                                 ? Colors.white10
@@ -2784,7 +3114,7 @@ class _ReviewFormSheetState extends State<ReviewFormSheet> {
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(16),
                           borderSide: const BorderSide(
                             color: Color(0xFF1E88E5),
                             width: 1.4,
@@ -2798,16 +3128,16 @@ class _ReviewFormSheetState extends State<ReviewFormSheet> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: _submitting ? null : _submit,
                         style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          backgroundColor: const Color(0xFF1E88E5),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          backgroundColor: const Color(0xFF0B4C8C),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
+                            borderRadius: BorderRadius.circular(16),
                           ),
                         ),
                         child: _submitting
@@ -2820,7 +3150,7 @@ class _ReviewFormSheetState extends State<ReviewFormSheet> {
                                 ),
                               )
                             : const Text(
-                                'Submit Review',
+                                'Publish review',
                                 style: TextStyle(fontWeight: FontWeight.w700),
                               ),
                       ),

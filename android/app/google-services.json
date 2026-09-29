@@ -7,6 +7,59 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:1042831270933:android:ab1cce06eaac84ccd59a1c",
+        "android_client_info": {
+          "package_name": "com.ecoimpact.itiwi"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1042831270933-e4cjlvqd65gj0n63hp4lh77f42irjgaj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ecoimpact.itiwi",
+            "certificate_hash": "a9216feaa0a7dcbf6b02584fe5e2e0d2f5be9a69"
+          }
+        },
+        {
+          "client_id": "1042831270933-i5pk6a8eifflstaddpdbtf5vk6l0vo7o.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ecoimpact.itiwi",
+            "certificate_hash": "604d1a3cd3e623c52b2a08680a06e4b54d1f75ab"
+          }
+        },
+        {
+          "client_id": "1042831270933-qqreh7dhu401q6ts0ibabhvc0lefr8od.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ecoimpact.itiwi",
+            "certificate_hash": "338ee882a2ccb6cbb3d3fff29755f6ac4a765081"
+          }
+        },
+        {
+          "client_id": "1042831270933-h3jm10jj46801ajcfa4q4e4c4iuuq7qu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDv3EHmMmqIH7MScN2vGhQVOSz3DVIY2zE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1042831270933-h3jm10jj46801ajcfa4q4e4c4iuuq7qu.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:1042831270933:android:b7b0343d00b9b1c4d59a1c",
         "android_client_info": {
           "package_name": "com.example.hotline_app"
@@ -19,6 +72,14 @@
           "android_info": {
             "package_name": "com.example.hotline_app",
             "certificate_hash": "604d1a3cd3e623c52b2a08680a06e4b54d1f75ab"
+          }
+        },
+        {
+          "client_id": "1042831270933-aigllhah181qcrgi48puukcapacrd89t.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.hotline_app",
+            "certificate_hash": "338ee882a2ccb6cbb3d3fff29755f6ac4a765081"
           }
         },
         {

@@ -28,6 +28,7 @@ class _ProfilePageState extends State<ProfilePage> {
   late bool _isDarkMode;
   String _phone = '';
   String _address = '';
+  String? _profilePhotoUrl;
 
   @override
   void initState() {
@@ -43,7 +44,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
       final response = await Supabase.instance.client
           .from('users')
-          .select('phone, address')
+          .select('phone, address, photo_url')
           .eq('id', user.uid)
           .maybeSingle();
 
@@ -51,6 +52,7 @@ class _ProfilePageState extends State<ProfilePage> {
         setState(() {
           _phone = response['phone'] as String? ?? '';
           _address = response['address'] as String? ?? '';
+          _profilePhotoUrl = (response['photo_url'] as String?)?.trim();
         });
       }
     } catch (_) {
@@ -101,7 +103,14 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   String? get _photoUrl {
-    final value = _user?.photoURL?.trim();
+    final value = _user?.photoURL?.trim() ??
+        _user?.providerData
+            .map((provider) => provider.photoURL?.trim())
+            .firstWhere(
+              (photoUrl) => photoUrl != null && photoUrl.isNotEmpty,
+              orElse: () => null,
+            ) ??
+        _profilePhotoUrl?.trim();
     if (value == null || value.isEmpty) return null;
     return value;
   }

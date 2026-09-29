@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -26,6 +29,15 @@ class _NewsPageState extends State<NewsPage> {
   DateTime? cacheUpdatedAt;
   int currentIndex = 1;
 
+  bool _isNetworkError(Object error) {
+    return error is SocketException ||
+        error is HttpException ||
+        error is HandshakeException ||
+        error is TimeoutException ||
+        error.toString().contains('SocketException') ||
+        error.toString().contains('Failed host lookup');
+  }
+
   void _handleNavigation(int index) {
     setState(() {
       currentIndex = index;
@@ -39,36 +51,59 @@ class _NewsPageState extends State<NewsPage> {
   @override
   void initState() {
     super.initState();
-    fetchNews();
+    unawaited(_loadCachedNewsThenRefresh());
   }
 
-  Future<void> fetchNews() async {
-    if (mounted) {
+  Future<void> _loadCachedNewsThenRefresh() async {
+    final cached = await _cacheService.getNews();
+
+    if (!mounted) return;
+
+    if (cached.hasData) {
+      setState(() {
+        news = cached.items;
+        isShowingCachedData = true;
+        cacheUpdatedAt = cached.updatedAt;
+        isLoading = false;
+        _applySearch(searchQuery);
+      });
+    }
+
+    unawaited(fetchNews(showLoading: !cached.hasData));
+  }
+
+  Future<void> _publishScheduledNews() async {
+    try {
+      await supabase.rpc('publish_scheduled_news');
+    } catch (error) {
+      // The function may not be installed in every deployment.
+      debugPrint('Could not call publish_scheduled_news: $error');
+    }
+  }
+
+  Future<void> fetchNews({bool showLoading = true}) async {
+    if (showLoading && mounted) {
       setState(() {
         isLoading = true;
       });
     }
 
     try {
-      // Publish any scheduled news that's due
-      try {
-        await supabase.rpc('publish_scheduled_news');
-      } catch (e) {
-        // Function may not exist, continue anyway
-        debugPrint('Could not call publish_scheduled_news: $e');
-      }
+      // Cached news is already visible on repeat visits, so wait for due
+      // scheduled articles to be published before reading the fresh list.
+      await _publishScheduledNews();
 
       final data = await supabase
           .from('news')
-          .select()
+          .select(
+            'id,title,description,category,image_url,created_at',
+          )
           .eq('is_published', true)
           .order('created_at', ascending: false);
 
       final mapped = List<Map<String, dynamic>>.from(
         (data as List).map((item) => Map<String, dynamic>.from(item as Map)),
       );
-
-      await _cacheService.saveNews(mapped);
 
       if (!mounted) return;
 
@@ -77,9 +112,11 @@ class _NewsPageState extends State<NewsPage> {
         isShowingCachedData = false;
         cacheUpdatedAt = DateTime.now();
         isLoading = false;
+        _applySearch(searchQuery);
       });
 
-      _applySearch(searchQuery);
+      // Persist fresh news after it is visible to the user.
+      unawaited(_cacheService.saveNews(mapped));
     } catch (e) {
       final cached = await _cacheService.getNews();
 
@@ -90,23 +127,24 @@ class _NewsPageState extends State<NewsPage> {
         isShowingCachedData = cached.hasData;
         cacheUpdatedAt = cached.updatedAt;
         isLoading = false;
+        _applySearch(searchQuery);
       });
-
-      _applySearch(searchQuery);
 
       if (!mounted) return;
 
-      if (cached.hasData) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'You are offline. Showing previously loaded news.',
-            ),
-          ),
-        );
+      if (cached.hasData && showLoading) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('No Internet Connection')));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to load news: $e')),
+          SnackBar(
+            content: Text(
+              _isNetworkError(e)
+                  ? 'No Internet Connection'
+                  : 'Unable to load news: $e',
+            ),
+          ),
         );
       }
     }
@@ -138,34 +176,52 @@ class _NewsPageState extends State<NewsPage> {
     });
   }
 
-  
+  Widget _newsImagePlaceholder({required double height, required bool isDark}) {
+    return Container(
+      height: height,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? const [Color(0xFF1E3A5F), Color(0xFF172033)]
+              : const [Color(0xFFE0F2FE), Color(0xFFBFDBFE)],
+        ),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.newspaper_rounded,
+          size: height <= 100 ? 34 : 56,
+          color: isDark
+              ? const Color(0xFF93C5FD)
+              : const Color(0xFF3B82F6).withValues(alpha: 0.7),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final pageBackground =
-        isDark ? const Color(0xFF0B1220) : const Color(0xFFEAEAEA);
-    final inputBackground =
-        isDark ? const Color(0xFF0F172A) : AppColors.background;
+    final pageBackground = isDark
+        ? const Color(0xFF0B1220)
+        : const Color(0xFFEAEAEA);
+    final inputBackground = isDark
+        ? const Color(0xFF0F172A)
+        : AppColors.background;
     final cardBackground = theme.cardColor;
     final primaryText =
         theme.textTheme.bodyLarge?.color ?? colorScheme.onSurface;
     final secondaryText =
         theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.72) ??
-            colorScheme.onSurface.withValues(alpha: 0.72);
+        colorScheme.onSurface.withValues(alpha: 0.72);
     final topGradient = isDark
-        ? const [
-            Color(0xFF0F172A),
-            Color(0xFF172554),
-            Color(0xFF111827),
-          ]
-        : const [
-            Color(0xFF1E88E5),
-            Color(0xFF90CAF9),
-            Color(0xFFEAEAEA),
-          ];
+        ? const [Color(0xFF0F172A), Color(0xFF172554), Color(0xFF111827)]
+        : const [Color(0xFF1E88E5), Color(0xFF90CAF9), Color(0xFFEAEAEA)];
 
     return Scaffold(
       backgroundColor: pageBackground,
@@ -224,6 +280,11 @@ class _NewsPageState extends State<NewsPage> {
                           padding: const EdgeInsets.only(top: 6, bottom: 24),
                           child: Column(
                             children: [
+                              if (isShowingCachedData)
+                                const Padding(
+                                  padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+                                  child: OfflineDataBanner(),
+                                ),
                               Container(
                                 color: Colors.transparent,
                                 padding: const EdgeInsets.fromLTRB(
@@ -291,8 +352,10 @@ class _NewsPageState extends State<NewsPage> {
                                         height: 180,
                                         child: ListView.builder(
                                           scrollDirection: Axis.horizontal,
-                                          itemCount:
-                                              filteredNews.length.clamp(0, 3),
+                                          itemCount: filteredNews.length.clamp(
+                                            0,
+                                            3,
+                                          ),
                                           itemBuilder: (context, index) {
                                             final item = filteredNews[index];
                                             return GestureDetector(
@@ -352,53 +415,23 @@ class _NewsPageState extends State<NewsPage> {
                                                           width:
                                                               double.infinity,
                                                           fit: BoxFit.cover,
-                                                          errorBuilder: (
-                                                            context,
-                                                            error,
-                                                            stackTrace,
-                                                          ) {
-                                                            return Container(
-                                                              height: 100,
-                                                              color: isDark
-                                                                  ? const Color(
-                                                                      0xFF243145,
-                                                                    )
-                                                                  : Colors
-                                                                        .grey[300],
-                                                              child: const Icon(
-                                                                Icons
-                                                                    .image_not_supported,
-                                                                color:
-                                                                    Colors.grey,
-                                                              ),
-                                                            );
-                                                          },
+                                                          errorBuilder:
+                                                              (
+                                                                context,
+                                                                error,
+                                                                stackTrace,
+                                                              ) {
+                                                                return _newsImagePlaceholder(
+                                                                  height: 100,
+                                                                  isDark: isDark,
+                                                                );
+                                                              },
                                                         ),
                                                       )
                                                     else
-                                                      Container(
+                                                      _newsImagePlaceholder(
                                                         height: 100,
-                                                        decoration: BoxDecoration(
-                                                          color: isDark
-                                                              ? const Color(
-                                                                  0xFF243145,
-                                                                )
-                                                              : Colors
-                                                                    .grey[200],
-                                                          borderRadius:
-                                                              const BorderRadius.vertical(
-                                                                top:
-                                                                    Radius.circular(
-                                                                      12,
-                                                                    ),
-                                                              ),
-                                                        ),
-                                                        child: Icon(
-                                                          Icons
-                                                              .image_not_supported,
-                                                          color:
-                                                              Colors.grey[400],
-                                                        ),
+                                                        isDark: isDark,
                                                       ),
                                                     Expanded(
                                                       child: Padding(
@@ -408,7 +441,8 @@ class _NewsPageState extends State<NewsPage> {
                                                             ),
                                                         child: Column(
                                                           crossAxisAlignment:
-                                                              CrossAxisAlignment.start,
+                                                              CrossAxisAlignment
+                                                                  .start,
                                                           children: [
                                                             Text(
                                                               item['category'] ??
@@ -420,12 +454,13 @@ class _NewsPageState extends State<NewsPage> {
                                                               style: TextStyle(
                                                                 fontSize: 11,
                                                                 fontWeight:
-                                                                    FontWeight.w600,
+                                                                    FontWeight
+                                                                        .w600,
                                                                 color: isDark
                                                                     ? Colors
-                                                                        .lightBlue[100]
+                                                                          .lightBlue[100]
                                                                     : AppColors
-                                                                        .primary,
+                                                                          .primary,
                                                               ),
                                                             ),
                                                             const SizedBox(
@@ -441,7 +476,8 @@ class _NewsPageState extends State<NewsPage> {
                                                               style: TextStyle(
                                                                 fontSize: 12,
                                                                 fontWeight:
-                                                                    FontWeight.bold,
+                                                                    FontWeight
+                                                                        .bold,
                                                                 color:
                                                                     primaryText,
                                                               ),
@@ -528,31 +564,23 @@ class _NewsPageState extends State<NewsPage> {
                                                       height: 200,
                                                       width: double.infinity,
                                                       fit: BoxFit.cover,
-                                                      errorBuilder: (
-                                                        context,
-                                                        error,
-                                                        stackTrace,
-                                                      ) {
-                                                        return Container(
-                                                          height: 200,
-                                                          color: isDark
-                                                              ? const Color(
-                                                                  0xFF243145,
-                                                                )
-                                                              : Colors
-                                                                    .grey[300],
-                                                          child: const Icon(
-                                                            Icons
-                                                                .image_not_supported,
-                                                            color: Colors.grey,
-                                                          ),
-                                                        );
-                                                      },
+                                                      errorBuilder:
+                                                          (
+                                                            context,
+                                                            error,
+                                                            stackTrace,
+                                                          ) {
+                                                            return _newsImagePlaceholder(
+                                                              height: 200,
+                                                              isDark: isDark,
+                                                            );
+                                                          },
                                                     ),
                                                   ),
                                                 Padding(
-                                                  padding:
-                                                      const EdgeInsets.all(16),
+                                                  padding: const EdgeInsets.all(
+                                                    16,
+                                                  ),
                                                   child: Column(
                                                     crossAxisAlignment:
                                                         CrossAxisAlignment
@@ -567,9 +595,9 @@ class _NewsPageState extends State<NewsPage> {
                                                               FontWeight.w600,
                                                           color: isDark
                                                               ? Colors
-                                                                  .lightBlue[100]
+                                                                    .lightBlue[100]
                                                               : AppColors
-                                                                  .primary,
+                                                                    .primary,
                                                         ),
                                                       ),
                                                       const SizedBox(height: 8),

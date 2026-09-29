@@ -84,6 +84,7 @@ class _NotificationPageState extends State<NotificationPage> {
       );
 
       await _cacheService.saveNews(mapped);
+      await _initializeNotificationHistoryIfNeeded(mapped);
 
       final latestMarker = mapped.isNotEmpty
           ? '${mapped.first['id']}|${mapped.first['created_at']}|${mapped.first['updated_at']}'
@@ -103,6 +104,7 @@ class _NotificationPageState extends State<NotificationPage> {
       });
     } catch (_) {
       final cached = await _cacheService.getNews();
+      await _initializeNotificationHistoryIfNeeded(cached.items);
       final latestMarker = cached.items.isNotEmpty
           ? '${cached.items.first['id']}|${cached.items.first['created_at']}|${cached.items.first['updated_at']}'
           : null;
@@ -122,6 +124,24 @@ class _NotificationPageState extends State<NotificationPage> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _initializeNotificationHistoryIfNeeded(
+    List<Map<String, dynamic>> newsItems,
+  ) async {
+    if (await _cacheService.isNotificationHistoryInitialized()) return;
+
+    final dismissedIds = await _cacheService.getDismissedNewsIds();
+    dismissedIds.addAll(
+      newsItems
+          .map((item) => item['id']?.toString())
+          .whereType<String>()
+          .where((id) => id.isNotEmpty),
+    );
+    await _cacheService.saveDismissedNewsIds(dismissedIds);
+
+    await _cacheService.saveReportNotifications(const []);
+    await _cacheService.markNotificationHistoryInitialized();
   }
 
   String _formatDate(dynamic value) {

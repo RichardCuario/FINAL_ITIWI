@@ -1,12 +1,14 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
+import 'package:flutter/services.dart';
+// import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'data_compliance_page.dart';
 import 'home_page.dart';
 import 'privacy_policy_page.dart';
 import 'terms_of_use_page.dart';
+import 'user_access_service.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({
@@ -27,6 +29,9 @@ class AuthPage extends StatefulWidget {
 enum AuthMode { login, signUp }
 
 class _AuthPageState extends State<AuthPage> {
+  static const _googleServerClientId =
+      '1042831270933-h3jm10jj46801ajcfa4q4e4c4iuuq7qu.apps.googleusercontent.com';
+
   final _emailController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -87,10 +92,17 @@ class _AuthPageState extends State<AuthPage> {
 
     try {
       if (_isLogin) {
-        await _auth.signInWithEmailAndPassword(
+        final credential = await _auth.signInWithEmailAndPassword(
           email: email,
           password: password,
         );
+
+        if (credential.user != null &&
+            !await UserAccessService.isActive(credential.user!)) {
+          await _auth.signOut();
+          _showMessage('Your account has been blocked by an administrator.');
+          return;
+        }
 
         if (!mounted) return;
         Navigator.of(context).pushReplacement(
@@ -186,7 +198,7 @@ class _AuthPageState extends State<AuthPage> {
     });
 
     try {
-      final googleSignIn = GoogleSignIn();
+      final googleSignIn = GoogleSignIn(serverClientId: _googleServerClientId);
       final googleUser = await googleSignIn.signIn();
 
       if (googleUser == null) {
@@ -200,7 +212,14 @@ class _AuthPageState extends State<AuthPage> {
         idToken: googleAuth.idToken,
       );
 
-      await _auth.signInWithCredential(credential);
+      final signedInCredential = await _auth.signInWithCredential(credential);
+
+      if (signedInCredential.user != null &&
+          !await UserAccessService.isActive(signedInCredential.user!)) {
+        await _auth.signOut();
+        _showMessage('Your account has been blocked by an administrator.');
+        return;
+      }
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
@@ -213,8 +232,17 @@ class _AuthPageState extends State<AuthPage> {
       );
     } on FirebaseAuthException catch (error) {
       _showMessage(_mapAuthError(error));
-    } catch (_) {
-      _showMessage('Google sign-in is unavailable right now.');
+    } on PlatformException catch (error) {
+      if (error.code == 'sign_in_failed' &&
+          error.message?.contains('ApiException: 10') == true) {
+        _showMessage(
+          'Google sign-in is not configured for this app build. Add its Android SHA-1 certificate in Firebase, then download the updated google-services.json.',
+        );
+      } else {
+        _showMessage('Google sign-in failed: ${error.message ?? error.code}');
+      }
+    } catch (error) {
+      _showMessage('Google sign-in failed: $error');
     } finally {
       if (mounted) {
         setState(() {
@@ -224,6 +252,7 @@ class _AuthPageState extends State<AuthPage> {
     }
   }
 
+  /*
   Future<void> _signInWithFacebook() async {
     if (!_canProceedWithSocialSignIn()) {
       return;
@@ -251,6 +280,41 @@ class _AuthPageState extends State<AuthPage> {
           );
 
           await _auth.signInWithCredential(credential);
+
+          try {
+            final facebookProfile = await FacebookAuth.instance.getUserData(
+              fields: 'name,email,picture.width(512).height(512)',
+            );
+            final picture = facebookProfile['picture'];
+            final pictureData = picture is Map ? picture['data'] : null;
+            final pictureUrl = pictureData is Map
+                ? (pictureData['url'] as String?)?.trim()
+                : null;
+            final facebookName = (facebookProfile['name'] as String?)?.trim();
+            final currentUser = _auth.currentUser;
+
+            if (currentUser != null) {
+              if (pictureUrl != null && pictureUrl.isNotEmpty) {
+                await currentUser.updatePhotoURL(pictureUrl);
+              }
+              if ((currentUser.displayName == null ||
+                      currentUser.displayName!.trim().isEmpty) &&
+                  facebookName != null &&
+                  facebookName.isNotEmpty) {
+                await currentUser.updateDisplayName(facebookName);
+              }
+              await currentUser.reload();
+
+              await Supabase.instance.client.from('users').upsert({
+                'id': currentUser.uid,
+                'email': currentUser.email ?? '',
+                'display_name': currentUser.displayName ?? facebookName ?? 'User',
+                'photo_url': pictureUrl ?? currentUser.photoURL,
+              }, onConflict: 'id');
+            }
+          } catch (error) {
+            debugPrint('Facebook profile photo sync failed: $error');
+          }
 
           if (!mounted) return;
           Navigator.of(context).pushReplacement(
@@ -286,6 +350,7 @@ class _AuthPageState extends State<AuthPage> {
       }
     }
   }
+  */
 
   String _mapAuthError(FirebaseAuthException error) {
     switch (error.code) {
@@ -318,29 +383,27 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   void _openPrivacyPolicy() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()));
   }
 
   void _openTermsOfUse() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const TermsOfUsePage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const TermsOfUsePage()));
   }
 
   void _openDataCompliance() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const DataCompliancePage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const DataCompliancePage()));
   }
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   Widget _buildLegalConsentSection({
@@ -362,7 +425,9 @@ class _AuthPageState extends State<AuthPage> {
               color: isDark ? const Color(0xFF1A2333) : const Color(0xFFF8FAFD),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isDark ? const Color(0xFF334155) : const Color(0xFFDCE3EC),
+                color: isDark
+                    ? const Color(0xFF334155)
+                    : const Color(0xFFDCE3EC),
               ),
             ),
       child: Column(
@@ -377,7 +442,10 @@ class _AuthPageState extends State<AuthPage> {
                 child: Checkbox(
                   value: _hasAcceptedLegalConsent,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                  visualDensity: const VisualDensity(
+                    horizontal: -4,
+                    vertical: -4,
+                  ),
                   onChanged: _isLoading
                       ? null
                       : (value) {
@@ -430,14 +498,8 @@ class _AuthPageState extends State<AuthPage> {
               spacing: 6,
               runSpacing: 6,
               children: [
-                _LegalChipButton(
-                  label: 'Privacy',
-                  onTap: _openPrivacyPolicy,
-                ),
-                _LegalChipButton(
-                  label: 'Terms',
-                  onTap: _openTermsOfUse,
-                ),
+                _LegalChipButton(label: 'Privacy', onTap: _openPrivacyPolicy),
+                _LegalChipButton(label: 'Terms', onTap: _openTermsOfUse),
                 _LegalChipButton(
                   label: 'Compliance',
                   onTap: _openDataCompliance,
@@ -494,7 +556,19 @@ class _AuthPageState extends State<AuthPage> {
         children: [
           Container(
             width: double.infinity,
-            color: headerBackground,
+            constraints: BoxConstraints(
+              minHeight: extraCompact ? 175 : (compact ? 200 : 220),
+            ),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isDark
+                    ? const [Color(0xFF0B1F3A), Color(0xFF164E63)]
+                    : const [Color(0xFF0B4C8C), Color(0xFF0B4C8C)],
+              ),
+            ),
             padding: EdgeInsets.only(
               top: headerTopSpace,
               bottom: headerBottomSpace,
@@ -506,34 +580,50 @@ class _AuthPageState extends State<AuthPage> {
               screenWidth: screenWidth,
             ),
           ),
-          Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: panelMaxWidth),
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  extraCompact ? 14 : 18,
-                  14,
-                  extraCompact ? 14 : 18,
-                  10 + bottomSafeArea,
-                ),
-                child: Container(
-                  width: double.infinity,
+          Transform.translate(
+            offset: Offset(0, extraCompact ? -22 : -30),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: panelMaxWidth),
+                child: Padding(
                   padding: EdgeInsets.fromLTRB(
-                    loginHorizontalPadding,
-                    topGap,
-                    loginHorizontalPadding,
-                    16,
+                    screenWidth <= 520 ? 0 : 18,
+                    0,
+                    screenWidth <= 520 ? 0 : 18,
+                    10 + bottomSafeArea,
                   ),
-                  decoration: BoxDecoration(
-                    color: panelBackground,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: isDark ? const Color(0xFF243244) : const Color(0xFFE2E8F0),
+                  child: Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.fromLTRB(
+                      loginHorizontalPadding,
+                      topGap,
+                      loginHorizontalPadding,
+                      16,
                     ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                    decoration: BoxDecoration(
+                      color: panelBackground,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(28),
+                        topRight: Radius.circular(28),
+                      ),
+                      border: Border.all(
+                        color: isDark ? const Color(0xFF334155) : Colors.white,
+                      ),
+                      boxShadow: null,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _AuthModeToggle(
+                          isLogin: true,
+                          onLoginTap: _isLoading || _isLogin
+                              ? null
+                              : () => _switchMode(AuthMode.login),
+                          onSignUpTap: _isLoading || !_isLogin
+                              ? null
+                              : () => _switchMode(AuthMode.signUp),
+                        ),
+                        SizedBox(height: extraCompact ? 16 : 20),
                         Text(
                           title,
                           style: TextStyle(
@@ -614,7 +704,10 @@ class _AuthPageState extends State<AuthPage> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF0B4C8C),
                               foregroundColor: Colors.white,
-                              elevation: 0,
+                              elevation: 1,
+                              shadowColor: const Color(
+                                0xFF0B4C8C,
+                              ).withValues(alpha: 0.32),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                               ),
@@ -675,14 +768,14 @@ class _AuthPageState extends State<AuthPage> {
                               fullWidth: true,
                             ),
                             SizedBox(height: socialGap),
-                            _SocialButton(
-                              icon: Icons.facebook,
-                              label: 'Continue with Facebook',
-                              iconColor: const Color(0xFF1877F2),
-                              compact: compact || extraCompact,
-                              onTap: _isLoading ? null : _signInWithFacebook,
-                              fullWidth: true,
-                            ),
+                            // _SocialButton(
+                            //   icon: Icons.facebook,
+                            //   label: 'Continue with Facebook',
+                            //   iconColor: const Color(0xFF1877F2),
+                            //   compact: compact || extraCompact,
+                            //   onTap: _isLoading ? null : _signInWithFacebook,
+                            //   fullWidth: true,
+                            // ),
                           ],
                         ),
                         SizedBox(height: extraCompact ? 14 : 18),
@@ -723,6 +816,7 @@ class _AuthPageState extends State<AuthPage> {
                         ),
                         SizedBox(height: footerGap),
                       ],
+                    ),
                   ),
                 ),
               ),
@@ -768,7 +862,19 @@ class _AuthPageState extends State<AuthPage> {
         children: [
           Container(
             width: double.infinity,
-            color: headerBackground,
+            constraints: BoxConstraints(
+              minHeight: extraCompact ? 175 : (compact ? 200 : 220),
+            ),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isDark
+                    ? const [Color(0xFF0B1F3A), Color(0xFF164E63)]
+                    : const [Color(0xFF0B4C8C), Color(0xFF0B4C8C)],
+              ),
+            ),
             padding: EdgeInsets.only(
               top: headerTopSpace,
               bottom: headerBottomSpace,
@@ -780,34 +886,50 @@ class _AuthPageState extends State<AuthPage> {
               screenWidth: screenWidth,
             ),
           ),
-          Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: panelMaxWidth),
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  extraCompact ? 14 : 18,
-                  14,
-                  extraCompact ? 14 : 18,
-                  12 + bottomSafeArea,
-                ),
-                child: Container(
-                  width: double.infinity,
+          Transform.translate(
+            offset: Offset(0, extraCompact ? -22 : -30),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: panelMaxWidth),
+                child: Padding(
                   padding: EdgeInsets.fromLTRB(
-                    signupHorizontalPadding,
-                    extraCompact ? 16 : 20,
-                    signupHorizontalPadding,
-                    extraCompact ? 14 : 16,
+                    screenWidth <= 520 ? 0 : 18,
+                    0,
+                    screenWidth <= 520 ? 0 : 18,
+                    12 + bottomSafeArea,
                   ),
-                  decoration: BoxDecoration(
-                    color: panelBackground,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: isDark ? const Color(0xFF243244) : const Color(0xFFE2E8F0),
+                  child: Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.fromLTRB(
+                      signupHorizontalPadding,
+                      extraCompact ? 16 : 20,
+                      signupHorizontalPadding,
+                      extraCompact ? 14 : 16,
                     ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                    decoration: BoxDecoration(
+                      color: panelBackground,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(28),
+                        topRight: Radius.circular(28),
+                      ),
+                      border: Border.all(
+                        color: isDark ? const Color(0xFF334155) : Colors.white,
+                      ),
+                      boxShadow: null,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _AuthModeToggle(
+                          isLogin: false,
+                          onLoginTap: _isLoading || _isLogin
+                              ? null
+                              : () => _switchMode(AuthMode.login),
+                          onSignUpTap: _isLoading || !_isLogin
+                              ? null
+                              : () => _switchMode(AuthMode.signUp),
+                        ),
+                        SizedBox(height: extraCompact ? 14 : 18),
                         Text(
                           title,
                           style: TextStyle(
@@ -880,7 +1002,10 @@ class _AuthPageState extends State<AuthPage> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF0B4C8C),
                               foregroundColor: Colors.white,
-                              elevation: 0,
+                              elevation: 1,
+                              shadowColor: const Color(
+                                0xFF0B4C8C,
+                              ).withValues(alpha: 0.32),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                               ),
@@ -943,6 +1068,7 @@ class _AuthPageState extends State<AuthPage> {
                         ),
                         SizedBox(height: extraCompact ? 8 : 12),
                       ],
+                    ),
                   ),
                 ),
               ),
@@ -963,12 +1089,11 @@ class _AuthPageState extends State<AuthPage> {
     final footerPrompt = _isLogin
         ? "Don't have an account? "
         : 'Already have an account? ';
-    final pageBackground =
-        isDark ? const Color(0xFF0F172A) : const Color(0xFFF4F6F8);
-    final panelBackground =
-        isDark ? const Color(0xFF111827) : Colors.white;
-    final headerBackground =
-        isDark ? const Color(0xFF111B2E) : const Color(0xFF2357A6);
+    final pageBackground = isDark ? const Color(0xFF0F172A) : Colors.white;
+    final panelBackground = isDark ? const Color(0xFF111827) : Colors.white;
+    final headerBackground = isDark
+        ? const Color(0xFF111B2E)
+        : const Color(0xFF2357A6);
     final titleColor = isDark ? Colors.white : Colors.black;
     final subtitleColor = isDark ? Colors.white70 : const Color(0xFF8A8A8A);
     final dividerColor = isDark ? Colors.white24 : const Color(0xFFB7B7B7);
@@ -986,34 +1111,40 @@ class _AuthPageState extends State<AuthPage> {
             final horizontalPadding = extraCompact
                 ? 20.0
                 : compact
-                    ? 24.0
-                    : 34.0;
+                ? 24.0
+                : 34.0;
             final topPanelPadding = extraCompact
                 ? 16.0
                 : compact
-                    ? 20.0
-                    : 28.0;
+                ? 20.0
+                : 28.0;
             final fieldSpacing = extraCompact
                 ? 12.0
                 : compact
-                    ? 14.0
-                    : 20.0;
+                ? 14.0
+                : 20.0;
             final titleFontSize = extraCompact
                 ? 19.0
                 : compact
-                    ? 21.0
-                    : 24.0;
+                ? 21.0
+                : 24.0;
             final subtitleFontSize = extraCompact
                 ? 13.0
                 : compact
-                    ? 14.0
-                    : 15.0;
+                ? 14.0
+                : 15.0;
             final socialGap = extraCompact ? 8.0 : 12.0;
-            final headerTopSpace = extraCompact ? 12.0 : compact ? 16.0 : 28.0;
-            final headerBottomSpace =
-                extraCompact ? 12.0 : compact ? 16.0 : 28.0;
+            final headerTopSpace = extraCompact
+                ? 10.0
+                : compact
+                ? 12.0
+                : 20.0;
+            final headerBottomSpace = extraCompact
+                ? 10.0
+                : compact
+                ? 12.0
+                : 20.0;
             final bottomSafeArea = MediaQuery.of(context).padding.bottom;
-            final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
             final useStackedSocialButtons = screenWidth < 370;
             final panelMaxWidth = screenWidth > 520 ? 520.0 : screenWidth;
 
@@ -1073,19 +1204,12 @@ class _AuthPageState extends State<AuthPage> {
                     footerPrompt: footerPrompt,
                   );
 
-            return AnimatedPadding(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOut,
-              padding: EdgeInsets.only(bottom: keyboardInset),
-              child: SingleChildScrollView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  child: content,
-                ),
-              ),
-            );
+            if (!compact) return content;
+
+            // Preserve the device's actual width on compact phones. Scaling a
+            // wider source layout made form controls visibly narrower; scrolling
+            // vertically keeps every control accessible instead.
+            return SingleChildScrollView(child: content);
           },
         ),
       ),
@@ -1094,68 +1218,121 @@ class _AuthPageState extends State<AuthPage> {
 }
 
 class _AuthHeader extends StatelessWidget {
-  const _AuthHeader({
-    required this.compact,
-    required this.screenWidth,
-  });
+  const _AuthHeader({required this.compact, required this.screenWidth});
 
   final bool compact;
   final double screenWidth;
 
   @override
   Widget build(BuildContext context) {
-    final logoSize = screenWidth < 360
-        ? 54.0
+    final logoWidth = screenWidth < 360
+        ? 135.0
         : compact
-            ? 58.0
-            : 72.0;
-    final titleSize = screenWidth < 360
-        ? 28.0
-        : compact
-            ? 30.0
-            : 38.0;
-    final taglineSize = screenWidth < 360
-        ? 8.0
-        : compact
-            ? 8.5
-            : 10.0;
+        ? 150.0
+        : 170.0;
 
-    return Column(
-      children: [
-        Image.asset(
-          'assets/logo.png',
-          height: logoSize,
-        ),
-        SizedBox(height: compact ? 10 : 14),
-        FittedBox(
-          fit: BoxFit.scaleDown,
+    return Center(
+      child: Image.asset(
+        'assets/Group 112.png',
+        width: logoWidth,
+        fit: BoxFit.contain,
+      ),
+    );
+  }
+}
+
+class _AuthModeToggle extends StatelessWidget {
+  const _AuthModeToggle({
+    required this.isLogin,
+    required this.onLoginTap,
+    required this.onSignUpTap,
+  });
+
+  final bool isLogin;
+  final VoidCallback? onLoginTap;
+  final VoidCallback? onSignUpTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      height: 42,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1F2937) : const Color(0xFFF0F5F8),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _ModeOption(
+              label: 'Log in',
+              selected: isLogin,
+              onTap: onLoginTap,
+            ),
+          ),
+          Expanded(
+            child: _ModeOption(
+              label: 'Create account',
+              selected: !isLogin,
+              onTap: onSignUpTap,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ModeOption extends StatelessWidget {
+  const _ModeOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected
+                ? (isDark ? const Color(0xFF334155) : Colors.white)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: selected && !isDark
+                ? const [
+                    BoxShadow(
+                      color: Color(0x120F315A),
+                      blurRadius: 6,
+                      offset: Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
           child: Text(
-            'iTIWI',
+            label,
             style: TextStyle(
-              color: Colors.white,
-              fontSize: titleSize,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.5,
+              color: selected
+                  ? (isDark ? Colors.white : const Color(0xFF123D76))
+                  : (isDark ? Colors.white60 : const Color(0xFF718096)),
+              fontSize: 12.5,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
             ),
           ),
         ),
-        SizedBox(height: compact ? 1 : 2),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              "ORAGON'S CHARM. BICOL'S SOUL.",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: taglineSize,
-                letterSpacing: 0.8,
-              ),
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -1182,42 +1359,37 @@ class _AuthTextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fillColor = isDark ? const Color(0xFF1F2937) : const Color(0xFFF8FAFD);
+    final fillColor = isDark
+        ? const Color(0xFF1F2937)
+        : const Color(0xFFF6F9FC);
     final textColor = isDark ? Colors.white : const Color(0xFF172033);
     final iconColor = isDark ? Colors.white70 : const Color(0xFF52709A);
     final hintColor = isDark ? Colors.white54 : const Color(0xFF7A8699);
-    final borderColor = isDark ? const Color(0xFF475569) : const Color(0xFFD6E0EE);
+    final borderColor = isDark
+        ? const Color(0xFF475569)
+        : const Color(0xFFDDE7EF);
 
     return TextField(
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
-      style: TextStyle(
-        color: textColor,
-        fontSize: compact ? 14 : 16,
-      ),
+      style: TextStyle(color: textColor, fontSize: compact ? 14 : 16),
       cursorColor: isDark ? Colors.white : const Color(0xFF0B4C8C),
       decoration: InputDecoration(
         prefixIcon: Icon(icon, color: iconColor),
         suffixIcon: suffixIcon,
         hintText: hintText,
-        hintStyle: TextStyle(
-          color: hintColor,
-          fontSize: compact ? 14 : 16,
-        ),
+        hintStyle: TextStyle(color: hintColor, fontSize: compact ? 14 : 16),
         filled: true,
         fillColor: fillColor,
         contentPadding: EdgeInsets.symmetric(vertical: compact ? 14 : 18),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: borderColor),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: const BorderSide(
-            color: Color(0xFF0B4C8C),
-            width: 1.6,
-          ),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFF0B4C8C), width: 1.6),
         ),
       ),
     );
@@ -1225,10 +1397,7 @@ class _AuthTextField extends StatelessWidget {
 }
 
 class _LegalChipButton extends StatelessWidget {
-  const _LegalChipButton({
-    required this.label,
-    required this.onTap,
-  });
+  const _LegalChipButton({required this.label, required this.onTap});
 
   final String label;
   final VoidCallback onTap;

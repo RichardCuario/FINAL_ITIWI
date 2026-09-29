@@ -6,8 +6,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_rate_limiter.dart';
+import 'identity_verification_page.dart';
 import 'my_reports_page.dart';
 import 'shared_widgets.dart';
+import 'verification_service.dart';
 
 class ReportPage extends StatefulWidget {
   final VoidCallback? onBack;
@@ -25,9 +27,34 @@ class _ReportPageState extends State<ReportPage> {
   final _formKey = GlobalKey<FormState>();
   final List<XFile> _selectedImages = [];
   bool _isSubmitting = false;
+  final _verificationService = VerificationService();
 
   firebase_auth.User? get _currentUser =>
       firebase_auth.FirebaseAuth.instance.currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkVerificationAndNavigate();
+  }
+
+  Future<void> _checkVerificationAndNavigate() async {
+    if (_currentUser == null) return;
+    
+    final isVerified = await _verificationService.isUserVerified();
+    if (!isVerified && mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => IdentityVerificationPage(
+            onBack: () {
+              Navigator.pop(context);
+            },
+          ),
+        ),
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -161,12 +188,16 @@ class _ReportPageState extends State<ReportPage> {
           ? _currentUser!.displayName
           : (_currentUser!.email ?? 'User');
 
-      await _supabase.from('users').upsert({
-        'id': _currentUser!.uid,
-        'email': _currentUser!.email ?? '',
-        'display_name': displayName,
-        'photo_url': _currentUser!.photoURL,
-      }, onConflict: 'id');
+      try {
+        await _supabase.from('users').upsert({
+          'id': _currentUser!.uid,
+          'email': _currentUser!.email ?? '',
+          'display_name': displayName,
+          'photo_url': _currentUser!.photoURL,
+        }, onConflict: 'id');
+      } catch (e) {
+        debugPrint('User profile sync warning (non-blocking): $e');
+      }
 
       if (!mounted) return;
 
@@ -184,10 +215,6 @@ class _ReportPageState extends State<ReportPage> {
     } catch (e) {
       if (!mounted) return;
 
-      setState(() {
-        _isSubmitting = false;
-      });
-
       final isOfflineError = e is SocketException ||
           e.toString().contains('Failed host lookup') ||
           e.toString().contains('SocketException') ||
@@ -200,6 +227,11 @@ class _ReportPageState extends State<ReportPage> {
 
       _showSnackBar(errorMessage);
     } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
       await AppRateLimiter.release(actionKey);
     }
   }
