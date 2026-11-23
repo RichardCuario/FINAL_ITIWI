@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'auto_image_carousel.dart';
+import 'news_link_text.dart';
 import 'shared_widgets.dart';
 
 class NewsDetailPage extends StatelessWidget {
@@ -11,97 +13,57 @@ class NewsDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final scaffoldBackground =
-        isDark ? theme.scaffoldBackgroundColor : Colors.white;
+    final scaffoldBackground = isDark
+        ? theme.scaffoldBackgroundColor
+        : Colors.white;
     final contentBackground = isDark ? const Color(0xFF111827) : Colors.white;
     final titleColor = isDark ? Colors.white : Colors.black87;
     final metaColor = isDark ? Colors.white60 : Colors.grey[600]!;
     final iconMetaColor = isDark ? Colors.white54 : Colors.grey[500]!;
     final dividerColor = isDark ? Colors.white12 : Colors.grey[300]!;
     final bodyColor = isDark ? Colors.white70 : Colors.grey[700]!;
-    final imagePlaceholder =
-        isDark ? const Color(0xFF1F2937) : Colors.grey[200]!;
-    final imageErrorBackground =
-        isDark ? const Color(0xFF243145) : Colors.grey[300]!;
-    final topGradient = isDark
-        ? const [
-            Color(0xFF0F172A),
-            Color(0xFF172554),
-            Color(0xFF111827),
-          ]
-        : const [
-            Color(0xFF1E88E5),
-            Color(0xFF90CAF9),
-            Color(0xFFEAEAEA),
-          ];
-
+    final imageErrorBackground = isDark
+        ? const Color(0xFF243145)
+        : Colors.grey[300]!;
     final category = news['category']?.toString().trim().isNotEmpty == true
         ? news['category'].toString()
         : 'General';
+    final imageUrl = news['image_url']?.toString().trim() ?? '';
+    final gallery = news['image_urls'] is List
+        ? (news['image_urls'] as List)
+            .map((value) => value?.toString().trim() ?? '')
+            .where((value) => value.isNotEmpty)
+            .take(5)
+            .toList()
+        : <String>[];
+    if (gallery.isEmpty && imageUrl.isNotEmpty) gallery.add(imageUrl);
+
+    Widget imageFallback(Color background) =>
+        ColoredBox(
+          color: background,
+          child: Center(
+            child: Icon(
+              Icons.image_not_supported,
+              color: Colors.grey[400],
+              size: 60,
+            ),
+          ),
+        );
 
     return Scaffold(
       backgroundColor: scaffoldBackground,
       body: Stack(
         children: [
-          Container(
-            height: 110,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: topGradient,
-                stops: const [0.0, 0.7, 1.0],
-              ),
-            ),
-          ),
           CustomScrollView(
             slivers: [
-              SliverAppBar(
-                expandedHeight: 0,
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                leading: Container(
-                  margin: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
+              SliverToBoxAdapter(
+                child: AspectRatio(
+                  aspectRatio: 16 / 10,
+                  child: AutoImageCarousel(
+                    urls: gallery,
+                    placeholder: imageFallback(imageErrorBackground),
                   ),
                 ),
-              ),
-              SliverToBoxAdapter(
-                child: news['image_url'] != null
-                    ? Image.network(
-                        news['image_url'],
-                        height: 300,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        cacheWidth: 1200,
-                        cacheHeight: 900,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            height: 300,
-                            color: imageErrorBackground,
-                            child: const Icon(
-                              Icons.image_not_supported,
-                              color: Colors.grey,
-                              size: 60,
-                            ),
-                          );
-                        },
-                      )
-                    : Container(
-                        height: 300,
-                        color: imagePlaceholder,
-                        child: Icon(
-                          Icons.image_not_supported,
-                          color: Colors.grey[400],
-                          size: 60,
-                        ),
-                      ),
               ),
               SliverToBoxAdapter(
                 child: Container(
@@ -154,21 +116,16 @@ class NewsDetailPage extends StatelessWidget {
                             const SizedBox(width: 8),
                             Text(
                               _formatDate(news['created_at']),
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: metaColor,
-                              ),
+                              style: TextStyle(fontSize: 14, color: metaColor),
                             ),
                           ],
                         ),
                       const SizedBox(height: 20),
-                      Container(
-                        height: 1,
-                        color: dividerColor,
-                      ),
+                      Container(height: 1, color: dividerColor),
                       const SizedBox(height: 20),
-                      Text(
-                        news['description'] ?? 'No description available',
+                      NewsLinkText(
+                        news['description']?.toString() ??
+                            'No description available',
                         style: TextStyle(
                           fontSize: 16,
                           color: bodyColor,
@@ -182,6 +139,19 @@ class NewsDetailPage extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 8,
+            left: 12,
+            child: Material(
+              color: Colors.black45,
+              borderRadius: BorderRadius.circular(8),
+              child: IconButton(
+                tooltip: 'Back',
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
           ),
         ],
       ),

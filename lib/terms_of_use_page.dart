@@ -1,134 +1,413 @@
 import 'package:flutter/material.dart';
+import 'policy_document_page.dart';
+import 'privacy_policy_page.dart';
+import 'terms_illustration.dart';
 
-class TermsOfUsePage extends StatelessWidget {
+class TermsOfUsePage extends StatefulWidget {
   const TermsOfUsePage({super.key});
+  @override
+  State<TermsOfUsePage> createState() => _TermsOfUsePageState();
+}
 
-  static const List<_TermsSection> _sections = [
-    _TermsSection(
-      title: 'Acceptance of Terms',
-      body:
-          'By accessing and using this app, you agree to follow these terms of use and all applicable rules related to municipal services provided through the platform. If you do not agree with these terms, you should discontinue use of the app.',
-      icon: Icons.check_circle_outline,
-      iconColor: Color(0xFF1E88E5),
+class _TermsOfUsePageState extends State<TermsOfUsePage> {
+  final _search = TextEditingController();
+  String _topic = 'All';
+  static const _topics = [
+    'All',
+    'Using iTIWI',
+    'Account',
+    'Reports',
+    'Services',
+  ];
+  String _topicFor(PolicySection section) => switch (section.title) {
+    'Your account and verification' || 'Responsible access' => 'Account',
+    'Reports are not emergency calls' ||
+    'Photos and submitted information' => 'Reports',
+    'Appointments and service requests' => 'Services',
+    _ => 'Using iTIWI',
+  };
+
+  static const _sections = [
+    PolicySection(
+      'Using iTIWI',
+      'iTIWI provides access to municipal information, reports, and selected online service requests. Use it for lawful purposes and follow the instructions for each service. If you do not agree to these terms, do not submit requests through the app; ask the relevant municipal office about other ways to access its services.',
     ),
-    _TermsSection(
-      title: 'Proper Use of the App',
-      body:
-          'You agree to use the app only for lawful purposes, including submitting legitimate reports, viewing official information, and accessing available municipal services. You must not misuse the platform, attempt unauthorized access, or submit false, harmful, or misleading content.',
-      icon: Icons.rule_folder_outlined,
-      iconColor: Color(0xFF00A889),
+    PolicySection(
+      'Your account and verification',
+      'Keep your account information accurate and protect your sign-in credentials. Do not impersonate another person or use an account without permission. Contact the municipality if you suspect unauthorized use.\n\nReports and protected service requests require a signed-in, verified account. The verification flow uses Didit. Follow the provider’s instructions and review its notices. Identity verification does not itself approve a report, appointment, or document request.',
     ),
-    _TermsSection(
-      title: 'User Accounts',
-      body:
-          'Some features may require an account. You are responsible for maintaining the confidentiality of your account information and for activities conducted through your account. You should keep your login details secure and notify the appropriate administrator if you suspect unauthorized access.',
-      icon: Icons.manage_accounts_outlined,
-      iconColor: Color(0xFF6F46D9),
+    PolicySection(
+      'Reports are not emergency calls',
+      'Reports are reviewed by staff and are not a live emergency-response channel. For an urgent situation, use Hotlines to call the appropriate service rather than waiting for a report update.\n\nDescribe your concern clearly, including its location and relevant facts. Do not submit knowingly false reports, threats, harassment, or repeated submissions intended to disrupt the service.',
     ),
-    _TermsSection(
-      title: 'Submitted Content',
-      body:
-          'Any information, images, documents, or reports you submit should be accurate, respectful, and relevant to the service being requested. Content that is abusive, fraudulent, offensive, or unrelated to municipal transactions may be removed or rejected.',
-      icon: Icons.file_present_outlined,
-      iconColor: Color(0xFFF26A45),
+    PolicySection(
+      'Photos and submitted information',
+      'Submit only information and photos that are relevant to your concern and that you are entitled to share. Avoid unrelated personal information, passwords, financial details, and identity documents in ordinary report attachments.\n\nReport photos may be resized or compressed. Keep your own original if you need it. Report images currently use public file links, so someone who obtains a working link may be able to view the image. Read the Privacy Policy before uploading sensitive material.',
     ),
-    _TermsSection(
-      title: 'Service Availability',
-      body:
-          'The municipality may update, suspend, limit, or improve app features at any time to maintain service quality, security, or compliance. Availability of certain services may depend on administrative schedules, connectivity, and system maintenance.',
-      icon: Icons.miscellaneous_services_outlined,
-      iconColor: Color(0xFF4CAF50),
+    PolicySection(
+      'Appointments and service requests',
+      'Sending a form records a request for review; it does not guarantee an appointment, approval, or document issuance. Follow the selected service’s instructions and check for status updates or requests for clarification.\n\nConfirm collection arrangements, supporting documents, and any official fees directly with the responsible office. Do not assume a document is ready solely because your request was submitted.',
     ),
-    _TermsSection(
-      title: 'Limitation of Responsibility',
-      body:
-          'While reasonable effort is made to keep the app functional and information up to date, the app is provided as available. Delays, technical interruptions, or unintentional inaccuracies may still occur, and use of the platform remains subject to operational limitations.',
-      icon: Icons.info_outline,
-      iconColor: Color(0xFFF3C746),
+    PolicySection(
+      'Responsible access',
+      'Do not attempt to access another person’s records, bypass verification or access controls, upload malicious content, or interfere with the app’s operation. Respect submission limits and any waiting period shown by the app.\n\nIf access is restricted or a submission is rejected, review the displayed reason and contact the responsible office for clarification. These terms do not replace any applicable municipal review or appeal procedure.',
     ),
-    _TermsSection(
-      title: 'Changes to the Terms',
-      body:
-          'These terms may be revised from time to time. Continued use of the app after updates means you accept the revised terms currently displayed in the application.',
-      icon: Icons.update_outlined,
-      iconColor: Color(0xFF26A69A),
+    PolicySection(
+      'Availability and saved information',
+      'An internet connection is required for submissions and current updates. Some pages may display content saved during an earlier visit, which may be out of date.\n\nMaintenance, connectivity problems, or service interruptions can delay access. If a submission appears to fail, check your report or request history before trying again to reduce duplicate records. No fixed response time is promised by these terms.',
+    ),
+    PolicySection(
+      'External services and links',
+      'The app may open maps, documents, verification pages, or other websites. Their availability and use are subject to their own notices and terms. Review those before providing information outside iTIWI.\n\nIf a link appears incorrect or a page requests unexpected information, stop and confirm the destination with the relevant office.',
+    ),
+    PolicySection(
+      'Official information and your rights',
+      'Published information can change as offices update their records. Confirm time-sensitive requirements with the responsible municipal office. An in-app description does not replace a formal decision, issued document, or applicable law.\n\nThese terms do not remove rights or remedies available under applicable law. Personal information is addressed in the Privacy Policy and Data & Compliance pages.',
+    ),
+    PolicySection(
+      'Questions and changes',
+      'For questions about a report or request, use its reference number when contacting the relevant office through published official channels. Never share your password.\n\nReview this page when using new features, as terms may be updated to reflect service changes. Continuing to use the app does not by itself replace any separate consent required for processing personal information.',
     ),
   ];
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final backgroundColor =
-        isDark ? theme.scaffoldBackgroundColor : const Color(0xFFEAEAEA);
-    final topGradient = isDark
-        ? const [
-            Color(0xFF0F172A),
-            Color(0xFF172554),
-            Color(0xFF111827),
-          ]
-        : const [
-            Color(0xFF1E88E5),
-            Color(0xFF90CAF9),
-            Color(0xFFEAEAEA),
-          ];
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final background = dark ? const Color(0xFF101820) : const Color(0xFFF2F7FC);
+    final surface = dark ? const Color(0xFF18232D) : Colors.white;
+    final ink = dark ? const Color(0xFFEDF2F6) : const Color(0xFF182B3A);
+    final secondary = dark ? const Color(0xFFABB9C5) : const Color(0xFF566773);
+    final line = dark ? const Color(0xFF30404D) : const Color(0xFFDDE3E8);
+    final accent = dark ? const Color(0xFF91C8F5) : const Color(0xFF165D91);
+    final accentSurface = dark
+        ? const Color(0xFF20364B)
+        : const Color(0xFFE4EFFA);
+    final headerColor = dark
+        ? const Color(0xFF173751)
+        : const Color(0xFF185D91);
+    final query = _search.text.trim().toLowerCase();
+    final visible = _sections
+        .where(
+          (item) =>
+              (_topic == 'All' || _topicFor(item) == _topic) &&
+              '${item.title} ${item.body} ${_topicFor(item)}'
+                  .toLowerCase()
+                  .contains(query),
+        )
+        .toList();
     return Scaffold(
-      backgroundColor: backgroundColor,
-      body: Stack(
-        children: [
-          Container(
-            height: 220,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: topGradient,
-                stops: const [0.0, 0.6, 1.0],
-              ),
-            ),
-          ),
-          SafeArea(
-            bottom: false,
-            child: Column(
+      backgroundColor: background,
+      appBar: AppBar(
+        title: const Text('Terms of Use'),
+        backgroundColor: Colors.transparent,
+        foregroundColor: dark ? Colors.white : Colors.black,
+        toolbarHeight: 40,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+      ),
+      body: SafeArea(
+        top: false,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: ListView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 36),
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 14, 20, 0),
-                  child: Row(
+                Container(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: dark
+                          ? const [Color(0xFF123A66), Color(0xFF1E5FA6)]
+                          : const [Color(0xFF0F5FC5), Color(0xFF0B7DE6)],
+                    ),
+                  ),
+                  child: Column(
                     children: [
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: Colors.white,
-                        ),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final largeText =
+                              MediaQuery.textScalerOf(context).scale(14) > 20;
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'TERMS OF USE',
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(alpha: 0.8),
+                                          fontSize: 10,
+                                          letterSpacing: 2.2,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'Using iTIWI responsibly',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 23,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: -0.7,
+                                          height: 1.15,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'What to expect when you submit a concern, request a service, or use municipal information.',
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(alpha: 0.82),
+                                          fontSize: 12,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              if (!largeText)
+                                SizedBox(
+                                  width: constraints.maxWidth * 0.42,
+                                  height: 150,
+                                  child: const CustomPaint(
+                                    painter: TermsIllustration(),
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
                       ),
-                      const SizedBox(width: 4),
-                      const Expanded(
-                        child: Text(
-                          'Terms of Use',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
+                      TextField(
+                        controller: _search,
+                        onChanged: (_) => setState(() {}),
+                        style: TextStyle(color: ink),
+                        textInputAction: TextInputAction.search,
+                        decoration: InputDecoration(
+                          hintText: 'Search terms, topics, or keywords...',
+                          hintStyle: TextStyle(color: secondary, fontSize: 12),
+                          prefixIcon: Icon(Icons.search_rounded, color: accent),
+                          suffixIcon: _search.text.isEmpty
+                              ? null
+                              : IconButton(
+                                  tooltip: 'Clear search',
+                                  icon: Icon(
+                                    Icons.close_rounded,
+                                    color: secondary,
+                                  ),
+                                  onPressed: () => setState(_search.clear),
+                                ),
+                          filled: true,
+                          fillColor: surface,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 17,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: line),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: accent, width: 2),
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-                    children: [
-                      _TermsIntroCard(isDark: isDark),
-                      const SizedBox(height: 16),
-                      ..._sections.map(
-                        (section) => _TermsSectionCard(
-                          section: section,
-                          isDark: isDark,
+                const SizedBox(height: 20),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _topics.map((topic) {
+                      final selected = topic == _topic;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Semantics(
+                          selected: selected,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: selected ? headerColor : accentSurface,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: TextButton(
+                              style: TextButton.styleFrom(
+                                foregroundColor: selected
+                                    ? Colors.white
+                                    : accent,
+                                minimumSize: const Size(48, 48),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                ),
+                              ),
+                              onPressed: () => setState(() => _topic = topic),
+                              child: Text(
+                                topic,
+                                style: TextStyle(
+                                  fontWeight: selected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  query.isEmpty
+                      ? '${visible.length} ${visible.length == 1 ? 'section' : 'sections'}'
+                      : '${visible.length} ${visible.length == 1 ? 'result' : 'results'}',
+                  style: TextStyle(color: secondary, fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                if (visible.isEmpty) ...[
+                  const SizedBox(height: 28),
+                  Text(
+                    'No matching terms',
+                    style: TextStyle(
+                      color: ink,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Try a shorter search, such as “photo” or “password”, or look in another topic.',
+                    style: TextStyle(color: secondary, height: 1.5),
+                  ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
+                      onPressed: () => setState(() {
+                        _search.clear();
+                        _topic = 'All';
+                      }),
+                      style: TextButton.styleFrom(foregroundColor: accent),
+                      child: const Text('Show all terms'),
+                    ),
+                  ),
+                ] else
+                  Material(
+                    color: surface,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      side: BorderSide(color: line),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < visible.length; i++) ...[
+                          if (i > 0)
+                            Divider(
+                              height: 1,
+                              indent: 20,
+                              endIndent: 20,
+                              color: line,
+                            ),
+                          ExpansionTile(
+                            key: ValueKey(visible[i].title),
+                            backgroundColor: accentSurface,
+                            tilePadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 7,
+                            ),
+                            childrenPadding: const EdgeInsets.fromLTRB(
+                              20,
+                              0,
+                              20,
+                              22,
+                            ),
+                            expandedCrossAxisAlignment:
+                                CrossAxisAlignment.start,
+                            shape: const Border(),
+                            collapsedShape: const Border(),
+                            iconColor: accent,
+                            collapsedIconColor: accent,
+                            title: Text(
+                              visible[i].title,
+                              style: TextStyle(
+                                color: ink,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                height: 1.4,
+                              ),
+                            ),
+                            children: [
+                              SizedBox(
+                                width: double.infinity,
+                                child: Text(
+                                  visible[i].body,
+                                  style: TextStyle(
+                                    color: secondary,
+                                    fontSize: 14,
+                                    height: 1.65,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 32),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: accentSurface,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Your privacy matters',
+                        style: TextStyle(
+                          color: ink,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Learn how your personal information is handled.',
+                        style: TextStyle(color: secondary, height: 1.4),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const PrivacyPolicyPage(),
+                          ),
+                        ),
+                        style: TextButton.styleFrom(foregroundColor: accent),
+                        icon: const Icon(Icons.privacy_tip_outlined, size: 18),
+                        label: const Text('Read the Privacy Policy'),
                       ),
                     ],
                   ),
@@ -136,150 +415,8 @@ class TermsOfUsePage extends StatelessWidget {
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TermsIntroCard extends StatelessWidget {
-  const _TermsIntroCard({required this.isDark});
-
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF262631) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-        border: Border.all(
-          color: isDark ? Colors.white10 : const Color(0xFFE3E6EB),
         ),
       ),
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E88E5).withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.gavel_rounded,
-              color: Color(0xFF1E88E5),
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              'These terms explain the rules for using the app, submitting content, accessing municipal services, and understanding the responsibilities connected with your use of the platform.',
-              style: TextStyle(
-                color: isDark ? Colors.white70 : const Color(0xFF4B5563),
-                fontSize: 15,
-                height: 1.45,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
-}
-
-class _TermsSectionCard extends StatelessWidget {
-  const _TermsSectionCard({
-    required this.section,
-    required this.isDark,
-  });
-
-  final _TermsSection section;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF262631) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-        border: Border.all(
-          color: isDark ? Colors.white10 : const Color(0xFFE3E6EB),
-        ),
-      ),
-      padding: const EdgeInsets.all(18),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: section.iconColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(section.icon, color: section.iconColor, size: 24),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  section.title,
-                  style: TextStyle(
-                    color: isDark ? Colors.white : const Color(0xFF20242C),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  section.body,
-                  style: TextStyle(
-                    color: isDark ? Colors.white70 : const Color(0xFF4B5563),
-                    fontSize: 14.5,
-                    height: 1.55,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TermsSection {
-  const _TermsSection({
-    required this.title,
-    required this.body,
-    required this.icon,
-    required this.iconColor,
-  });
-
-  final String title;
-  final String body;
-  final IconData icon;
-  final Color iconColor;
 }

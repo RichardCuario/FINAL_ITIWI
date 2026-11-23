@@ -139,3 +139,18 @@ nohup npm start &
 ✅ User count displaying in real-time  
 
 When ready to deploy, follow the guide in `BACKEND_USER_COUNT_API.md` Step 9.
+
+## Didit identity verification
+
+The Flutter app creates a verification session through `POST /api/identity-verification/session`; it authenticates with the user's Firebase ID token, so `vendor_data` is always the authenticated Firebase UID. The server keeps the Didit API key private and returns the hosted URL and session token only to the app.
+
+Before deploying:
+
+1. Copy `.env.example` to `.env` and set `DIDIT_API_KEY`, `DIDIT_WEBHOOK_SECRET`, `SUPABASE_URL`, and the Supabase **service-role** key. The API key must belong to the iTIWI Didit application that owns the Basic KYC workflow. Set the corresponding server-only variables for the `adminside/api` Vercel functions if they host the public API.
+2. Run `supabase/didit_identity_verification_setup.sql` in Supabase SQL Editor.
+3. In Didit, register `https://YOUR-PUBLIC-HOST/api/webhooks/didit` as a webhook destination. It must be a public HTTPS URL; localhost will not work.
+4. Run Flutter with `--dart-define=DIDIT_BACKEND_URL=https://YOUR-PUBLIC-HOST`.
+
+The webhook validates the timestamp and `X-Signature-V2`, deduplicates `event_id`, and is the only authority that marks a user verified. Never place Didit keys in the Flutter app.
+
+The selected published Basic KYC workflow ID is `03b0f41b-6a1f-4784-be2c-cccc1ce0645b` in the connected iTIWI live application. It is passed in each session request body as configuration, not stored as a secret. Configure a V3 `status.updated` webhook in that same Didit application and use its signing secret as `DIDIT_WEBHOOK_SECRET` on the server.

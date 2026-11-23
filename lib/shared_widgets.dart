@@ -1,7 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import 'auth_page.dart';
 import 'barangay_page.dart';
 import 'faq_page.dart';
 import 'hotline.dart';
@@ -144,181 +143,181 @@ class AdminSidebar extends StatelessWidget {
     return Drawer(
       width: 292,
       backgroundColor: drawerBackground,
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1A2234) : Colors.white,
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.08)
-                        : const Color(0xFFE7E7EA),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: isDark ? 0.16 : 0.05),
-                      blurRadius: 14,
-                      offset: const Offset(0, 6),
+      child: MediaQuery(
+        // The floating navbar adds body padding; drawers only need system insets.
+        data: MediaQuery.of(
+          context,
+        ).copyWith(padding: MediaQuery.viewPaddingOf(context)),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 8, 18, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1A2234) : Colors.white,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : const Color(0xFFE7E7EA),
                     ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundColor: isDark
-                          ? const Color(0xFFDBEAFE)
-                          : const Color(0xFFE8EEF9),
-                      backgroundImage: _resolvedPhotoUrl != null
-                          ? NetworkImage(_resolvedPhotoUrl!)
-                          : null,
-                      child: _resolvedPhotoUrl == null
-                          ? Text(
-                              _initial,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(
+                          alpha: isDark ? 0.16 : 0.05,
+                        ),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundColor: isDark
+                            ? const Color(0xFFDBEAFE)
+                            : const Color(0xFFE8EEF9),
+                        backgroundImage: _resolvedPhotoUrl != null
+                            ? NetworkImage(_resolvedPhotoUrl!)
+                            : null,
+                        child: _resolvedPhotoUrl == null
+                            ? Text(
+                                _initial,
+                                style: TextStyle(
+                                  color: isDark
+                                      ? const Color(0xFF0F172A)
+                                      : const Color(0xFF2B2B2B),
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _resolvedUserName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: isDark
-                                    ? const Color(0xFF0F172A)
-                                    : const Color(0xFF2B2B2B),
-                                fontSize: 20,
+                                    ? Colors.white
+                                    : const Color(0xFF222222),
+                                fontSize: 15,
                                 fontWeight: FontWeight.w700,
                               ),
-                            )
-                          : null,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _resolvedUserName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: isDark
-                                  ? Colors.white
-                                  : const Color(0xFF222222),
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _resolvedUserEmail,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: isDark
-                                  ? Colors.white70
-                                  : const Color(0xFF7A7A7A),
-                              fontSize: 12,
-                              height: 1.25,
+                            const SizedBox(height: 4),
+                            Text(
+                              _resolvedUserEmail,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: isDark
+                                    ? Colors.white70
+                                    : const Color(0xFF7A7A7A),
+                                fontSize: 12,
+                                height: 1.25,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Expanded(
-                child: ListView(
-                  padding: EdgeInsets.zero,
-                  children: [
-                    _SidebarTile(
-                      icon: Icons.home_outlined,
-                      label: 'Home',
-                      selected: currentIndex == 0,
-                      onTap: () => _closeAndNavigate(context, 0),
-                    ),
-                    _SidebarTile(
-                      icon: Icons.newspaper_outlined,
-                      label: 'News',
-                      selected: currentIndex == 1,
-                      onTap: () => _closeAndNavigate(context, 1),
-                    ),
-                    _SidebarTile(
-                      icon: Icons.location_city_outlined,
-                      label: 'Barangay',
-                      onTap: () => _openPage(context, const BarangayPage()),
-                    ),
-                    _SidebarTile(
-                      icon: Icons.map_outlined,
-                      label: 'Tourist Guide',
-                      onTap: () => _openPage(context, const TouristGuidePage()),
-                    ),
-                    _SidebarTile(
-                      icon: Icons.description_outlined,
-                      label: 'Transparency',
-                      onTap: () => _openPage(context, const TransparencyPage()),
-                    ),
-                    _SidebarTile(
-                      icon: Icons.campaign_outlined,
-                      label: 'Report Issue',
-                      onTap: () => _openPage(context, const ReportPage()),
-                    ),
-                    _SidebarTile(
-                      icon: Icons.language_outlined,
-                      label: 'Online Services',
-                      onTap: () => _openPage(
-                        context,
-                        const OnlineServicePage(),
-                      ),
-                    ),
-                    _SidebarTile(
-                      icon: Icons.phone_in_talk_outlined,
-                      label: 'Emergency Hotline',
-                      onTap: () => _openPage(context, const HotlinePage()),
-                    ),
-                    _SidebarTile(
-                      icon: Icons.person_outline_rounded,
-                      label: 'Profile',
-                      selected: currentIndex == 2,
-                      onTap: () => _closeAndNavigate(context, 2),
-                    ),
-                    _SidebarTile(
-                      icon: Icons.help_outline_rounded,
-                      label: 'Help & FAQ',
-                      onTap: () => _openPage(context, const FaqPage()),
-                    ),
-                  ],
+                const SizedBox(height: 12),
+                Expanded(
+                  child: Builder(
+                    builder: (context) {
+                      final items = <Widget>[
+                        _SidebarTile(
+                          icon: Icons.home_outlined,
+                          label: 'Home',
+                          selected: currentIndex == 0,
+                          onTap: () => _closeAndNavigate(context, 0),
+                        ),
+                        _SidebarTile(
+                          icon: Icons.newspaper_outlined,
+                          label: 'News',
+                          selected: currentIndex == 1,
+                          onTap: () => _closeAndNavigate(context, 1),
+                        ),
+                        _SidebarTile(
+                          icon: Icons.location_city_outlined,
+                          label: 'Barangay',
+                          onTap: () => _openPage(context, const BarangayPage()),
+                        ),
+                        _SidebarTile(
+                          icon: Icons.map_outlined,
+                          label: 'Tourist Guide',
+                          onTap: () =>
+                              _openPage(context, const TouristGuidePage()),
+                        ),
+                        _SidebarTile(
+                          icon: Icons.description_outlined,
+                          label: 'Transparency',
+                          onTap: () =>
+                              _openPage(context, const TransparencyPage()),
+                        ),
+                        _SidebarTile(
+                          icon: Icons.campaign_outlined,
+                          label: 'Report Issue',
+                          onTap: () => _openPage(context, const ReportPage()),
+                        ),
+                        _SidebarTile(
+                          icon: Icons.language_outlined,
+                          label: 'Online Services',
+                          onTap: () =>
+                              _openPage(context, const OnlineServicePage()),
+                        ),
+                        _SidebarTile(
+                          icon: Icons.phone_in_talk_outlined,
+                          label: 'Emergency Hotline',
+                          onTap: () => _openPage(context, const HotlinePage()),
+                        ),
+                        _SidebarTile(
+                          icon: Icons.person_outline_rounded,
+                          label: 'Profile',
+                          selected: currentIndex == 2,
+                          onTap: () => _closeAndNavigate(context, 2),
+                        ),
+                        _SidebarTile(
+                          icon: Icons.help_outline_rounded,
+                          label: 'Help & FAQ',
+                          onTap: () => _openPage(context, const FaqPage()),
+                        ),
+                      ];
+                      return Column(
+                        children: items
+                            .map((item) => Expanded(child: item))
+                            .toList(),
+                      );
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              const Divider(height: 1, color: Color(0xFFE5E7EB)),
-              const SizedBox(height: 16),
-              _SidebarFooterTile(
-                userName: _resolvedUserName,
-                userEmail: _resolvedUserEmail,
-                photoUrl: _resolvedPhotoUrl,
-                initial: _initial,
-                onLogout: () async {
-                  Navigator.pop(context);
-                  await FirebaseAuth.instance.signOut();
-                  if (!context.mounted) return;
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(
-                      builder: (_) => AuthPage(
-                        initialMode: AuthMode.login,
-                        isDarkMode:
-                            Theme.of(context).brightness == Brightness.dark,
-                        onToggleDarkMode: (_) {},
-                      ),
-                    ),
-                    (route) => false,
-                  );
-                },
-              ),
-            ],
+                const SizedBox(height: 8),
+                const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                const SizedBox(height: 8),
+                _SidebarFooterTile(
+                  onLogout: () async {
+                    final navigator = Navigator.of(context);
+                    navigator.pop();
+                    await FirebaseAuth.instance.signOut();
+                    if (!navigator.mounted) return;
+                    navigator.popUntil((route) => route.isFirst);
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -344,128 +343,90 @@ class _SidebarTile extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      margin: const EdgeInsets.only(bottom: 8),
+      duration: Duration(
+        milliseconds: MediaQuery.disableAnimationsOf(context) ? 0 : 220,
+      ),
+      curve: Curves.easeInOutCubic,
       decoration: BoxDecoration(
         color: selected
             ? (isDark ? const Color(0xFF1F2937) : const Color(0xFFF0F0F1))
             : Colors.transparent,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: ListTile(
-        dense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-        leading: Icon(
-          icon,
-          size: 21,
-          color: selected
-              ? (isDark ? Colors.white : const Color(0xFF1F1F1F))
-              : (isDark ? Colors.white70 : const Color(0xFF666666)),
-        ),
-        title: Text(
-          label,
-          style: TextStyle(
-            color: selected
-                ? (isDark ? Colors.white : const Color(0xFF1F1F1F))
-                : (isDark ? Colors.white : const Color(0xFF222222)),
-            fontSize: 15,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+      child: Semantics(
+        button: true,
+        selected: selected,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 21,
+                  color: selected
+                      ? (isDark ? Colors.white : const Color(0xFF1F1F1F))
+                      : (isDark ? Colors.white70 : const Color(0xFF666666)),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: selected
+                              ? (isDark
+                                    ? Colors.white
+                                    : const Color(0xFF1F1F1F))
+                              : (isDark
+                                    ? Colors.white
+                                    : const Color(0xFF222222)),
+                          fontSize: 15,
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        onTap: onTap,
       ),
     );
   }
 }
 
 class _SidebarFooterTile extends StatelessWidget {
-  const _SidebarFooterTile({
-    required this.userName,
-    required this.userEmail,
-    required this.photoUrl,
-    required this.initial,
-    required this.onLogout,
-  });
+  const _SidebarFooterTile({required this.onLogout});
 
-  final String userName;
-  final String userEmail;
-  final String? photoUrl;
-  final String initial;
   final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF161F31) : Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : const Color(0xFFE7E7EA),
+    return SizedBox(
+      width: double.infinity,
+      child: TextButton.icon(
+        onPressed: onLogout,
+        icon: const Icon(Icons.logout_rounded),
+        label: const Text('Logout'),
+        style: TextButton.styleFrom(
+          alignment: Alignment.centerLeft,
+          foregroundColor: Colors.red,
+          minimumSize: const Size.fromHeight(48),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: isDark
-                ? const Color(0xFFDBEAFE)
-                : const Color(0xFFE6EEF9),
-            backgroundImage: photoUrl != null ? NetworkImage(photoUrl!) : null,
-            child: photoUrl == null
-                ? Text(
-                    initial,
-                    style: TextStyle(
-                      color: isDark
-                          ? const Color(0xFF0F172A)
-                          : const Color(0xFF2B2B2B),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  )
-                : null,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  userName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: isDark ? Colors.white : const Color(0xFF222222),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  userEmail,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: isDark ? Colors.white60 : const Color(0xFF7A7A7A),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: onLogout,
-            icon: Icon(
-              Icons.logout_rounded,
-              color: isDark ? Colors.white : const Color(0xFF222222),
-            ),
-            tooltip: 'Logout',
-          ),
-        ],
       ),
     );
   }
@@ -496,7 +457,8 @@ class AppSectionCard extends StatelessWidget {
       margin: margin,
       padding: padding,
       decoration: BoxDecoration(
-        color: backgroundColor ??
+        color:
+            backgroundColor ??
             (isDark ? const Color(0xFF172033) : AppColors.cardBackground),
         borderRadius: borderRadius,
         boxShadow: [
@@ -531,7 +493,9 @@ class OfflineDataBanner extends StatelessWidget {
         ? const Color(0xFF1E3A5F)
         : const Color(0xFFE0EFFF);
     final iconColor = isDark ? const Color(0xFF93C5FD) : AppColors.primary;
-    final textColor = isDark ? const Color(0xFFE2E8F0) : const Color(0xFF475569);
+    final textColor = isDark
+        ? const Color(0xFFE2E8F0)
+        : const Color(0xFF475569);
 
     return Container(
       width: double.infinity,
@@ -557,11 +521,7 @@ class OfflineDataBanner extends StatelessWidget {
               color: iconBackground,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(
-              Icons.cloud_off_rounded,
-              size: 17,
-              color: iconColor,
-            ),
+            child: Icon(Icons.cloud_off_rounded, size: 17, color: iconColor),
           ),
           const SizedBox(width: 10),
           Expanded(

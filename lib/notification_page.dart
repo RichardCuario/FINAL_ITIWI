@@ -236,6 +236,10 @@ class _NotificationPageState extends State<NotificationPage> {
         isDark ? Colors.white70 : const Color(0xFF667085);
     final primaryText =
         isDark ? Colors.white : const Color(0xFF111827);
+    final accentColor =
+        isDark ? const Color(0xFF90CAF9) : const Color(0xFF1E88E5);
+    final iconBackground =
+        isDark ? const Color(0xFF213A54) : const Color(0xFFE3F2FD);
 
     return Scaffold(
       backgroundColor: pageBackground,
@@ -243,14 +247,14 @@ class _NotificationPageState extends State<NotificationPage> {
         children: [
           Container(
             height: 185,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFF1E88E5),
-                  Color(0xFF90CAF9),
-                  Color(0xFFEAEAEA),
+                  isDark ? const Color(0xFF153454) : const Color(0xFF1E88E5),
+                  isDark ? const Color(0xFF11243A) : const Color(0xFF90CAF9),
+                  pageBackground,
                 ],
                 stops: [0.0, 0.62, 1.0],
               ),
@@ -266,7 +270,7 @@ class _NotificationPageState extends State<NotificationPage> {
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
                         icon: const Icon(
-                          Icons.arrow_back_ios_new_rounded,
+                          Icons.arrow_back,
                           color: Colors.white,
                         ),
                       ),
@@ -310,8 +314,10 @@ class _NotificationPageState extends State<NotificationPage> {
                 ),
                 Expanded(
                   child: _isLoading
-                      ? const Center(child: CircularProgressIndicator())
+                      ? Center(child: CircularProgressIndicator(color: accentColor))
                       : RefreshIndicator(
+                          color: accentColor,
+                          backgroundColor: cardBackground,
                           onRefresh: _loadNotifications,
                           child: ListView(
                             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -350,7 +356,7 @@ class _NotificationPageState extends State<NotificationPage> {
                                         Icons.notifications_none_rounded,
                                         size: 62,
                                         color: isDark
-                                            ? Colors.white24
+                                            ? Colors.white70
                                             : Colors.grey.shade400,
                                       ),
                                       const SizedBox(height: 14),
@@ -431,7 +437,7 @@ class _NotificationPageState extends State<NotificationPage> {
                                               width: 52,
                                               height: 52,
                                               decoration: BoxDecoration(
-                                                color: const Color(0xFFE3F2FD),
+                                                color: iconBackground,
                                                 borderRadius:
                                                     BorderRadius.circular(16),
                                               ),
@@ -455,9 +461,7 @@ class _NotificationPageState extends State<NotificationPage> {
                                                                     .description_rounded
                                                               : Icons
                                                                     .campaign_rounded,
-                                                          color: const Color(
-                                                            0xFF1E88E5,
-                                                          ),
+                                                          color: accentColor,
                                                         );
                                                       },
                                                     )
@@ -470,9 +474,7 @@ class _NotificationPageState extends State<NotificationPage> {
                                                                 .description_rounded
                                                           : Icons
                                                                 .campaign_rounded,
-                                                      color: const Color(
-                                                        0xFF1E88E5,
-                                                      ),
+                                                      color: accentColor,
                                                     ),
                                             ),
                                             const SizedBox(width: 12),
@@ -528,12 +530,10 @@ class _NotificationPageState extends State<NotificationPage> {
                                                         ),
                                                       ),
                                                       if (isActionableNews)
-                                                        const Icon(
+                                                        Icon(
                                                           Icons
                                                               .chevron_right_rounded,
-                                                          color: Color(
-                                                            0xFF1E88E5,
-                                                          ),
+                                                          color: accentColor,
                                                         ),
                                                     ],
                                                   ),

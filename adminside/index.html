@@ -3,7 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>iTIWI Admin Dashboard</title>
+  <title>Dashboard | iTIWI Admin</title>
+  <meta name="description" content="iTIWI Admin portal for managing municipal services and community updates in Tiwi, Albay." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="iTIWI Admin Portal" />
+  <meta property="og:description" content="Manage municipal services and community updates for Tiwi, Albay." />
+  <meta property="og:url" content="https://admin.itiwi.com/dashboard" />
+  <meta property="og:image" content="https://admin.itiwi.com/assets/tiwi_hall.png" />
+  <meta property="og:image:width" content="1919" />
+  <meta property="og:image:height" content="820" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://admin.itiwi.com/assets/tiwi_hall.png" />
   <link rel="icon" type="image/png" href="assets/itiwi_logo.png" />
   <link rel="shortcut icon" type="image/png" href="assets/itiwi_logo.png" />
   <link rel="stylesheet" href="styles.css" />
@@ -14,6 +24,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="./admin_roles_logic.js"></script>
+  <script src="./submission_time.js"></script>
 </head>
 <body>
   <!-- Sidebar Overlay (mobile) -->
@@ -22,13 +33,14 @@
   <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
-      <div class="brand-logo">
+      <button class="brand-logo" id="sidebarLogoBtn" type="button" aria-controls="sidebar" aria-label="Collapse Sidebar" title="Collapse Sidebar">
         <img src="assets/itiwi_logo.png" alt="iTIWI Logo" class="sidebar-logo-icon" />
-      </div>
+        <i class="fa-solid fa-chevron-right brand-expand-icon" aria-hidden="true"></i>
+      </button>
       <div class="brand-text">
         <img src="assets/TEXTLOGO.png" alt="iTIWI" class="sidebar-logo-text" />
       </div>
-      <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Collapse Sidebar">
+      <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" type="button" aria-controls="sidebar" aria-label="Collapse Sidebar" title="Collapse Sidebar">
         <i class="fa-solid fa-chevron-left"></i>
       </button>
     </div>
@@ -66,13 +78,17 @@
         <i class="fa-solid fa-phone"></i>
         <span>Manage Hotline</span>
       </a>
+      <a href="#" class="nav-item" data-page="about-us">
+        <i class="fa-solid fa-landmark"></i>
+        <span>Manage About Us</span>
+      </a>
       <a href="#" class="nav-item" data-page="users">
         <i class="fa-solid fa-users"></i>
-        <span>Manage Users</span>
+        <span>Manage Citizen</span>
       </a>
       <a href="#" class="nav-item" data-page="manage-admin">
         <i class="fa-solid fa-user-shield"></i>
-        <span>Manage Admin</span>
+        <span>Manage Staff</span>
       </a>
     </nav>
 
@@ -210,9 +226,9 @@
         <div class="dashboard-grid-2col">
           <!-- Recent Report -->
           <div class="card">
-            <div class="card-header">
+            <div class="card-header dashboard-recent-header">
               <h2>Recent Report</h2>
-              <button class="btn btn-sm btn-secondary" onclick="navigateTo('reports')">
+              <button class="btn btn-sm btn-secondary dashboard-view-all" onclick="navigateTo('reports')">
                 View All <i class="fa-solid fa-arrow-right"></i>
               </button>
             </div>
@@ -239,9 +255,9 @@
 
           <!-- Recent Request -->
           <div class="card">
-            <div class="card-header">
+            <div class="card-header dashboard-recent-header">
               <h2>Recent Request</h2>
-              <button class="btn btn-sm btn-secondary" onclick="navigateTo('services')">
+              <button class="btn btn-sm btn-secondary dashboard-view-all" onclick="navigateTo('services')">
                 View All <i class="fa-solid fa-arrow-right"></i>
               </button>
             </div>
@@ -312,7 +328,7 @@
                 <span class="status-count" id="servicePendingCount">2</span>
               </div>
               <div class="status-item">
-                <span class="status-label">Processing</span>
+                <span class="status-label">Ready for Release</span>
                 <div class="status-bar">
                   <div class="status-fill processing-fill" id="serviceProcessingBar" style="width: 0%"></div>
                 </div>
@@ -326,7 +342,7 @@
                 <span class="status-count" id="serviceCompletedCount">0</span>
               </div>
               <div class="status-item">
-                <span class="status-label">Rejected</span>
+                <span class="status-label">Returned</span>
                 <div class="status-bar">
                   <div class="status-fill rejected-fill" id="serviceRejectedBar" style="width: 0%"></div>
                 </div>
@@ -351,6 +367,90 @@
           </div>
         </div>
 
+      </section>
+
+      <!-- Manage About Us Page -->
+      <section class="page" id="aboutUsPage">
+        <div class="page-header">
+          <h1>Manage About Us</h1>
+          <p class="page-subtitle">Manage Tiwi's story, public documents, and municipal officials.</p>
+        </div>
+        <div class="card about-us-editor">
+          <div class="about-category-filter" role="group" aria-label="About Us categories">
+            <button type="button" data-about-section="aboutPurposeSection" aria-pressed="true" aria-controls="aboutPurposeSection" onclick="selectAboutSection('aboutPurposeSection')">Vision &amp; mission</button>
+            <button type="button" data-about-section="aboutHistorySection" aria-pressed="false" aria-controls="aboutHistorySection" onclick="selectAboutSection('aboutHistorySection')">History</button>
+            <button type="button" data-about-section="aboutGeographySection" aria-pressed="false" aria-controls="aboutGeographySection" onclick="selectAboutSection('aboutGeographySection')">Geography</button>
+            <button type="button" data-about-section="aboutCharterSection" aria-pressed="false" aria-controls="aboutCharterSection" onclick="selectAboutSection('aboutCharterSection')">Citizen's Charter</button>
+            <button type="button" data-about-section="aboutOfficialsSection" aria-pressed="false" aria-controls="aboutOfficialsSection" onclick="selectAboutSection('aboutOfficialsSection')">Municipal officials</button>
+            <button type="button" class="btn btn-primary" id="aboutSaveBtn" onclick="saveAboutUs()"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save changes</button>
+          </div>
+          <p id="aboutSaveStatus" class="about-save-feedback" role="status"></p>
+          <div class="form-section about-category-panel" id="aboutPurposeSection" role="region" aria-label="Vision and mission">
+            <div class="section-header"><h3>Vision &amp; mission</h3><p class="section-subtitle">Share the municipality's goals and commitment to residents.</p></div>
+            <div class="about-purpose-grid">
+            <div class="form-group"><label for="aboutVision">Vision</label><textarea id="aboutVision" rows="5"></textarea></div>
+            <div class="form-group"><label for="aboutMission">Mission</label><textarea id="aboutMission" rows="5"></textarea></div>
+            </div>
+          </div>
+          <div class="form-section about-category-panel" id="aboutHistorySection" role="region" aria-label="History" hidden>
+            <div class="section-header"><h3>History of Tiwi</h3><p class="section-subtitle">Tell the story of Tiwi and add a photo to accompany it.</p></div>
+            <div class="form-group"><label for="aboutHistory">History of Tiwi</label><textarea id="aboutHistory" rows="6"></textarea></div>
+            <div class="form-group about-image-field">
+              <label for="aboutHistoryImage">History image</label>
+              <div class="charter-upload-panel about-image-upload-panel">
+                <span class="charter-upload-icon" aria-hidden="true"><i class="fa-solid fa-image"></i></span>
+                <div class="charter-upload-copy">
+                  <strong>Upload a History image</strong>
+                  <span id="aboutHistoryImageStatus">JPG, PNG, or WebP. Large images are compressed when saved.</span>
+                </div>
+                <button type="button" class="btn btn-secondary charter-choose-button" onclick="document.getElementById('aboutHistoryImage').click()"><i class="fa-solid fa-upload" aria-hidden="true"></i> Choose image</button>
+              </div>
+              <input type="file" id="aboutHistoryImage" hidden accept="image/jpeg,image/png,image/webp" onchange="selectAboutImage('history', this.files[0])" />
+              <div id="aboutHistoryImagePreview" class="about-image-preview"></div>
+              <button type="button" id="aboutHistoryImageRemove" class="btn btn-sm btn-secondary" onclick="clearAboutImage('history')">Remove image</button>
+            </div>
+          </div>
+          <div class="form-section about-category-panel" id="aboutGeographySection" role="region" aria-label="Geography" hidden>
+            <div class="section-header"><h3>Geography</h3><p class="section-subtitle">Describe Tiwi's location, landscape, and surroundings.</p></div>
+            <div class="form-group"><label for="aboutGeography">Geography</label><textarea id="aboutGeography" rows="5"></textarea></div>
+            <div class="form-group about-image-field">
+              <label for="aboutGeographyImage">Geography image</label>
+              <div class="charter-upload-panel about-image-upload-panel">
+                <span class="charter-upload-icon" aria-hidden="true"><i class="fa-solid fa-image"></i></span>
+                <div class="charter-upload-copy">
+                  <strong>Upload a Geography image</strong>
+                  <span id="aboutGeographyImageStatus">JPG, PNG, or WebP. Large images are compressed when saved.</span>
+                </div>
+                <button type="button" class="btn btn-secondary charter-choose-button" onclick="document.getElementById('aboutGeographyImage').click()"><i class="fa-solid fa-upload" aria-hidden="true"></i> Choose image</button>
+              </div>
+              <input type="file" id="aboutGeographyImage" hidden accept="image/jpeg,image/png,image/webp" onchange="selectAboutImage('geography', this.files[0])" />
+              <div id="aboutGeographyImagePreview" class="about-image-preview"></div>
+              <button type="button" id="aboutGeographyImageRemove" class="btn btn-sm btn-secondary" onclick="clearAboutImage('geography')">Remove image</button>
+            </div>
+          </div>
+          <div class="form-section about-category-panel" id="aboutCharterSection" role="region" aria-label="Citizen's Charter" hidden>
+            <div class="section-header"><h3>Citizen's Charter</h3><p class="section-subtitle">Upload documents for residents to view and download in the app.</p></div>
+            <div class="form-group">
+              <label for="aboutCharterUpload">Charter files</label>
+              <div class="charter-upload-panel">
+                <span class="charter-upload-icon" aria-hidden="true"><i class="fa-solid fa-cloud-arrow-up"></i></span>
+                <div class="charter-upload-copy">
+                  <strong>Add Charter files</strong>
+                  <span>Select one or more files to publish for residents.</span>
+                </div>
+                <button type="button" class="btn btn-secondary charter-choose-button" onclick="document.getElementById('aboutCharterUpload').click()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Choose files</button>
+              </div>
+              <input type="file" id="aboutCharterUpload" hidden multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp" onchange="addCharterFiles(this.files)" />
+              <p class="form-help-text">PDF, Word, Excel, or image files. Large images are compressed automatically; document size depends on storage limits.</p>
+            </div>
+            <div id="aboutCharterFiles" class="charter-files-list" aria-live="polite"></div>
+          </div>
+          <div class="form-section about-category-panel" id="aboutOfficialsSection" role="region" aria-label="Municipal officials" hidden>
+            <div class="section-header"><h3>Officials of the Municipality of Tiwi</h3><p class="section-subtitle">Add each official's name, position, and photo. The Municipal Mayor is listed first.</p></div>
+            <div id="municipalOfficialsList" class="barangay-officials-list"></div>
+            <button type="button" class="btn btn-secondary" onclick="addMunicipalOfficialRow()"><i class="fa-solid fa-plus"></i> Add Official</button>
+          </div>
+        </div>
       </section>
 
       <!-- Manage Barangay Page -->
@@ -464,12 +564,22 @@
                 <option value="pending">Pending</option>
                 <option value="reviewing">Under Review</option>
                 <option value="resolved">Resolved</option>
-                <option value="rejected">Rejected</option>
+                <option value="rejected">Returned</option>
+              </select>
+              <select id="reportCategoryFilter" class="status-filter">
+                <option value="">All Categories</option>
+                <option value="Infrastructure and roads">Infrastructure and roads</option>
+                <option value="Public safety">Public safety</option>
+                <option value="Sanitation and waste">Sanitation and waste</option>
+                <option value="Environment">Environment</option>
+                <option value="Health and social services">Health and social services</option>
+                <option value="Utilities">Utilities</option>
+                <option value="Other">Other</option>
               </select>
               <div class="date-range-group">
-                <input type="date" id="reportDateFrom" class="status-filter" />
+                <input type="date" id="reportDateFrom" class="status-filter" aria-label="Report start date" />
                 <span class="date-separator">to</span>
-                <input type="date" id="reportDateTo" class="status-filter" />
+                <input type="date" id="reportDateTo" class="status-filter" aria-label="Report end date" />
               </div>
             </div>
           </div>
@@ -479,16 +589,18 @@
                 <tr>
                   <th>Reporter Name</th>
                   <th>Message</th>
+                  <th>Category</th>
                   <th>Status</th>
                   <th>Attachments</th>
-                  <th>Created</th>
+                  <th title="Submission date in Philippine time">Submitted</th>
+                  <th>Time Since Submission</th>
                   <th>Last Updated</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="reportsTableBody">
                 <tr>
-                  <td colspan="7" class="empty-state">Loading...</td>
+                  <td colspan="9" class="empty-state">Loading...</td>
                 </tr>
               </tbody>
             </table>
@@ -517,16 +629,16 @@
               <select id="transparencyTypeFilter" class="status-filter">
                 <option value="">All Types</option>
                 <option value="annual_budget">Annual Budget</option>
-                <option value="bids">Bids</option>
+                <option value="bids_projects">Bids &amp; Projects</option>
                 <option value="executive_orders">Executive Orders</option>
                 <option value="financial_reports">Financial Reports</option>
                 <option value="legislative_ordinances">Legislative Ordinances</option>
-                <option value="programs">Programs</option>
+                <option value="programs_projects">Programs &amp; Projects</option>
               </select>
               <div class="date-range-group">
-                <input type="date" id="transparencyDateFrom" class="status-filter" />
+                <input type="date" id="transparencyDateFrom" class="status-filter" aria-label="Transparency start date" />
                 <span class="date-separator">to</span>
-                <input type="date" id="transparencyDateTo" class="status-filter" />
+                <input type="date" id="transparencyDateTo" class="status-filter" aria-label="Transparency end date" />
               </div>
               <button class="btn btn-primary" onclick="openTransparencyModal()">
                 <i class="fa-solid fa-plus"></i>
@@ -612,9 +724,12 @@
 
       <!-- Online Services Page -->
       <section class="page services-page" id="servicesPage">
-        <div class="page-header">
-          <h1>Online Services</h1>
-          <p class="page-subtitle">Manage online service requests, certificates, and bookings.</p>
+        <div class="page-header services-page-header">
+          <div>
+            <h1>Online Services</h1>
+            <p class="page-subtitle">Manage online service requests, certificates, and bookings.</p>
+          </div>
+          <button type="button" class="services-availability-trigger" id="appointmentAvailabilityTrigger" aria-haspopup="dialog" aria-controls="appointmentAvailabilityModal" aria-expanded="false" onclick="openAppointmentAvailabilityModal()">Appointment Availability</button>
         </div>
         <div class="card table-card">
           <div class="card-header">
@@ -627,17 +742,17 @@
               <select id="serviceStatusFilter" class="status-filter">
                 <option value="">All Status</option>
                 <option value="pending">Pending</option>
-                <option value="processing">Processing</option>
+                <option value="processing">Ready for Release</option>
                 <option value="completed">Completed</option>
-                <option value="rejected">Rejected</option>
+                <option value="rejected">Returned</option>
               </select>
               <select id="serviceCategoryFilter" class="status-filter">
                 <option value="">All Categories</option>
               </select>
               <div class="date-range-group">
-                <input type="date" id="serviceDateFrom" class="status-filter" />
+                <input type="date" id="serviceDateFrom" class="status-filter" aria-label="Service start date" />
                 <span class="date-separator">to</span>
-                <input type="date" id="serviceDateTo" class="status-filter" />
+                <input type="date" id="serviceDateTo" class="status-filter" aria-label="Service end date" />
               </div>
             </div>
           </div>
@@ -648,14 +763,15 @@
                   <th>Requested By</th>
                   <th>Type</th>
                   <th>Status</th>
-                  <th>Date Requested</th>
-                  <th>Created</th>
+                  <th>Appointment Date</th>
+                  <th>Submitted (PHT)</th>
+                  <th>Time Since Submission</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="serviceTableBody">
                 <tr>
-                  <td colspan="6" class="empty-state">Loading...</td>
+                  <td colspan="7" class="empty-state">Loading...</td>
                 </tr>
               </tbody>
             </table>
@@ -715,26 +831,26 @@
         </div>
       </section>
 
-      <!-- Manage Users Page -->
+      <!-- Manage Citizen Page -->
       <section class="page users-page" id="usersPage">
         <div class="page-header">
-          <h1>Manage Users</h1>
-          <p class="page-subtitle">View and manage all application users.</p>
+          <h1>Manage Citizen</h1>
+          <p class="page-subtitle">View and manage citizen accounts.</p>
         </div>
         <div class="card table-card">
           <div class="card-header">
-            <h2>All Users</h2>
+            <h2>All Citizens</h2>
             <div class="card-header-actions">
               <select id="usersVerificationFilter" class="status-filter" aria-label="Filter users by verification status">
                 <option value="">All verification statuses</option>
                 <option value="verified">Verified</option>
                 <option value="pending">Pending</option>
-                <option value="rejected">Rejected</option>
+                <option value="rejected">Returned</option>
                 <option value="not_submitted">Not submitted</option>
               </select>
               <div class="search-box table-search">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" placeholder="Search users..." id="usersSearch" autocomplete="nope" autocorrect="off" autocapitalize="off" spellcheck="false" data-form-type="other" />
+                <input type="text" placeholder="Search citizens..." id="usersSearch" autocomplete="nope" autocorrect="off" autocapitalize="off" spellcheck="false" data-form-type="other" />
               </div>
             </div>
           </div>
@@ -765,59 +881,67 @@
         </div>
       </section>
 
-      <!-- Manage Admin Page -->
+      <!-- Manage Staff Page -->
       <section class="page manage-admin-page" id="manageAdminPage">
         <div class="page-header">
-          <h1>Manage Admin</h1>
-          <p class="page-subtitle">Create and control admin roles by feature access.</p>
+          <h1>Manage Staff</h1>
+          <p class="page-subtitle">Assign staff access to features and report categories.</p>
         </div>
 
         <div class="admin-role-grid">
           <div class="card">
             <div class="card-header">
-              <h2>Create Admin Role</h2>
+              <div><h2>Add Staff Access</h2><p class="admin-form-intro">Choose an account and the features they can manage.</p></div>
             </div>
             <div class="card-body admin-role-form">
+              <fieldset class="admin-form-section">
+                <legend><span>1</span> Account details</legend>
               <div class="form-group">
-                <label for="adminRoleEmail">Admin Email <span class="required">*</span></label>
-                <input type="email" id="adminRoleEmail" placeholder="admin@tiwi.gov.ph" />
+                <label for="adminRoleEmail">Staff Email <span class="required">*</span></label>
+                <input type="email" id="adminRoleEmail" placeholder="admin@tiwi.gov.ph" autocomplete="off" />
               </div>
 
               <div class="form-group">
-                <label for="adminRolePassword">Password <span class="required">*</span></label>
-                <input type="password" id="adminRolePassword" placeholder="Enter secure password" />
+                <label for="adminRolePassword">Password <span class="required" id="adminRolePasswordRequired">*</span></label>
+                <div class="admin-password-control">
+                  <input type="password" id="adminRolePassword" placeholder="At least 8 characters" autocomplete="new-password" aria-describedby="adminRolePasswordHint" />
+                  <button type="button" id="adminPasswordToggle" aria-label="Show password" aria-pressed="false" onclick="toggleAdminRolePassword()"><i class="fa-regular fa-eye" aria-hidden="true"></i></button>
+                </div>
+                <p class="form-help-text" id="adminRolePasswordHint">Required for a new admin account. Existing admins keep their password.</p>
               </div>
 
               <div class="form-group">
                 <label for="adminRoleName">Role Name <span class="required">*</span></label>
                 <input type="text" id="adminRoleName" placeholder="e.g. News Manager" />
+                <p class="form-help-text">A descriptive label for this person's responsibilities.</p>
               </div>
+              </fieldset>
 
+              <fieldset class="admin-form-section">
+                <legend><span>2</span> Permissions</legend>
               <div class="form-group">
-                <label for="adminRoleFeature">Feature Access <span class="required">*</span></label>
-                <select id="adminRoleFeature">
-                  <option value="">Select a feature</option>
-                </select>
+                <label>Feature Access <span class="required">*</span></label>
+                <p class="form-help-text" id="adminFeatureHint">Select the features this admin can manage.</p>
+                <div id="adminRoleFeatureOptions" class="admin-feature-options"></div>
               </div>
 
-              <div class="form-group">
-                <label for="adminRoleUserSelect">Assign to Existing User</label>
-                <select id="adminRoleUserSelect">
-                  <option value="">No user assignment</option>
-                </select>
+              <div class="form-group" id="reportCategoryAccessGroup" style="display: none;">
+                <label>Report Categories <span class="required">*</span></label>
+                <p class="form-help-text">This admin can view and respond only to the selected report categories.</p>
+                <div id="adminReportCategoryOptions" class="admin-report-category-options"></div>
+              </div>
+              <div class="form-group" id="transparencyCategoryAccessGroup" style="display: none;">
+                <label>Transparency Categories <span class="required">*</span></label>
+                <p class="form-help-text">Select the transparency categories this admin can manage.</p>
+                <div id="adminTransparencyCategoryOptions" class="admin-report-category-options"></div>
               </div>
 
-              <div class="form-group">
-                <label class="checkbox-label">
-                  <input type="checkbox" id="adminRoleIsSuperAdmin" />
-                  <span>Mark this role as Super Admin</span>
-                </label>
-                <p class="form-help-text">Super admin access keeps all feature pages unlocked.</p>
-              </div>
 
-              <button class="btn btn-primary" onclick="createAdminRole()">
+              </fieldset>
+
+              <button class="btn btn-primary admin-access-submit" onclick="createAdminRole()">
                 <i class="fa-solid fa-user-plus"></i>
-                Create Admin Account
+                Add Staff Access
               </button>
             </div>
           </div>
@@ -830,6 +954,10 @@
               <div id="adminRoleList" class="admin-role-list">
                 <p class="empty-state">Loading roles...</p>
               </div>
+              <div class="table-footer admin-roles-footer">
+                <span class="showing-text" id="adminRolesShowing">Showing 0 of 0 roles</span>
+                <div class="pagination" id="adminRolesPagination"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -839,6 +967,35 @@
       </section>
     </div>
   </main>
+
+  <!-- Appointment Availability Modal -->
+  <div class="modal-overlay" id="appointmentAvailabilityModal" role="dialog" aria-modal="true" aria-labelledby="appointmentAvailabilityTitle">
+    <div class="modal modal-lg appointment-availability-modal">
+      <div class="modal-header">
+        <h2 id="appointmentAvailabilityTitle">Appointment Availability</h2>
+        <button type="button" class="modal-close" aria-label="Close appointment availability" onclick="closeAppointmentAvailabilityModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body appointment-availability-content">
+        <p>Appointments are available Monday to Thursday. Fridays, weekends, Philippine national holidays, and the dates below are unavailable.</p>
+        <div class="appointment-closure-form">
+          <div class="form-group">
+            <label for="appointmentClosedDate">Date to disable</label>
+            <input type="date" id="appointmentClosedDate" />
+          </div>
+          <div class="form-group">
+            <label for="appointmentClosedReason">Reason (optional)</label>
+            <input type="text" id="appointmentClosedReason" maxlength="160" placeholder="e.g. Office closure" />
+          </div>
+          <button type="button" class="btn btn-primary" onclick="addAppointmentUnavailableDate()">
+            <i class="fa-solid fa-calendar-xmark"></i> Disable Date
+          </button>
+        </div>
+        <div id="appointmentUnavailableDates" class="appointment-closure-list">Loading unavailable dates...</div>
+      </div>
+    </div>
+  </div>
 
   <!-- Add/Edit Barangay Modal -->
   <div class="modal-overlay" id="barangayModal">
@@ -861,11 +1018,11 @@
             <input type="text" id="barangayName" placeholder="Enter barangay name" />
           </div>
           <div class="form-group">
-            <label for="barangayDescription">Description <span class="required">*</span></label>
+            <label for="barangayDescription">Description</label>
             <textarea id="barangayDescription" rows="3" placeholder="Enter barangay description"></textarea>
           </div>
           <div class="form-group">
-            <label for="barangayLocation">Geographic data <span class="required">*</span></label>
+            <label for="barangayLocation">Geographic data</label>
             <textarea id="barangayLocation" rows="2" placeholder="Enter geographic coordinates or address"></textarea>
           </div>
         </div>
@@ -874,76 +1031,27 @@
         <div class="form-section">
           <div class="section-header">
             <h3>Barangay officials</h3>
-            <p class="section-subtitle">Required officials: 1 Punong Barangay, 7 Barangay Kagawad, 1 SK Chairman, 1 Barangay Secretary, and 1 Barangay Treasurer.</p>
+            <p class="section-subtitle">Default positions: 1 Punong Barangay, 7 Barangay Kagawad, 1 SK Chairman, 1 Barangay Secretary, and 1 Barangay Treasurer. Names, positions, and photos may be left blank.</p>
           </div>
-          <div class="form-grid-2col">
-            <div class="form-group">
-              <label for="punongBarangay">Punong Barangay <span class="required">*</span></label>
-              <input type="text" id="punongBarangay" placeholder="Enter name" />
-            </div>
-            <div class="form-group">
-              <label for="skChairman">SK Chairman <span class="required">*</span></label>
-              <input type="text" id="skChairman" placeholder="Enter name" />
-            </div>
-            <div class="form-group">
-              <label for="barangaySecretary">Barangay Secretary <span class="required">*</span></label>
-              <input type="text" id="barangaySecretary" placeholder="Enter name" />
-            </div>
-            <div class="form-group">
-              <label for="barangayTreasurer">Barangay Treasurer <span class="required">*</span></label>
-              <input type="text" id="barangayTreasurer" placeholder="Enter name" />
-            </div>
-          </div>
-
-          <div class="subsection">
-            <h4>Barangay Kagawad</h4>
-            <p class="subsection-subtitle">Add all seven kagawad names to complete the record.</p>
-            <div class="form-grid-2col">
-              <div class="form-group">
-                <label for="kagawad1">Kagawad 1 <span class="required">*</span></label>
-                <input type="text" id="kagawad1" placeholder="Enter name" />
-              </div>
-              <div class="form-group">
-                <label for="kagawad2">Kagawad 2 <span class="required">*</span></label>
-                <input type="text" id="kagawad2" placeholder="Enter name" />
-              </div>
-              <div class="form-group">
-                <label for="kagawad3">Kagawad 3 <span class="required">*</span></label>
-                <input type="text" id="kagawad3" placeholder="Enter name" />
-              </div>
-              <div class="form-group">
-                <label for="kagawad4">Kagawad 4 <span class="required">*</span></label>
-                <input type="text" id="kagawad4" placeholder="Enter name" />
-              </div>
-              <div class="form-group">
-                <label for="kagawad5">Kagawad 5 <span class="required">*</span></label>
-                <input type="text" id="kagawad5" placeholder="Enter name" />
-              </div>
-              <div class="form-group">
-                <label for="kagawad6">Kagawad 6 <span class="required">*</span></label>
-                <input type="text" id="kagawad6" placeholder="Enter name" />
-              </div>
-              <div class="form-group">
-                <label for="kagawad7">Kagawad 7 <span class="required">*</span></label>
-                <input type="text" id="kagawad7" placeholder="Enter name" />
-              </div>
-            </div>
-          </div>
+          <div id="barangayOfficialsList" class="barangay-officials-list"></div>
+          <button type="button" class="btn btn-secondary" onclick="addOfficialRow()">
+            <i class="fa-solid fa-plus"></i> Add Official
+          </button>
         </div>
 
         <!-- Section 3: Map Coordinates -->
         <div class="form-section">
           <div class="section-header">
             <h3>Map coordinates</h3>
-            <p class="section-subtitle">Enter the exact latitude and longitude of the barangay hall or center point used by the app preview.</p>
+            <p class="section-subtitle">Coordinates are optional. If provided, enter both latitude and longitude for the barangay hall or center point.</p>
           </div>
           <div class="form-grid-2col">
             <div class="form-group">
-              <label for="barangayLatitude">Latitude <span class="required">*</span></label>
+              <label for="barangayLatitude">Latitude</label>
               <input type="text" id="barangayLatitude" placeholder="e.g. 13.458921" />
             </div>
             <div class="form-group">
-              <label for="barangayLongitude">Longitude <span class="required">*</span></label>
+              <label for="barangayLongitude">Longitude</label>
               <input type="text" id="barangayLongitude" placeholder="e.g. 123.680214" />
             </div>
           </div>
@@ -1020,12 +1128,12 @@
           <input type="text" id="newsTitle" placeholder="Enter news title" />
         </div>
         <div class="form-group">
-          <label for="newsContent">Description <span class="required">*</span></label>
+          <label for="newsContent">Description</label>
           <textarea id="newsContent" rows="5" placeholder="Enter news description"></textarea>
         </div>
         <div class="form-group">
-          <label for="newsCategory">Category</label>
-          <select id="newsCategory">
+          <label for="newsCategory">Category <span class="required">*</span></label>
+          <select id="newsCategory" required>
             <option value="">-- Select Category --</option>
             <option value="Announcement">Announcement</option>
             <option value="Update">Update</option>
@@ -1035,16 +1143,14 @@
           </select>
         </div>
         <div class="form-group">
-          <label for="newsImage">Upload Image</label>
+          <label for="newsImage">News Images (up to 5)</label>
+          <p class="form-help-text">Large images are compressed automatically when saved.</p>
           <div class="logo-upload-wrapper">
-            <div class="logo-preview" id="newsImagePreview">
-              <i class="fa-solid fa-image"></i>
-              <span>No image selected</span>
-            </div>
-            <input type="file" id="newsImage" accept="image/*" style="display: none;" />
+            <div class="image-gallery-preview" id="newsImagePreview"></div>
+            <input type="file" id="newsImage" accept="image/jpeg,image/png,image/webp,image/gif" multiple style="display: none;" onchange="addGalleryImages('news', this.files)" />
             <button type="button" class="btn btn-secondary" onclick="document.getElementById('newsImage').click()">
               <i class="fa-solid fa-upload"></i>
-              Choose File
+              Add Images
             </button>
           </div>
         </div>
@@ -1074,7 +1180,6 @@
         </div>
 
         <input type="hidden" id="newsEditId" />
-        <input type="hidden" id="newsImageUrl" />
         <input type="hidden" id="newsScheduledAt" />
       </div>
       <div class="modal-footer">
@@ -1143,35 +1248,33 @@
   <!-- Report Details Modal -->
   <!-- Report Details Modal (View Only) -->
   <div class="modal-overlay" id="reportModal">
-    <div class="modal" style="max-width: 700px; max-height: 90vh; display: flex; flex-direction: column;">
+    <div class="modal report-details-modal" role="dialog" aria-modal="true" aria-labelledby="reportDetailsTitle" style="max-width: 760px; max-height: 90vh; display: flex; flex-direction: column;">
       <div class="modal-header">
-        <h2>Report Details</h2>
-        <button class="modal-close" onclick="closeReportModal()">
+        <div><h2 id="reportDetailsTitle">Report Details</h2><p class="report-details-subtitle">Submission overview and supporting evidence</p></div>
+        <button class="modal-close" aria-label="Close report details" onclick="closeReportModal()">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
       <div class="modal-body" style="overflow-y: auto; flex: 1;">
-        <div class="form-group">
-          <label for="reportViewReporterName">Reporter Name</label>
-          <input type="text" id="reportViewReporterName" placeholder="Reporter name" readonly />
+        <div class="report-summary-grid">
+          <div><span class="report-detail-label">Reporter</span><p id="reportViewReporterName" class="report-detail-value"></p><p id="reportViewReporterEmail" class="report-detail-email"></p></div>
+          <div><span class="report-detail-label">Category</span><p id="reportViewCategory" class="report-detail-value"></p><span id="reportViewStatus" class="status-badge"></span></div>
+          <div><span class="report-detail-label">Submitted · Philippine time</span><p id="reportViewSubmittedDate" class="report-detail-value"></p></div>
+          <div><span class="report-detail-label">Time since submission</span><p id="reportViewAge" class="report-detail-value"></p></div>
+        </div>
+        <div class="form-group" id="reportViewForwardingGroup" style="display: none;">
+          <span class="report-detail-label">Forwarding details</span>
+          <p id="reportViewForwarding" class="report-detail-value"></p>
         </div>
         <div class="form-group">
-          <label for="reportViewReporterEmail">Reporter Email</label>
-          <input type="text" id="reportViewReporterEmail" placeholder="Reporter email" readonly />
+          <h3 class="report-section-title">Report message</h3>
+          <div id="reportViewMessage" class="report-message"></div>
         </div>
         <div class="form-group">
-          <label for="reportViewMessage">Message</label>
-          <textarea id="reportViewMessage" rows="5" placeholder="Report message" readonly></textarea>
-        </div>
-        <div class="form-group">
-          <label>Attachments</label>
+          <h3 class="report-section-title">Attachments</h3>
           <div id="reportViewAttachmentsContainer" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;">
             <p style="color: #999; font-size: 13px;">No attachments</p>
           </div>
-        </div>
-        <div class="form-group">
-          <label for="reportViewSubmittedDate">Submitted Date</label>
-          <input type="text" id="reportViewSubmittedDate" placeholder="Date" readonly />
         </div>
 
         <!-- Accomplishment Report Section (Only for Resolved Reports) -->
@@ -1182,7 +1285,7 @@
 
           <div class="form-group">
             <label>Resolution Message</label>
-            <textarea id="reportViewAccomplishmentMessage" rows="4" placeholder="Resolution details..." readonly></textarea>
+            <div id="reportViewAccomplishmentMessage" class="report-message"></div>
           </div>
 
           <div class="form-group">
@@ -1217,19 +1320,42 @@
             <option value="pending">Pending</option>
             <option value="reviewing">Under Review</option>
             <option value="resolved">Resolved</option>
-            <option value="rejected">Rejected</option>
+            <option value="rejected">Returned</option>
           </select>
         </div>
         <div class="form-group" id="reportEditReasonGroup" style="display: none;">
           <label for="reportEditReason" id="reportEditReasonLabel">Reason <span class="required">*</span></label>
+          <select id="reportReturnTemplate" onchange="applyReturnReasonTemplate('reportReturnTemplate', 'reportEditReason')">
+            <option value="">Choose a suggested reason (optional)</option>
+            <option value="The report needs more details before we can review it. Please provide the missing information and submit it again.">More details needed</option>
+            <option value="The attached evidence is unclear or incomplete. Please upload a clearer image or document and submit the report again.">Evidence is unclear or incomplete</option>
+            <option value="This report was sent to the wrong category. Please choose the correct category and submit it again.">Wrong category</option>
+            <option value="This report duplicates a report already submitted. Please check the existing report before submitting another one.">Duplicate report</option>
+            <option value="custom">Write a custom reason</option>
+          </select>
           <textarea id="reportEditReason" rows="3" placeholder="Enter reason..."></textarea>
+          <label for="reportReturnFiles">Supporting images or files (optional)</label>
+          <input type="file" id="reportReturnFiles" multiple accept="image/*,.pdf,.doc,.docx" />
+          <p class="form-help-text">Up to 10 MB per file. The requester can view these attachments.</p>
+        </div>
+        <div class="form-group" id="reportReviewMessageGroup" style="display: none;">
+          <label for="reportReviewMessage">Message to Reporter</label>
+          <textarea id="reportReviewMessage" rows="4" maxlength="1000" placeholder="Ask a follow-up question or request more details..."></textarea>
+          <p class="form-help-text">This message will be visible to the reporter in the app.</p>
+        </div>
+        <div class="form-group">
+          <label for="reportForwardTo">Forward to another admin</label>
+          <select id="reportForwardTo">
+            <option value="">Keep unassigned</option>
+          </select>
+          <p class="form-help-text">Only admins assigned to this report category are available.</p>
         </div>
 
         <!-- Accomplishment Report Section (Only for Resolved) -->
         <div id="accomplishmentSection" style="display: none; border-top: 1px solid #e5e7eb; padding-top: 20px; margin-top: 20px;">
           <div style="margin-bottom: 16px;">
             <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 8px;">Accomplishment Report</h3>
-            <p style="font-size: 13px; color: #666;">Share details of actions taken to resolve this report</p>
+            <p style="font-size: 13px; color: var(--text-secondary);">Share details of actions taken to resolve this report</p>
           </div>
 
           <div class="form-group">
@@ -1276,12 +1402,18 @@
         </button>
       </div>
       <div class="modal-body">
+        <div class="form-group" id="transparencyRecordCategoryGroup" hidden>
+          <label for="transparencyRecordCategory">Category <span class="required">*</span></label>
+          <select id="transparencyRecordCategory" onchange="setTransparencyRecordType(this.value)">
+            <option value="">Select category</option>
+          </select>
+        </div>
         <div class="form-group">
           <label for="transparencyTitle">Title <span class="required">*</span></label>
           <input type="text" id="transparencyTitle" placeholder="e.g., FY 2024 Annual Budget" />
         </div>
         <div class="form-group">
-          <label for="transparencyDescription">Description <span class="required">*</span></label>
+          <label for="transparencyDescription">Description</label>
           <textarea id="transparencyDescription" rows="3" placeholder="Enter description of the budget record"></textarea>
         </div>
         <div class="form-group">
@@ -1366,7 +1498,7 @@
             </div>
           </div>
           <div class="form-group">
-            <label for="touristDescription">Description <span class="required">*</span></label>
+            <label for="touristDescription">Description</label>
             <textarea id="touristDescription" rows="4" placeholder="Describe the destination in detail"></textarea>
           </div>
         </div>
@@ -1417,20 +1549,17 @@
         <div class="form-section">
           <div class="section-header">
             <h3>Media upload</h3>
-            <p class="section-subtitle">Upload an image for the destination.</p>
+            <p class="section-subtitle">Upload up to five destination images. The first image is the cover.</p>
           </div>
           <div class="upload-area">
-            <label>Destination Image</label>
-            <p class="upload-helper-text">Upload a high-quality image of the destination.</p>
+            <label>Destination Images (up to 5)</label>
+            <p class="upload-helper-text">Upload high-quality images of the destination. Large images are compressed automatically when saved.</p>
             <div class="logo-upload-wrapper">
-              <div class="logo-preview" id="touristImagePreview">
-                <i class="fa-solid fa-image"></i>
-                <span>No image selected</span>
-              </div>
-              <input type="file" id="touristImage" accept="image/*" style="display: none;" />
+              <div class="image-gallery-preview" id="touristImagePreview"></div>
+              <input type="file" id="touristImage" accept="image/jpeg,image/png,image/webp,image/gif" multiple style="display: none;" onchange="addGalleryImages('tourist', this.files)" />
               <button type="button" class="btn btn-secondary" onclick="document.getElementById('touristImage').click()">
                 <i class="fa-solid fa-upload"></i>
-                Choose File
+                Add Images
               </button>
             </div>
           </div>
@@ -1459,7 +1588,6 @@
         </div>
 
         <input type="hidden" id="touristEditId" />
-        <input type="hidden" id="touristImageBase64" />
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeTouristModal()">Cancel</button>
@@ -1494,7 +1622,7 @@
 
   <!-- Service Details Modal -->
   <div class="modal-overlay" id="serviceDetailsModal">
-    <div class="modal" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+    <div class="modal" style="max-width: 680px; max-height: 90vh; overflow-y: auto;">
       <div class="modal-header">
         <h2 id="serviceDetailsTitle">Service Request Details</h2>
         <button class="modal-close" onclick="closeServiceDetailsModal()">
@@ -1502,7 +1630,7 @@
         </button>
       </div>
       <div class="modal-body">
-        <div id="serviceDetailsContent" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div id="serviceDetailsContent" class="service-details-grid">
           <!-- Details will be dynamically populated -->
         </div>
         <input type="hidden" id="serviceDetailsId" />
@@ -1512,10 +1640,6 @@
         <button class="btn btn-primary" onclick="openServiceDetailsEditModal()">
           <i class="fa-solid fa-pen-to-square"></i>
           Edit
-        </button>
-        <button class="btn btn-delete" onclick="openDeleteService(document.getElementById('serviceDetailsId').value, 'this service')">
-          <i class="fa-solid fa-trash"></i>
-          Delete
         </button>
       </div>
     </div>
@@ -1535,14 +1659,27 @@
           <label for="serviceStatus">Status <span class="required">*</span></label>
           <select id="serviceStatus" onchange="toggleReasonField()">
             <option value="pending">Pending</option>
-            <option value="processing">Processing</option>
+            <option value="processing">Ready for Release</option>
             <option value="completed">Completed</option>
-            <option value="rejected">Rejected</option>
+            <option value="rejected">Returned</option>
           </select>
         </div>
         <div class="form-group" id="reasonFieldGroup" style="display: none;">
           <label for="serviceReason" id="reasonLabel">Reason <span class="required">*</span></label>
+          <select id="serviceReturnTemplate" onchange="applyReturnReasonTemplate('serviceReturnTemplate', 'serviceReason')" style="display: none;">
+            <option value="">Choose a suggested reason (optional)</option>
+            <option value="Required information is missing or incomplete. Please complete the request and submit it again.">Missing information</option>
+            <option value="The submitted documents are unclear or incomplete. Please provide clear and complete copies and submit the request again.">Documents are unclear or incomplete</option>
+            <option value="The details provided do not match the supporting documents. Please correct them and submit the request again.">Details do not match documents</option>
+            <option value="This request uses the wrong service. Please select the appropriate service and submit it again.">Wrong service selected</option>
+            <option value="custom">Write a custom reason</option>
+          </select>
           <textarea id="serviceReason" rows="4" placeholder="Enter reason for this status change..."></textarea>
+          <div id="serviceReturnFilesGroup" style="display: none;">
+            <label for="serviceReturnFiles">Supporting images or files (optional)</label>
+            <input type="file" id="serviceReturnFiles" multiple accept="image/*,.pdf,.doc,.docx" />
+            <p class="form-help-text">Up to 10 MB per file. The requester can view these attachments.</p>
+          </div>
         </div>
         <input type="hidden" id="serviceEditId" />
       </div>
@@ -1661,101 +1798,6 @@
         </button>
       </div>
     </div>
-  </div>
-
-  <!-- Review User Identity Modal -->
-  <div class="modal-overlay" id="reviewUserModal">
-    <div class="modal modal-xl">
-      <div class="modal-header">
-        <h2>Review Identity Verification</h2>
-        <button class="modal-close" onclick="closeReviewUserModal()">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-      <div class="modal-body">
-        <div class="form-grid-2col">
-          <div class="form-group">
-            <label>Applicant</label>
-            <div id="reviewUserName" class="field-readonly">-</div>
-          </div>
-          <div class="form-group">
-            <label>Email</label>
-            <div id="reviewUserEmail" class="field-readonly">-</div>
-          </div>
-          <div class="form-group">
-            <label>Verification Status</label>
-            <div id="reviewUserStatusWrap"><span id="reviewUserStatus" class="status-badge status-not-submitted">Not Submitted</span></div>
-          </div>
-          <div class="form-group">
-            <label>Submitted</label>
-            <div id="reviewSubmittedAt" class="field-readonly">-</div>
-          </div>
-        </div>
-
-        <div class="form-grid-2col" style="margin-top: 18px;">
-          <div class="form-group">
-            <label>Full Name</label>
-            <div id="reviewFullName" class="field-readonly">-</div>
-          </div>
-          <div class="form-group">
-            <label>ID Type</label>
-            <div id="reviewIdType" class="field-readonly">-</div>
-          </div>
-          <div class="form-group">
-            <label>ID Number</label>
-            <div id="reviewIdNumber" class="field-readonly">-</div>
-          </div>
-          <div class="form-group">
-            <label>Date of Birth</label>
-            <div id="reviewDob" class="field-readonly">-</div>
-          </div>
-        </div>
-
-        <div class="form-group" style="margin-top: 18px;">
-          <label for="reviewVerificationReason">Rejection Reason</label>
-          <textarea id="reviewVerificationReason" rows="3" placeholder="Optional note for rejection, or leave empty when approving."></textarea>
-        </div>
-
-        <div class="form-group" style="margin-top: 18px;">
-          <label>Uploaded ID Photos</label>
-          <div class="verification-preview-grid">
-            <div class="verification-preview-item">
-              <span class="preview-label">Front</span>
-              <div id="reviewIdFrontPreview" class="verification-preview-empty">No image</div>
-            </div>
-            <div class="verification-preview-item">
-              <span class="preview-label">Back</span>
-              <div id="reviewIdBackPreview" class="verification-preview-empty">No image</div>
-            </div>
-            <div class="verification-preview-item">
-              <span class="preview-label">Selfie</span>
-              <div id="reviewSelfiePreview" class="verification-preview-empty">No image</div>
-            </div>
-          </div>
-        </div>
-
-        <input type="hidden" id="reviewUserId" />
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeReviewUserModal()">Cancel</button>
-        <button class="btn btn-danger" id="reviewRejectBtn" onclick="rejectUserVerification()">
-          <i class="fa-solid fa-ban"></i>
-          Reject
-        </button>
-        <button class="btn btn-primary" id="reviewApproveBtn" onclick="approveUserVerification()">
-          <i class="fa-solid fa-check"></i>
-          Approve
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Full-size verification image viewer -->
-  <div class="image-lightbox" id="imageLightbox" role="dialog" aria-modal="true" aria-label="Full-size verification image">
-    <button class="image-lightbox-close" type="button" onclick="closeImageLightbox()" aria-label="Close image viewer">
-      <i class="fa-solid fa-xmark"></i>
-    </button>
-    <img id="imageLightboxImage" src="" alt="Full-size verification image" />
   </div>
 
   <!-- Logout Confirmation Modal -->
@@ -1883,9 +1925,63 @@
   </div>
 
   <!-- Toast Notifications Container -->
+  <dialog id="editAdminRoleModal" class="admin-access-dialog edit-admin-role-dialog" aria-labelledby="editAdminRoleTitle" oncancel="if (adminRoleEditBusy) event.preventDefault(); else editingAdminRoleId = null;">
+    <div class="admin-access-heading">
+      <h2 id="editAdminRoleTitle">Edit admin access</h2>
+      <button type="button" class="modal-close" aria-label="Close edit access dialog" onclick="closeEditAdminRole()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <p id="editAdminRoleEmail" class="admin-access-email"></p>
+    <div class="form-group">
+      <label for="editAdminRoleName">Role Name</label>
+      <input type="text" id="editAdminRoleName" maxlength="120" />
+    </div>
+    <div class="form-group" id="editAdminFeatureGroup">
+      <label>Features this admin can manage</label>
+      <div id="editAdminRoleFeatures" class="admin-feature-options"></div>
+    </div>
+    <div class="form-group" id="editAdminReportGroup" hidden>
+      <label>Report Categories</label>
+      <div id="editAdminReportCategories" class="admin-report-category-options"></div>
+    </div>
+    <div class="form-group" id="editAdminTransparencyGroup" hidden>
+      <label>Transparency Categories</label>
+      <div id="editAdminTransparencyCategories" class="admin-report-category-options"></div>
+    </div>
+    <p id="editAdminRoleError" class="admin-access-error" role="alert"></p>
+    <div class="admin-access-actions">
+      <button type="button" class="btn btn-secondary" onclick="closeEditAdminRole()">Cancel</button>
+      <button type="button" id="editAdminRoleSave" class="btn btn-primary" onclick="saveEditedAdminRole()">Save Changes</button>
+    </div>
+  </dialog>
+
+  <dialog id="adminAccessModal" class="admin-access-dialog" aria-labelledby="adminAccessTitle" aria-describedby="adminAccessDescription" oncancel="if (adminRemovalBusy) event.preventDefault(); else pendingAdminRemoval = null;">
+    <div class="admin-access-heading">
+      <span class="admin-access-icon" aria-hidden="true"><i class="fa-solid fa-user-lock"></i></span>
+      <button type="button" class="modal-close" aria-label="Close remove access dialog" onclick="closeAdminAccessModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <h2 id="adminAccessTitle">Remove admin access?</h2>
+    <p id="adminAccessDescription">This will remove all admin roles and permissions for:</p>
+    <p id="adminAccessEmail" class="admin-access-email"></p>
+    <div class="admin-access-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Their regular user account will remain. They will no longer have access to the admin dashboard.</span></div>
+    <p id="adminAccessError" class="admin-access-error" role="alert"></p>
+    <div class="admin-access-actions">
+      <button type="button" class="btn btn-secondary" onclick="closeAdminAccessModal()" autofocus>Cancel</button>
+      <button type="button" id="adminAccessConfirm" class="btn admin-access-confirm" onclick="confirmAdminAccessRemoval()">Remove Access</button>
+    </div>
+  </dialog>
+
+  <div id="imageLightbox" class="image-lightbox" role="dialog" aria-modal="true" aria-label="Document preview" aria-hidden="true">
+    <button type="button" class="image-lightbox-close" aria-label="Close document preview" onclick="closeImageLightbox()">&times;</button>
+    <img id="imageLightboxImage" alt="Document preview" />
+  </div>
+
   <div class="toast-container" id="toastContainer"></div>
 
   <script src="security-utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
   <script src="app.js"></script>
+  <script src="admin_dropdowns.js"></script>
+  <script src="admin_calendar.js"></script>
 </body>
 </html>

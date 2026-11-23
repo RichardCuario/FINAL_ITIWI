@@ -1,0 +1,8 @@
+{
+    "packageName":  "com.ecoimpact.itiwi",
+    "version":  "1.0.21",
+    "buildNumber":  24,
+    "apkUrl":  "https://www.itiwi.online/downloads/itiwi-24.apk",
+    "sha256":  "583df3e4c192baa559cb71755ff4f2901d5d49aee329691ff33edb0b760ee591",
+    "notes":  "Updates identity verification wording and removes provider branding from the verification page."
+}

@@ -114,10 +114,7 @@ class TransparencyPage extends StatelessWidget {
                         onPressed: () => Navigator.pop(context),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
-                        icon: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: Colors.white,
-                        ),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
                       ),
                       const SizedBox(width: 10),
                       const Expanded(
@@ -377,8 +374,7 @@ class _TransparencyRecordsPageState extends State<_TransparencyRecordsPage> {
   void _openRecord(TransparencyRecord record) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) =>
-            TransparencyRecordDetailPage(title: widget.title, record: record),
+        builder: (_) => TransparencyRecordDetailPage(record: record),
       ),
     );
   }
@@ -467,10 +463,7 @@ class _TransparencyRecordsPageState extends State<_TransparencyRecordsPage> {
                         onPressed: () => Navigator.pop(context),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
-                        icon: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: Colors.white,
-                        ),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -502,13 +495,8 @@ class _TransparencyRecordsPageState extends State<_TransparencyRecordsPage> {
 }
 
 class TransparencyRecordDetailPage extends StatelessWidget {
-  const TransparencyRecordDetailPage({
-    super.key,
-    required this.title,
-    required this.record,
-  });
+  const TransparencyRecordDetailPage({super.key, required this.record});
 
-  final String title;
   final TransparencyRecord record;
 
   @override
@@ -548,10 +536,7 @@ class TransparencyRecordDetailPage extends StatelessWidget {
                         onPressed: () => Navigator.pop(context),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
-                        icon: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: Colors.white,
-                        ),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -581,164 +566,30 @@ class TransparencyRecordDetailPage extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                Container(
-                                  width: 50,
-                                  height: 50,
-                                  decoration: BoxDecoration(
-                                    color: isDark
-                                        ? AppColors.primary.withValues(
-                                            alpha: 0.18,
-                                          )
-                                        : const Color(0xFFE8F3FF),
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Icon(
-                                    Icons.description_rounded,
-                                    color: isDark
-                                        ? Colors.white
-                                        : AppColors.primary,
-                                    size: 26,
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Document Overview',
-                                        style: TextStyle(
-                                          fontSize: 17,
-                                          fontWeight: FontWeight.w800,
-                                          color: isDark
-                                              ? Colors.white
-                                              : const Color(0xFF111827),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '$title record details and preview',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: isDark
-                                              ? Colors.lightBlue[100]
-                                              : AppColors.primary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
                             if (record.description != null &&
                                 record.description!.isNotEmpty) ...[
-                              const SizedBox(height: 16),
                               Text(
                                 record.description!,
                                 style: TextStyle(
                                   fontSize: 15,
-                                  height: 1.7,
+                                  height: 1.5,
                                   color: isDark
                                       ? Colors.white70
                                       : const Color(0xFF374151),
                                 ),
                               ),
+                              const SizedBox(height: 18),
                             ],
-                            const SizedBox(height: 16),
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: [
-                                _InfoChip(
-                                  icon: Icons.swap_vert_rounded,
-                                  label: 'Order ${record.displayOrder}',
-                                ),
-                                if (record.createdAt != null)
-                                  _InfoChip(
-                                    icon: Icons.calendar_today_rounded,
-                                    label: _formatDate(record.createdAt!),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      if (record.pdfUrl != null &&
-                          record.pdfUrl!.isNotEmpty) ...[
-                        AppSectionCard(
-                          borderRadius: const BorderRadius.all(
-                            Radius.circular(24),
-                          ),
-                          padding: const EdgeInsets.all(18),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 46,
-                                    height: 46,
-                                    decoration: BoxDecoration(
-                                      color: isDark
-                                          ? AppColors.primary.withValues(
-                                              alpha: 0.18,
-                                            )
-                                          : const Color(0xFFE8F3FF),
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    child: Icon(
-                                      Icons.picture_as_pdf_rounded,
-                                      color: isDark
-                                          ? Colors.white
-                                          : AppColors.primary,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'PDF Preview',
-                                          style: TextStyle(
-                                            fontSize: 17,
-                                            fontWeight: FontWeight.w800,
-                                            color: isDark
-                                                ? Colors.white
-                                                : const Color(0xFF111827),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Scroll inside the preview or download the file',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: isDark
-                                                ? Colors.lightBlue[100]
-                                                : AppColors.primary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
+                            if (record.pdfUrl != null &&
+                                record.pdfUrl!.isNotEmpty) ...[
                               _PdfActionBar(pdfUrl: record.pdfUrl!),
                               const SizedBox(height: 14),
                               InlinePdfPreview(pdfUrl: record.pdfUrl!),
-                            ],
-                          ),
+                            ] else
+                              const _PreviewUnavailableCard(),
+                          ],
                         ),
-                      ] else
-                        const _PreviewUnavailableCard(),
+                      ),
                     ],
                   ),
                 ),
@@ -749,14 +600,6 @@ class TransparencyRecordDetailPage extends StatelessWidget {
       ),
     );
   }
-
-  String _formatDate(DateTime value) {
-    final local = value.toLocal();
-    final month = local.month.toString().padLeft(2, '0');
-    final day = local.day.toString().padLeft(2, '0');
-    final year = local.year.toString();
-    return '$month/$day/$year';
-  }
 }
 
 class TransparencyProgramDetailPage extends StatelessWidget {
@@ -766,10 +609,7 @@ class TransparencyProgramDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TransparencyRecordDetailPage(
-      title: 'Program and Projects',
-      record: record,
-    );
+    return TransparencyRecordDetailPage(record: record);
   }
 }
 
@@ -910,33 +750,17 @@ class _TransparencyRecordCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 14),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            record.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800,
-                              color: isDark
-                                  ? Colors.white
-                                  : const Color(0xFF111827),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Transparency document',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDark
-                                  ? Colors.lightBlue[100]
-                                  : AppColors.primary,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        record.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF111827),
+                        ),
                       ),
                     ),
                     Icon(
@@ -947,90 +771,34 @@ class _TransparencyRecordCard extends StatelessWidget {
                 ),
                 if (record.description != null &&
                     record.description!.isNotEmpty) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
                   Text(
                     record.description!,
-                    maxLines: 3,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 14,
-                      height: 1.5,
+                      height: 1.4,
                       color: isDark ? Colors.white70 : const Color(0xFF4B5563),
                     ),
                   ),
                 ],
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    _InfoChip(
-                      icon: Icons.swap_vert_rounded,
-                      label: 'Order ${record.displayOrder}',
-                    ),
-                    if (record.createdAt != null)
-                      _InfoChip(
-                        icon: Icons.calendar_today_rounded,
-                        label: _formatDate(record.createdAt!),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.06)
-                        : const Color(0xFFF4F8FD),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.08)
-                          : const Color(0xFFE4EDF8),
+                if (record.pdfUrl == null || record.pdfUrl!.isEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    'PDF unavailable',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.white54 : const Color(0xFF6B7280),
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.touch_app_rounded,
-                        size: 18,
-                        color: isDark ? Colors.white70 : AppColors.primary,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          record.pdfUrl == null || record.pdfUrl!.isEmpty
-                              ? 'No PDF available'
-                              : 'Tap to preview and download this document',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: isDark
-                                ? Colors.white70
-                                : const Color(0xFF374151),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                ],
               ],
             ),
           ),
         ),
       ),
     );
-  }
-
-  String _formatDate(DateTime value) {
-    final local = value.toLocal();
-    final month = local.month.toString().padLeft(2, '0');
-    final day = local.day.toString().padLeft(2, '0');
-    final year = local.year.toString();
-    return '$month/$day/$year';
   }
 }
 
@@ -1199,45 +967,6 @@ class _PreviewUnavailableCard extends StatelessWidget {
           fontSize: 14,
           color: isDark ? Colors.white70 : const Color(0xFF4B5563),
         ),
-      ),
-    );
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 16,
-            color: isDark ? Colors.white70 : const Color(0xFF4B5563),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white70 : const Color(0xFF4B5563),
-            ),
-          ),
-        ],
       ),
     );
   }

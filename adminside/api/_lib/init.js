@@ -42,4 +42,19 @@ function initSupabase(accessToken = null) {
   );
 }
 
-module.exports = { initFirebase, initSupabase };
+// Identity-provider webhooks bypass end-user RLS and therefore must use the
+// Supabase service-role key. Keep it separate from the optional user-facing key.
+function initServiceSupabase() {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error(
+      'Supabase service access is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.'
+    );
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey);
+}
+
+module.exports = { initFirebase, initSupabase, initServiceSupabase };

@@ -1,3 +1,4 @@
+import 'user_profile_service.dart';
 import 'dart:io' show SocketException, File;
 
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
@@ -10,6 +11,7 @@ import 'identity_verification_page.dart';
 import 'my_reports_page.dart';
 import 'shared_widgets.dart';
 import 'verification_service.dart';
+import 'upload_image_service.dart';
 
 class ReportPage extends StatefulWidget {
   final VoidCallback? onBack;
@@ -21,11 +23,22 @@ class ReportPage extends StatefulWidget {
 }
 
 class _ReportPageState extends State<ReportPage> {
+  static const _reportCategories = <String>[
+    'Infrastructure and roads',
+    'Public safety',
+    'Sanitation and waste',
+    'Environment',
+    'Health and social services',
+    'Utilities',
+    'Other',
+  ];
+
   final _supabase = Supabase.instance.client;
   final _picker = ImagePicker();
   final _messageController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   final List<XFile> _selectedImages = [];
+  String? _selectedCategory;
   bool _isSubmitting = false;
   final _verificationService = VerificationService();
 
@@ -40,7 +53,7 @@ class _ReportPageState extends State<ReportPage> {
 
   Future<void> _checkVerificationAndNavigate() async {
     if (_currentUser == null) return;
-    
+
     final isVerified = await _verificationService.isUserVerified();
     if (!isVerified && mounted) {
       Navigator.pushReplacement(
@@ -73,9 +86,12 @@ class _ReportPageState extends State<ReportPage> {
         source: ImageSource.gallery,
         imageQuality: 82,
         maxWidth: 1800,
+        maxHeight: 1800,
       );
 
       if (image == null) return;
+      UploadImageService.validateInputSize(await image.length());
+      if (!mounted) return;
 
       setState(() {
         _selectedImages.add(image);
@@ -91,22 +107,24 @@ class _ReportPageState extends State<ReportPage> {
     });
   }
 
-  Future<List<String>> _uploadImages(String reportId) async {
+  Future<List<String>> _uploadImages(
+    String reportId,
+    List<PreparedUploadImage> images,
+  ) async {
     final imageUrls = <String>[];
 
-    for (var index = 0; index < _selectedImages.length; index++) {
-      final image = _selectedImages[index];
-      final bytes = await image.readAsBytes();
-      final extension = image.path.split('.').last.toLowerCase();
-      final safeExtension = extension.isEmpty ? 'jpg' : extension;
+    for (var index = 0; index < images.length; index++) {
+      final image = images[index];
       final path =
-          'public/${_currentUser?.uid ?? 'anonymous'}/$reportId-${index + 1}.$safeExtension';
+          'public/${_currentUser?.uid ?? 'anonymous'}/$reportId-${index + 1}.${image.extension}';
 
-      await _supabase.storage.from('report-images').uploadBinary(
+      await _supabase.storage
+          .from('report-images')
+          .uploadBinary(
             path,
-            bytes,
+            image.bytes,
             fileOptions: FileOptions(
-              contentType: _contentTypeForExtension(safeExtension),
+              contentType: image.contentType,
               upsert: false,
             ),
           );
@@ -115,21 +133,6 @@ class _ReportPageState extends State<ReportPage> {
     }
 
     return imageUrls;
-  }
-
-  String _contentTypeForExtension(String extension) {
-    switch (extension) {
-      case 'png':
-        return 'image/png';
-      case 'webp':
-        return 'image/webp';
-      case 'heic':
-        return 'image/heic';
-      case 'heif':
-        return 'image/heif';
-      default:
-        return 'image/jpeg';
-    }
   }
 
   Future<void> _submitReport() async {
@@ -164,10 +167,28 @@ class _ReportPageState extends State<ReportPage> {
     });
 
     try {
+      final displayName =
+          (_currentUser!.displayName != null &&
+              _currentUser!.displayName!.isNotEmpty)
+          ? _currentUser!.displayName!
+          : (_currentUser!.email ?? 'User');
+
+      // Validate and compress every attachment before creating a report.
+      final preparedImages = <PreparedUploadImage>[];
+      for (final image in _selectedImages) {
+        UploadImageService.validateInputSize(await image.length());
+        preparedImages.add(
+          await UploadImageService.prepare(await image.readAsBytes()),
+        );
+      }
+
       final inserted = await _supabase
           .from('reports')
           .insert({
             'user_id': _currentUser!.uid,
+            'category': _selectedCategory,
+            'reporter_name': displayName,
+            'reporter_email': _currentUser!.email,
             'message': _messageController.text.trim(),
             'status': 'pending',
           })
@@ -175,26 +196,21 @@ class _ReportPageState extends State<ReportPage> {
           .single();
 
       final reportId = inserted['id'].toString();
-      final imageUrls = await _uploadImages(reportId);
+      final imageUrls = await _uploadImages(reportId, preparedImages);
 
       if (imageUrls.isNotEmpty) {
-        await _supabase.from('reports').update({
-          'image_urls': imageUrls,
-        }).eq('id', reportId);
+        await _supabase
+            .from('reports')
+            .update({'image_urls': imageUrls})
+            .eq('id', reportId);
       }
 
       // Upsert user info in users table to ensure display_name is available
-      final displayName = (_currentUser!.displayName != null && _currentUser!.displayName!.isNotEmpty)
-          ? _currentUser!.displayName
-          : (_currentUser!.email ?? 'User');
-
       try {
-        await _supabase.from('users').upsert({
-          'id': _currentUser!.uid,
-          'email': _currentUser!.email ?? '',
+        await UserProfileService.save({
           'display_name': displayName,
           'photo_url': _currentUser!.photoURL,
-        }, onConflict: 'id');
+        });
       } catch (e) {
         debugPrint('User profile sync warning (non-blocking): $e');
       }
@@ -204,25 +220,25 @@ class _ReportPageState extends State<ReportPage> {
       _messageController.clear();
       setState(() {
         _selectedImages.clear();
+        _selectedCategory = null;
         _isSubmitting = false;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Report submitted successfully.'),
-        ),
+        const SnackBar(content: Text('Report submitted successfully.')),
       );
     } catch (e) {
       if (!mounted) return;
 
-      final isOfflineError = e is SocketException ||
+      final isOfflineError =
+          e is SocketException ||
           e.toString().contains('Failed host lookup') ||
           e.toString().contains('SocketException') ||
           e.toString().contains('Connection refused') ||
           e.toString().contains('Network is unreachable');
 
-      final errorMessage = isOfflineError 
-          ? 'No internet connection' 
+      final errorMessage = isOfflineError
+          ? 'No internet connection'
           : 'Unable to submit report: $e';
 
       _showSnackBar(errorMessage);
@@ -238,34 +254,30 @@ class _ReportPageState extends State<ReportPage> {
 
   void _showSnackBar(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final scaffoldBackground =
-        isDark ? const Color(0xFF0B1220) : const Color(0xFFEAEAEA);
-    final surfaceColor = isDark ? const Color(0xFF1F2937) : const Color(0xFFF7F7F7);
-    final secondarySurface =
-        isDark ? const Color(0xFF243145) : const Color(0xFFE5E5E5);
+    final scaffoldBackground = isDark
+        ? const Color(0xFF0B1220)
+        : const Color(0xFFEAEAEA);
+    final surfaceColor = isDark
+        ? const Color(0xFF1F2937)
+        : const Color(0xFFF7F7F7);
+    final secondarySurface = isDark
+        ? const Color(0xFF243145)
+        : const Color(0xFFE5E5E5);
     final titleColor = isDark ? Colors.white : Colors.black;
     final subtitleColor = isDark ? Colors.white70 : Colors.black54;
     final borderColor = isDark ? Colors.white10 : const Color(0xFFD6DCE5);
     final topGradient = isDark
-        ? const [
-            Color(0xFF0F172A),
-            Color(0xFF172554),
-            Color(0xFF111827),
-          ]
-        : const [
-            Color(0xFF1E88E5),
-            Color(0xFF90CAF9),
-            Color(0xFFEAEAEA),
-          ];
+        ? const [Color(0xFF0F172A), Color(0xFF172554), Color(0xFF111827)]
+        : const [Color(0xFF1E88E5), Color(0xFF90CAF9), Color(0xFFEAEAEA)];
 
     return Scaffold(
       backgroundColor: scaffoldBackground,
@@ -291,13 +303,11 @@ class _ReportPageState extends State<ReportPage> {
                     children: [
                       IconButton(
                         onPressed:
-                            widget.onBack ?? () => Navigator.of(context).maybePop(),
+                            widget.onBack ??
+                            () => Navigator.of(context).maybePop(),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
-                        icon: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: Colors.white,
-                        ),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
                       ),
                       const SizedBox(width: 10),
                       const Expanded(
@@ -566,6 +576,66 @@ class _ReportPageState extends State<ReportPage> {
               ),
             ),
             const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              initialValue: _selectedCategory,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: 'Category',
+                hintText: 'Select the type of concern',
+                hintStyle: TextStyle(
+                  color: isDark ? Colors.white38 : Colors.black38,
+                  fontSize: 13,
+                ),
+                labelStyle: TextStyle(color: subtitleColor),
+                filled: true,
+                fillColor: isDark
+                    ? const Color(0xFF111827)
+                    : const Color(0xFFF3F4F6),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: borderColor),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: borderColor),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(
+                    color: AppColors.primary,
+                    width: 1.4,
+                  ),
+                ),
+              ),
+              dropdownColor: isDark
+                  ? const Color(0xFF1F2937)
+                  : const Color(0xFFF7F7F7),
+              style: TextStyle(color: titleColor, fontSize: 14),
+              iconEnabledColor: subtitleColor,
+              items: _reportCategories
+                  .map(
+                    (category) => DropdownMenuItem(
+                      value: category,
+                      child: Text(category),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _isSubmitting
+                  ? null
+                  : (category) {
+                      setState(() {
+                        _selectedCategory = category;
+                      });
+                    },
+              validator: (value) => value == null || value.isEmpty
+                  ? 'Please select a category.'
+                  : null,
+            ),
+            const SizedBox(height: 16),
             TextFormField(
               controller: _messageController,
               maxLines: 7,
@@ -580,10 +650,7 @@ class _ReportPageState extends State<ReportPage> {
                 }
                 return null;
               },
-              style: TextStyle(
-                color: titleColor,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: titleColor, fontSize: 14),
               decoration: InputDecoration(
                 hintText:
                     'Example: There is a fallen electric post near Barangay Hall blocking the road...',
@@ -592,8 +659,9 @@ class _ReportPageState extends State<ReportPage> {
                   fontSize: 13,
                 ),
                 filled: true,
-                fillColor:
-                    isDark ? const Color(0xFF111827) : const Color(0xFFF3F4F6),
+                fillColor: isDark
+                    ? const Color(0xFF111827)
+                    : const Color(0xFFF3F4F6),
                 contentPadding: const EdgeInsets.all(16),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -626,7 +694,10 @@ class _ReportPageState extends State<ReportPage> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: secondarySurface,
                     borderRadius: BorderRadius.circular(999),
@@ -645,10 +716,7 @@ class _ReportPageState extends State<ReportPage> {
             const SizedBox(height: 6),
             Text(
               'Attach clear images to help validate the report.',
-              style: TextStyle(
-                fontSize: 12.5,
-                color: subtitleColor,
-              ),
+              style: TextStyle(fontSize: 12.5, color: subtitleColor),
             ),
             const SizedBox(height: 14),
             InkWell(
@@ -658,7 +726,9 @@ class _ReportPageState extends State<ReportPage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF111827) : const Color(0xFFF3F4F6),
+                  color: isDark
+                      ? const Color(0xFF111827)
+                      : const Color(0xFFF3F4F6),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: borderColor),
                 ),
@@ -700,10 +770,7 @@ class _ReportPageState extends State<ReportPage> {
                         ],
                       ),
                     ),
-                    Icon(
-                      Icons.chevron_right,
-                      color: subtitleColor,
-                    ),
+                    Icon(Icons.chevron_right, color: subtitleColor),
                   ],
                 ),
               ),
@@ -715,7 +782,8 @@ class _ReportPageState extends State<ReportPage> {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: _selectedImages.length,
-                  separatorBuilder: (context, index) => const SizedBox(width: 12),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: 12),
                   itemBuilder: (context, index) {
                     final image = _selectedImages[index];
                     return Stack(
@@ -745,7 +813,9 @@ class _ReportPageState extends State<ReportPage> {
                           top: 8,
                           right: 8,
                           child: GestureDetector(
-                            onTap: _isSubmitting ? null : () => _removeImageAt(index),
+                            onTap: _isSubmitting
+                                ? null
+                                : () => _removeImageAt(index),
                             child: Container(
                               width: 30,
                               height: 30,

@@ -1,3 +1,4 @@
+import 'user_profile_service.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -6,6 +7,7 @@ import 'content_cache_service.dart';
 import 'shared_widgets.dart';
 import 'identity_verification_page.dart';
 import 'verification_service.dart';
+import 'return_attachments.dart';
 
 class MyReportsPage extends StatefulWidget {
   final VoidCallback? onBack;
@@ -106,6 +108,11 @@ class _MyReportsPageState extends State<MyReportsPage> {
       return 'Admin approved "$trimmedMessage".';
     }
 
+    final reviewMessage = report['review_message']?.toString().trim() ?? '';
+    if (reviewMessage.isNotEmpty) {
+      return reviewMessage;
+    }
+
     return 'Admin updated "$trimmedMessage" to under review.';
   }
 
@@ -181,9 +188,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
     try {
       final response = await _supabase
           .from('reports')
-          .select(
-            'id, message, image_urls, status, rejection_reason, created_at, updated_at, user_id',
-          )
+          .select('*')
           .eq('user_id', user.uid)
           .order('created_at', ascending: false);
 
@@ -198,14 +203,42 @@ class _MyReportsPageState extends State<MyReportsPage> {
       return reports;
     } on PostgrestException catch (error) {
       final detailsText = error.details?.toString() ?? '';
-      if (!(error.message.contains('rejection_reason') ||
-          detailsText.contains('rejection_reason'))) {
+      final missingRejectionReason =
+          error.message.contains('rejection_reason') ||
+          detailsText.contains('rejection_reason');
+      final missingCategory =
+          error.message.contains('category') ||
+          detailsText.contains('category');
+      final missingReviewMessage =
+          error.message.contains('review_message') ||
+          detailsText.contains('review_message');
+      final missingReturnFiles =
+          error.message.contains('return_files') ||
+          detailsText.contains('return_files');
+      if (!missingRejectionReason &&
+          !missingCategory &&
+          !missingReviewMessage &&
+          !missingReturnFiles) {
         rethrow;
       }
 
+      final fallbackFields = <String>[
+        'id',
+        'message',
+        'image_urls',
+        'status',
+        'created_at',
+        'updated_at',
+        'user_id',
+      ];
+      if (!missingCategory) fallbackFields.add('category');
+      if (!missingRejectionReason) fallbackFields.add('rejection_reason');
+      if (!missingReviewMessage) fallbackFields.add('review_message');
+      if (!missingReturnFiles) fallbackFields.add('return_files');
+
       final fallbackResponse = await _supabase
           .from('reports')
-          .select('id, message, image_urls, status, created_at, updated_at, user_id')
+          .select(fallbackFields.join(', '))
           .eq('user_id', user.uid)
           .order('created_at', ascending: false);
 
@@ -213,7 +246,10 @@ class _MyReportsPageState extends State<MyReportsPage> {
           .map(
             (item) => {
               ...Map<String, dynamic>.from(item as Map),
-              'rejection_reason': null,
+              if (missingRejectionReason) 'rejection_reason': null,
+              if (missingCategory) 'category': null,
+              if (missingReviewMessage) 'review_message': null,
+              if (missingReturnFiles) 'return_files': null,
             },
           )
           .toList();
@@ -226,7 +262,9 @@ class _MyReportsPageState extends State<MyReportsPage> {
     }
   }
 
-  Future<void> _fetchUserDisplayNames(List<Map<String, dynamic>> reports) async {
+  Future<void> _fetchUserDisplayNames(
+    List<Map<String, dynamic>> reports,
+  ) async {
     final userIds = <String>{};
     for (final report in reports) {
       final userId = report['user_id']?.toString();
@@ -238,19 +276,21 @@ class _MyReportsPageState extends State<MyReportsPage> {
     if (userIds.isEmpty) return;
 
     try {
-      final userResponse = await _supabase
-          .from('users')
-          .select('id, display_name, email')
-          .inFilter('id', userIds.toList());
+      final profile = await UserProfileService.read();
+      final userResponse = profile == null
+          ? <Map<String, dynamic>>[]
+          : [profile];
 
       final userMap = <String, String>{};
-      for (final user in userResponse as List) {
+      for (final user in userResponse) {
         final id = user['id']?.toString();
         final displayName = user['display_name']?.toString();
         final email = user['email']?.toString();
         if (id != null) {
           // Use display_name if available, otherwise use email
-          userMap[id] = (displayName != null && displayName.isNotEmpty) ? displayName : (email ?? 'Anonymous');
+          userMap[id] = (displayName != null && displayName.isNotEmpty)
+              ? displayName
+              : (email ?? 'Anonymous');
         }
       }
 
@@ -313,7 +353,8 @@ class _MyReportsPageState extends State<MyReportsPage> {
 
     final pendingReached = true;
     final reviewReached = status != 'pending';
-    final resolvedReached = status == 'approved' || status == 'resolved' || status == 'rejected';
+    final resolvedReached =
+        status == 'approved' || status == 'resolved' || status == 'rejected';
 
     return [
       _ReportTimelineStep(
@@ -332,7 +373,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
         isReached: reviewReached,
         isDone: resolvedReached,
       ),
-          _ReportTimelineStep(
+      _ReportTimelineStep(
         title: 'Pending',
         description: 'Your report has been submitted',
         date: createdAt,
@@ -371,8 +412,8 @@ class _MyReportsPageState extends State<MyReportsPage> {
     final hour = parsed.hour == 0
         ? 12
         : parsed.hour > 12
-            ? parsed.hour - 12
-            : parsed.hour;
+        ? parsed.hour - 12
+        : parsed.hour;
     final minute = parsed.minute.toString().padLeft(2, '0');
     final period = parsed.hour >= 12 ? 'PM' : 'AM';
 
@@ -400,9 +441,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
       return;
     }
 
-    final controller = TextEditingController(
-      text: report['message']?.toString().trim() ?? '',
-    );
+    final initialMessage = report['message']?.toString().trim() ?? '';
     final formKey = GlobalKey<FormState>();
     final reportId = report['id']?.toString();
 
@@ -415,8 +454,9 @@ class _MyReportsPageState extends State<MyReportsPage> {
         final isDark = theme.brightness == Brightness.dark;
         final titleColor = isDark ? Colors.white : const Color(0xFF111827);
         final subtitleColor = isDark ? Colors.white70 : const Color(0xFF64748B);
-        final fillColor =
-            isDark ? const Color(0xFF111827) : const Color(0xFFF8FAFC);
+        final fillColor = isDark
+            ? const Color(0xFF111827)
+            : const Color(0xFFF8FAFC);
         final borderColor = isDark
             ? Colors.white.withValues(alpha: 0.10)
             : const Color(0xFFD6DCE5);
@@ -431,17 +471,15 @@ class _MyReportsPageState extends State<MyReportsPage> {
           actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           title: Text(
             'Edit report',
-            style: TextStyle(
-              color: titleColor,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(color: titleColor, fontWeight: FontWeight.w800),
           ),
           content: Form(
             key: formKey,
             child: TextFormField(
-              controller: controller,
+              initialValue: initialMessage,
               maxLines: 6,
               minLines: 5,
+              onChanged: (value) => draftMessage = value.trim(),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Please enter your report message.';
@@ -486,7 +524,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
                 if (!formKey.currentState!.validate()) {
                   return;
                 }
-                draftMessage = controller.text.trim();
+                draftMessage ??= initialMessage;
                 Navigator.of(dialogContext).pop(true);
               },
               style: ElevatedButton.styleFrom(
@@ -506,15 +544,12 @@ class _MyReportsPageState extends State<MyReportsPage> {
       },
     );
 
-    await Future<void>.delayed(const Duration(milliseconds: 10));
     final updatedMessage = draftMessage;
-
-    controller.dispose();
 
     if (!mounted ||
         didSubmit != true ||
         updatedMessage == null ||
-        updatedMessage == (report['message']?.toString().trim() ?? '') ||
+        updatedMessage == initialMessage ||
         reportId == null) {
       return;
     }
@@ -532,21 +567,15 @@ class _MyReportsPageState extends State<MyReportsPage> {
 
       if (!mounted) return;
 
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Report updated successfully.')),
-        );
-        _refreshReports();
-      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Report updated successfully.')),
+      );
+      _refreshReports();
     } catch (e) {
       if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to update report: $e')),
-        );
-      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Unable to update report: $e')));
     } finally {
       if (mounted) {
         setState(() {
@@ -650,9 +679,9 @@ class _MyReportsPageState extends State<MyReportsPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to delete report: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Unable to delete report: $e')));
     } finally {
       if (mounted) {
         setState(() {
@@ -712,9 +741,9 @@ class _MyReportsPageState extends State<MyReportsPage> {
                       height: 52,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: const Color(0xFFDC2626).withValues(
-                          alpha: isDark ? 0.22 : 0.12,
-                        ),
+                        color: const Color(
+                          0xFFDC2626,
+                        ).withValues(alpha: isDark ? 0.22 : 0.12),
                       ),
                       child: const Icon(
                         Icons.gpp_bad_rounded,
@@ -727,7 +756,9 @@ class _MyReportsPageState extends State<MyReportsPage> {
                       child: Text(
                         'Why your report was rejected',
                         style: TextStyle(
-                          color: isDark ? Colors.white : const Color(0xFF111827),
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF111827),
                           fontSize: 24,
                           fontWeight: FontWeight.w800,
                           height: 1.2,
@@ -768,9 +799,9 @@ class _MyReportsPageState extends State<MyReportsPage> {
                         width: 34,
                         height: 34,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2563EB).withValues(
-                            alpha: isDark ? 0.22 : 0.10,
-                          ),
+                          color: const Color(
+                            0xFF2563EB,
+                          ).withValues(alpha: isDark ? 0.22 : 0.10),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(
@@ -831,26 +862,21 @@ class _MyReportsPageState extends State<MyReportsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final scaffoldBackground =
-        isDark ? const Color(0xFF0B1220) : const Color(0xFFEAEAEA);
-    final surfaceColor =
-        isDark ? const Color(0xFF1F2937) : const Color(0xFFF7F7F7);
-    final secondarySurface =
-        isDark ? const Color(0xFF243145) : const Color(0xFFE5E5E5);
+    final scaffoldBackground = isDark
+        ? const Color(0xFF0B1220)
+        : const Color(0xFFEAEAEA);
+    final surfaceColor = isDark
+        ? const Color(0xFF1F2937)
+        : const Color(0xFFF7F7F7);
+    final secondarySurface = isDark
+        ? const Color(0xFF243145)
+        : const Color(0xFFE5E5E5);
     final titleColor = isDark ? Colors.white : Colors.black;
     final subtitleColor = isDark ? Colors.white70 : Colors.black54;
     final borderColor = isDark ? Colors.white10 : const Color(0xFFD6DCE5);
     final topGradient = isDark
-        ? const [
-            Color(0xFF0F172A),
-            Color(0xFF172554),
-            Color(0xFF111827),
-          ]
-        : const [
-            Color(0xFF1E88E5),
-            Color(0xFF90CAF9),
-            Color(0xFFEAEAEA),
-          ];
+        ? const [Color(0xFF0F172A), Color(0xFF172554), Color(0xFF111827)]
+        : const [Color(0xFF1E88E5), Color(0xFF90CAF9), Color(0xFFEAEAEA)];
 
     return Scaffold(
       backgroundColor: scaffoldBackground,
@@ -876,13 +902,11 @@ class _MyReportsPageState extends State<MyReportsPage> {
                     children: [
                       IconButton(
                         onPressed:
-                            widget.onBack ?? () => Navigator.of(context).maybePop(),
+                            widget.onBack ??
+                            () => Navigator.of(context).maybePop(),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
-                        icon: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: Colors.white,
-                        ),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
                       ),
                       const SizedBox(width: 10),
                       const Expanded(
@@ -902,10 +926,13 @@ class _MyReportsPageState extends State<MyReportsPage> {
                   child: FutureBuilder<List<Map<String, dynamic>>>(
                     future: _reportsFuture,
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: CircularProgressIndicator(),
-                        );
+                      // Preserve the existing scroll view during a refresh.
+                      // Replacing it with a loader while a saved edit is
+                      // settling can deactivate inherited dependencies still
+                      // used by the report card widgets.
+                      if (snapshot.connectionState == ConnectionState.waiting &&
+                          _reports.isEmpty) {
+                        return const Center(child: CircularProgressIndicator());
                       }
 
                       if (snapshot.hasError) {
@@ -967,8 +994,9 @@ class _MyReportsPageState extends State<MyReportsPage> {
                                       width: 80,
                                       height: 80,
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF0066CC)
-                                            .withValues(alpha: 0.1),
+                                        color: const Color(
+                                          0xFF0066CC,
+                                        ).withValues(alpha: 0.1),
                                         shape: BoxShape.circle,
                                       ),
                                       child: const Icon(
@@ -1004,28 +1032,30 @@ class _MyReportsPageState extends State<MyReportsPage> {
                                           MaterialPageRoute(
                                             builder: (context) =>
                                                 IdentityVerificationPage(
-                                              onBack: () {
-                                                setState(() {
-                                                  _isVerifiedFuture =
-                                                      _checkVerification();
-                                                });
-                                                Navigator.pop(context);
-                                              },
-                                            ),
+                                                  onBack: () {
+                                                    setState(() {
+                                                      _isVerifiedFuture =
+                                                          _checkVerification();
+                                                    });
+                                                    Navigator.pop(context);
+                                                  },
+                                                ),
                                           ),
                                         );
                                       },
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            const Color(0xFF0066CC),
+                                        backgroundColor: const Color(
+                                          0xFF0066CC,
+                                        ),
                                         foregroundColor: Colors.white,
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 32,
                                           vertical: 16,
                                         ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
                                         ),
                                       ),
                                       child: const Text(
@@ -1043,500 +1073,668 @@ class _MyReportsPageState extends State<MyReportsPage> {
                           }
 
                           return RefreshIndicator(
-                        onRefresh: () async {
-                          _refreshReports();
-                          await _reportsFuture;
-                        },
-                        child: ListView(
-                          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-                          children: [
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(18),
-                              decoration: BoxDecoration(
-                                color: surfaceColor,
-                                borderRadius: BorderRadius.circular(20),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.08),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
+                            onRefresh: () async {
+                              _refreshReports();
+                              await _reportsFuture;
+                            },
+                            child: ListView(
+                              padding: const EdgeInsets.fromLTRB(
+                                24,
+                                20,
+                                24,
+                                24,
                               ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    width: 52,
-                                    height: 52,
-                                    decoration: BoxDecoration(
-                                      color: secondarySurface,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.fact_check_outlined,
-                                      color: AppColors.primary,
-                                      size: 26,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Track your submitted reports',
-                                          style: TextStyle(
-                                            fontSize: 17,
-                                            fontWeight: FontWeight.w700,
-                                            color: titleColor,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          'View the status of every report you submitted and check when it was last updated.',
-                                          style: TextStyle(
-                                            fontSize: 12.8,
-                                            height: 1.45,
-                                            color: subtitleColor,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            if (reports.isEmpty)
-                              Container(
-                                padding: const EdgeInsets.all(24),
-                                decoration: BoxDecoration(
-                                  color: surfaceColor,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: borderColor),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Icon(
-                                      Icons.inbox_outlined,
-                                      size: 44,
-                                      color: subtitleColor,
-                                    ),
-                                    const SizedBox(height: 14),
-                                    Text(
-                                      'No reports yet',
-                                      style: TextStyle(
-                                        color: titleColor,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Once you submit a report, it will appear here together with its current status.',
-                                      style: TextStyle(
-                                        color: subtitleColor,
-                                        fontSize: 13,
-                                        height: 1.45,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ],
-                                ),
-                              )
-                            else
-                              ...reports.map((report) {
-                                final message =
-                                    report['message']?.toString().trim().isNotEmpty ==
-                                            true
-                                        ? report['message'].toString().trim()
-                                        : 'No message provided';
-                                final status =
-                                    report['status']?.toString().trim() ?? 'pending';
-                                final createdAt =
-                                    _formatDate(report['created_at']?.toString());
-                                final updatedAt =
-                                    _formatDate(report['updated_at']?.toString());
-                                final imageUrls =
-                                    (report['image_urls'] as List?) ?? const [];
-                                final timelineSteps = _buildTimelineSteps(report);
-                                final rejectionReason =
-                                    report['rejection_reason']
-                                            ?.toString()
-                                            .trim() ??
-                                        '';
-                                final showRejectionReason = status.toLowerCase() ==
-                                        'rejected' &&
-                                    rejectionReason.isNotEmpty;
-                                final canManageReport = _canManageReport(status);
-
-                                final reporterName =
-                                    report['reporter_name']?.toString().trim() ?? 'Anonymous';
-
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 14),
+                              children: [
+                                Container(
+                                  width: double.infinity,
                                   padding: const EdgeInsets.all(18),
                                   decoration: BoxDecoration(
                                     color: surfaceColor,
                                     borderRadius: BorderRadius.circular(20),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.08),
+                                        color: Colors.black.withValues(
+                                          alpha: 0.08,
+                                        ),
                                         blurRadius: 10,
                                         offset: const Offset(0, 4),
                                       ),
                                     ],
                                   ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  reporterName,
-                                                  style: TextStyle(
-                                                    color: titleColor,
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  createdAt,
-                                                  style: TextStyle(
-                                                    color: subtitleColor,
-                                                    fontSize: 12.5,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 7,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: _statusColor(status)
-                                                  .withValues(alpha: 0.12),
-                                              borderRadius:
-                                                  BorderRadius.circular(999),
-                                            ),
-                                            child: Text(
-                                              _statusLabel(status),
-                                              style: TextStyle(
-                                                color: _statusColor(status),
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 12.5,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 14),
-                                      Text(
-                                        message,
-                                        style: TextStyle(
-                                          color: titleColor,
-                                          fontSize: 14.5,
-                                          height: 1.45,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      if (imageUrls.isNotEmpty) ...[
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          'Attachments',
-                                          style: TextStyle(
-                                            color: titleColor,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        SizedBox(
-                                          height: 120,
-                                          child: ListView.separated(
-                                            scrollDirection: Axis.horizontal,
-                                            itemCount: imageUrls.length,
-                                            separatorBuilder: (context, index) =>
-                                                const SizedBox(width: 10),
-                                            itemBuilder: (context, index) {
-                                              final imageUrl =
-                                                  imageUrls[index]?.toString() ?? '';
-                                              return GestureDetector(
-                                                onTap: () {
-                                                  showDialog(
-                                                    context: context,
-                                                    builder: (dialogContext) =>
-                                                        Dialog(
-                                                      backgroundColor:
-                                                          Colors.transparent,
-                                                      child: GestureDetector(
-                                                        onTap: () =>
-                                                            Navigator.pop(
-                                                              dialogContext,
-                                                            ),
-                                                        child: Container(
-                                                          decoration:
-                                                              BoxDecoration(
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(20),
-                                                          ),
-                                                          child: ClipRRect(
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(20),
-                                                            child: Image.network(
-                                                              imageUrl,
-                                                              fit: BoxFit.contain,
-                                                              cacheWidth: 1200,
-                                                              cacheHeight: 1600,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  );
-                                                },
-                                                child: Container(
-                                                  decoration: BoxDecoration(
-                                                    borderRadius:
-                                                        BorderRadius.circular(16),
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                        color: Colors.black
-                                                            .withValues(
-                                                              alpha: 0.10,
-                                                            ),
-                                                        blurRadius: 8,
-                                                        offset: const Offset(0, 3),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  child: ClipRRect(
-                                                    borderRadius:
-                                                        BorderRadius.circular(16),
-                                                    child: Image.network(
-                                                      imageUrl,
-                                                      width: 120,
-                                                      height: 120,
-                                                      fit: BoxFit.cover,
-                                                      cacheWidth: 240,
-                                                      cacheHeight: 240,
-                                                    ),
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                      ],
-                                      if (canManageReport) ...[
-                                        const SizedBox(height: 16),
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: OutlinedButton.icon(
-                                                onPressed: _isMutatingReport
-                                                    ? null
-                                                    : () => _editReport(report),
-                                                icon: const Icon(
-                                                  Icons.edit_outlined,
-                                                  size: 18,
-                                                ),
-                                                label: const Text('Edit'),
-                                                style: OutlinedButton.styleFrom(
-                                                  foregroundColor:
-                                                      AppColors.primary,
-                                                  side: BorderSide(
-                                                    color: AppColors.primary
-                                                        .withValues(alpha: 0.25),
-                                                  ),
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        vertical: 12,
-                                                      ),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(14),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 10),
-                                            Expanded(
-                                              child: OutlinedButton.icon(
-                                                onPressed: _isMutatingReport
-                                                    ? null
-                                                    : () => _deleteReport(report),
-                                                icon: const Icon(
-                                                  Icons.delete_outline_rounded,
-                                                  size: 18,
-                                                ),
-                                                label: const Text('Delete'),
-                                                style: OutlinedButton.styleFrom(
-                                                  foregroundColor:
-                                                      const Color(0xFFDC2626),
-                                                  side: const BorderSide(
-                                                    color: Color(0xFFFCA5A5),
-                                                  ),
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        vertical: 12,
-                                                      ),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(14),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                      const SizedBox(height: 14),
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.photo_library_outlined,
-                                            size: 18,
-                                            color: subtitleColor,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            '${imageUrls.length} attachment${imageUrls.length == 1 ? '' : 's'}',
-                                            style: TextStyle(
-                                              color: subtitleColor,
-                                              fontSize: 12.5,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.update_rounded,
-                                            size: 18,
-                                            color: subtitleColor,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              'Last updated: $updatedAt',
-                                              style: TextStyle(
-                                                color: subtitleColor,
-                                                fontSize: 12.5,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 18),
-                                      Text(
-                                        'Progress of the report',
-                                        style: TextStyle(
-                                          color: titleColor,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 14),
                                       Container(
-                                        width: double.infinity,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 18,
-                                          vertical: 22,
-                                        ),
+                                        width: 52,
+                                        height: 52,
                                         decoration: BoxDecoration(
-                                          color: isDark
-                                              ? const Color(0xFF111827)
-                                              : const Color(0xFFF3F3F3),
-                                          borderRadius: BorderRadius.circular(18),
+                                          color: secondarySurface,
+                                          shape: BoxShape.circle,
                                         ),
+                                        child: const Icon(
+                                          Icons.fact_check_outlined,
+                                          color: AppColors.primary,
+                                          size: 26,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
                                         child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
-                                            ...List.generate(
-                                              timelineSteps.length,
-                                              (index) => _ReportTimelineItem(
-                                                step: timelineSteps[index],
-                                                isLast:
-                                                    index == timelineSteps.length - 1,
-                                                titleColor: titleColor,
-                                                subtitleColor: subtitleColor,
-                                                formattedDate:
-                                                    _formatTimelineDate(
-                                                  timelineSteps[index].date,
-                                                ),
+                                            Text(
+                                              'Track your submitted reports',
+                                              style: TextStyle(
+                                                fontSize: 17,
+                                                fontWeight: FontWeight.w700,
+                                                color: titleColor,
                                               ),
                                             ),
-                                            if (showRejectionReason) ...[
-                                              const SizedBox(height: 10),
-                                              SizedBox(
-                                                width: double.infinity,
-                                                child: OutlinedButton.icon(
-                                                  onPressed: () =>
-                                                      _showRejectionReasonDialog(
-                                                    rejectionReason,
-                                                  ),
-                                                  icon: const Icon(
-                                                    Icons.info_outline_rounded,
-                                                  ),
-                                                  label: const Text(
-                                                    'See why your report is rejected',
-                                                  ),
-                                                  style: OutlinedButton.styleFrom(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 16,
-                                                          vertical: 14,
-                                                        ),
-                                                    foregroundColor:
-                                                        const Color(0xFFDC2626),
-                                                    side: const BorderSide(
-                                                      color: Color(0xFFFCA5A5),
-                                                    ),
-                                                    shape: RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(14),
-                                                    ),
-                                                    backgroundColor: isDark
-                                                        ? const Color(0xFF2A1616)
-                                                        : const Color(0xFFFFF7F7),
-                                                  ),
-                                                ),
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              'View the status of every report you submitted and check when it was last updated.',
+                                              style: TextStyle(
+                                                fontSize: 12.8,
+                                                height: 1.45,
+                                                color: subtitleColor,
                                               ),
-                                            ],
+                                            ),
                                           ],
                                         ),
                                       ),
                                     ],
                                   ),
-                                );
-                              }),
-                          ],
-                        ),
+                                ),
+                                const SizedBox(height: 16),
+                                if (reports.isEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.all(24),
+                                    decoration: BoxDecoration(
+                                      color: surfaceColor,
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: borderColor),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Icon(
+                                          Icons.inbox_outlined,
+                                          size: 44,
+                                          color: subtitleColor,
+                                        ),
+                                        const SizedBox(height: 14),
+                                        Text(
+                                          'No reports yet',
+                                          style: TextStyle(
+                                            color: titleColor,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Once you submit a report, it will appear here together with its current status.',
+                                          style: TextStyle(
+                                            color: subtitleColor,
+                                            fontSize: 13,
+                                            height: 1.45,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                else
+                                  ...reports.map((report) {
+                                    final message =
+                                        report['message']
+                                                ?.toString()
+                                                .trim()
+                                                .isNotEmpty ==
+                                            true
+                                        ? report['message'].toString().trim()
+                                        : 'No message provided';
+                                    final status =
+                                        report['status']?.toString().trim() ??
+                                        'pending';
+                                    final category =
+                                        report['category']?.toString().trim() ??
+                                        '';
+                                    final createdAt = _formatDate(
+                                      report['created_at']?.toString(),
+                                    );
+                                    final updatedAt = _formatDate(
+                                      report['updated_at']?.toString(),
+                                    );
+                                    final imageUrls =
+                                        (report['image_urls'] as List?) ??
+                                        const [];
+                                    final timelineSteps = _buildTimelineSteps(
+                                      report,
+                                    );
+                                    final rejectionReason =
+                                        report['rejection_reason']
+                                            ?.toString()
+                                            .trim() ??
+                                        '';
+                                    final showRejectionReason =
+                                        status.toLowerCase() == 'rejected' &&
+                                        rejectionReason.isNotEmpty;
+                                    final reviewMessage =
+                                        report['review_message']
+                                            ?.toString()
+                                            .trim() ??
+                                        '';
+                                    final showReviewMessage =
+                                        _normalizeReportStatus(status) ==
+                                            'under review' &&
+                                        reviewMessage.isNotEmpty;
+                                    final canManageReport = _canManageReport(
+                                      status,
+                                    );
+
+                                    final reporterName =
+                                        report['reporter_name']
+                                            ?.toString()
+                                            .trim() ??
+                                        'Anonymous';
+
+                                    return Container(
+                                      margin: const EdgeInsets.only(bottom: 14),
+                                      padding: const EdgeInsets.all(18),
+                                      decoration: BoxDecoration(
+                                        color: surfaceColor,
+                                        borderRadius: BorderRadius.circular(20),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.08,
+                                            ),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      reporterName,
+                                                      style: TextStyle(
+                                                        color: titleColor,
+                                                        fontSize: 14,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Text(
+                                                      createdAt,
+                                                      style: TextStyle(
+                                                        color: subtitleColor,
+                                                        fontSize: 12.5,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 7,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: _statusColor(
+                                                    status,
+                                                  ).withValues(alpha: 0.12),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                        999,
+                                                      ),
+                                                ),
+                                                child: Text(
+                                                  _statusLabel(status),
+                                                  style: TextStyle(
+                                                    color: _statusColor(status),
+                                                    fontWeight: FontWeight.w700,
+                                                    fontSize: 12.5,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 14),
+                                          if (category.isNotEmpty) ...[
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 6,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: AppColors.primary
+                                                    .withValues(alpha: 0.10),
+                                                borderRadius:
+                                                    BorderRadius.circular(999),
+                                              ),
+                                              child: Text(
+                                                category,
+                                                style: const TextStyle(
+                                                  color: AppColors.primary,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 10),
+                                          ],
+                                          Text(
+                                            message,
+                                            style: TextStyle(
+                                              color: titleColor,
+                                              fontSize: 14.5,
+                                              height: 1.45,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          if (showReviewMessage) ...[
+                                            const SizedBox(height: 14),
+                                            Container(
+                                              width: double.infinity,
+                                              padding: const EdgeInsets.all(14),
+                                              decoration: BoxDecoration(
+                                                color: AppColors.primary
+                                                    .withValues(alpha: 0.08),
+                                                borderRadius:
+                                                    BorderRadius.circular(14),
+                                                border: Border.all(
+                                                  color: AppColors.primary
+                                                      .withValues(alpha: 0.22),
+                                                ),
+                                              ),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  const Text(
+                                                    'Message from the hotline team',
+                                                    style: TextStyle(
+                                                      color: AppColors.primary,
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 6),
+                                                  Text(
+                                                    reviewMessage,
+                                                    style: TextStyle(
+                                                      color: titleColor,
+                                                      fontSize: 14,
+                                                      height: 1.4,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                          if (imageUrls.isNotEmpty) ...[
+                                            const SizedBox(height: 16),
+                                            Text(
+                                              'Attachments',
+                                              style: TextStyle(
+                                                color: titleColor,
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 10),
+                                            SizedBox(
+                                              height: 120,
+                                              child: ListView.separated(
+                                                scrollDirection:
+                                                    Axis.horizontal,
+                                                itemCount: imageUrls.length,
+                                                separatorBuilder:
+                                                    (context, index) =>
+                                                        const SizedBox(
+                                                          width: 10,
+                                                        ),
+                                                itemBuilder: (context, index) {
+                                                  final imageUrl =
+                                                      imageUrls[index]
+                                                          ?.toString() ??
+                                                      '';
+                                                  return GestureDetector(
+                                                    onTap: () {
+                                                      showDialog(
+                                                        context: context,
+                                                        builder: (dialogContext) => Dialog(
+                                                          backgroundColor:
+                                                              Colors
+                                                                  .transparent,
+                                                          child: GestureDetector(
+                                                            onTap: () =>
+                                                                Navigator.pop(
+                                                                  dialogContext,
+                                                                ),
+                                                            child: Container(
+                                                              decoration:
+                                                                  BoxDecoration(
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          20,
+                                                                        ),
+                                                                  ),
+                                                              child: ClipRRect(
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
+                                                                      20,
+                                                                    ),
+                                                                child: Image.network(
+                                                                  imageUrl,
+                                                                  fit: BoxFit
+                                                                      .contain,
+                                                                  cacheWidth:
+                                                                      1200,
+                                                                  cacheHeight:
+                                                                      1600,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      );
+                                                    },
+                                                    child: Container(
+                                                      decoration: BoxDecoration(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              16,
+                                                            ),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: Colors.black
+                                                                .withValues(
+                                                                  alpha: 0.10,
+                                                                ),
+                                                            blurRadius: 8,
+                                                            offset:
+                                                                const Offset(
+                                                                  0,
+                                                                  3,
+                                                                ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      child: ClipRRect(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              16,
+                                                            ),
+                                                        child: Image.network(
+                                                          imageUrl,
+                                                          width: 120,
+                                                          height: 120,
+                                                          fit: BoxFit.cover,
+                                                          cacheWidth: 240,
+                                                          cacheHeight: 240,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          ],
+                                          if (canManageReport) ...[
+                                            const SizedBox(height: 16),
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: OutlinedButton.icon(
+                                                    onPressed: _isMutatingReport
+                                                        ? null
+                                                        : () => _editReport(
+                                                            report,
+                                                          ),
+                                                    icon: const Icon(
+                                                      Icons.edit_outlined,
+                                                      size: 18,
+                                                    ),
+                                                    label: const Text('Edit'),
+                                                    style: OutlinedButton.styleFrom(
+                                                      foregroundColor:
+                                                          AppColors.primary,
+                                                      side: BorderSide(
+                                                        color: AppColors.primary
+                                                            .withValues(
+                                                              alpha: 0.25,
+                                                            ),
+                                                      ),
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            vertical: 12,
+                                                          ),
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              14,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                  child: OutlinedButton.icon(
+                                                    onPressed: _isMutatingReport
+                                                        ? null
+                                                        : () => _deleteReport(
+                                                            report,
+                                                          ),
+                                                    icon: const Icon(
+                                                      Icons
+                                                          .delete_outline_rounded,
+                                                      size: 18,
+                                                    ),
+                                                    label: const Text('Delete'),
+                                                    style: OutlinedButton.styleFrom(
+                                                      foregroundColor:
+                                                          const Color(
+                                                            0xFFDC2626,
+                                                          ),
+                                                      side: const BorderSide(
+                                                        color: Color(
+                                                          0xFFFCA5A5,
+                                                        ),
+                                                      ),
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            vertical: 12,
+                                                          ),
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              14,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                          const SizedBox(height: 14),
+                                          Row(
+                                            children: [
+                                              Icon(
+                                                Icons.photo_library_outlined,
+                                                size: 18,
+                                                color: subtitleColor,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                '${imageUrls.length} attachment${imageUrls.length == 1 ? '' : 's'}',
+                                                style: TextStyle(
+                                                  color: subtitleColor,
+                                                  fontSize: 12.5,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Row(
+                                            children: [
+                                              Icon(
+                                                Icons.update_rounded,
+                                                size: 18,
+                                                color: subtitleColor,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  'Last updated: $updatedAt',
+                                                  style: TextStyle(
+                                                    color: subtitleColor,
+                                                    fontSize: 12.5,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 18),
+                                          Text(
+                                            'Progress of the report',
+                                            style: TextStyle(
+                                              color: titleColor,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 14),
+                                          Container(
+                                            width: double.infinity,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 18,
+                                              vertical: 22,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: isDark
+                                                  ? const Color(0xFF111827)
+                                                  : const Color(0xFFF3F3F3),
+                                              borderRadius:
+                                                  BorderRadius.circular(18),
+                                            ),
+                                            child: Column(
+                                              children: [
+                                                ...List.generate(
+                                                  timelineSteps.length,
+                                                  (
+                                                    index,
+                                                  ) => _ReportTimelineItem(
+                                                    step: timelineSteps[index],
+                                                    isLast:
+                                                        index ==
+                                                        timelineSteps.length -
+                                                            1,
+                                                    titleColor: titleColor,
+                                                    subtitleColor:
+                                                        subtitleColor,
+                                                    formattedDate:
+                                                        _formatTimelineDate(
+                                                          timelineSteps[index]
+                                                              .date,
+                                                        ),
+                                                  ),
+                                                ),
+                                                if (showRejectionReason) ...[
+                                                  const SizedBox(height: 10),
+                                                  SizedBox(
+                                                    width: double.infinity,
+                                                    child: OutlinedButton.icon(
+                                                      onPressed: () =>
+                                                          _showRejectionReasonDialog(
+                                                            rejectionReason,
+                                                          ),
+                                                      icon: const Icon(
+                                                        Icons
+                                                            .info_outline_rounded,
+                                                      ),
+                                                      label: const Text(
+                                                        'See why your report is rejected',
+                                                      ),
+                                                      style: OutlinedButton.styleFrom(
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 16,
+                                                              vertical: 14,
+                                                            ),
+                                                        foregroundColor:
+                                                            const Color(
+                                                              0xFFDC2626,
+                                                            ),
+                                                        side: const BorderSide(
+                                                          color: Color(
+                                                            0xFFFCA5A5,
+                                                          ),
+                                                        ),
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                14,
+                                                              ),
+                                                        ),
+                                                        backgroundColor: isDark
+                                                            ? const Color(
+                                                                0xFF2A1616,
+                                                              )
+                                                            : const Color(
+                                                                0xFFFFF7F7,
+                                                              ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                                if (status.toLowerCase() ==
+                                                    'rejected')
+                                                  ReturnAttachments(
+                                                    files:
+                                                        report['return_files'],
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
+                              ],
+                            ),
+                          );
+                        },
                       );
                     },
-                  );
-                },
-              ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    ],
-  ),
-);
+    );
   }
 }
 
@@ -1573,8 +1771,12 @@ class _ReportTimelineItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lineColor = step.isReached ? AppColors.primary : const Color(0xFFB0B0B0);
-    final iconColor = step.isReached ? AppColors.primary : const Color(0xFFB0B0B0);
+    final lineColor = step.isReached
+        ? AppColors.primary
+        : const Color(0xFFB0B0B0);
+    final iconColor = step.isReached
+        ? AppColors.primary
+        : const Color(0xFFB0B0B0);
 
     return IntrinsicHeight(
       child: Row(

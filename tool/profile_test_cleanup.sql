@@ -1,0 +1,1 @@
+delete from public.users where id = 'security-check-b8fb84d3-806c-4d10-824e-ae76291a82ba' and email = 'security-check-b8fb84d3-806c-4d10-824e-ae76291a82ba@example.invalid';

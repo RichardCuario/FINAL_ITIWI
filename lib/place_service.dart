@@ -14,7 +14,7 @@ class PlaceService {
       final response = await _client
           .from('places')
           .select(
-            'id, name, description, location, short_location, full_address, image_url, category, phone, website_url, latitude, longitude, distance_label, is_featured, is_published',
+            'id, name, description, location, short_location, full_address, image_url, image_urls, category, phone, website_url, latitude, longitude, distance_label, is_featured, is_published',
           )
           .eq('is_published', true)
           .order('name');

@@ -8,11 +8,13 @@ create extension if not exists pgcrypto;
 create table if not exists public.reports (
   id uuid primary key default gen_random_uuid(),
   user_id text not null,
+  category text not null default 'Other',
   message text not null,
   image_urls text[] not null default '{}',
   status text not null default 'pending'
     check (status in ('pending', 'reviewing', 'resolved', 'rejected')),
   rejection_reason text,
+  review_message text,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
@@ -45,6 +47,19 @@ alter table public.reports
   alter column message set not null;
 
 alter table public.reports
+  add column if not exists category text;
+
+update public.reports
+  set category = 'Other'
+  where category is null;
+
+alter table public.reports
+  alter column category set default 'Other';
+
+alter table public.reports
+  alter column category set not null;
+
+alter table public.reports
   alter column image_urls set default '{}';
 
 alter table public.reports
@@ -52,6 +67,9 @@ alter table public.reports
 
 alter table public.reports
   add column if not exists rejection_reason text;
+
+alter table public.reports
+  add column if not exists review_message text;
 
 alter table public.reports
   add column if not exists resolution_notes text;
@@ -67,6 +85,9 @@ alter table public.reports
 
 alter table public.reports
   add column if not exists accomplishment_files jsonb;
+
+alter table public.reports
+  add column if not exists return_files jsonb;
 
 create index if not exists reports_user_id_idx
   on public.reports (user_id);

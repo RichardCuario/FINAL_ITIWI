@@ -24,6 +24,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>iTIWI needs camera access to capture your identity document and selfie during verification.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>iTIWI may use the microphone if the identity verification flow requests an audio check.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

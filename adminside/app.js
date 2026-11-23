@@ -43,35 +43,58 @@ const SUPABASE_URL = 'https://jbhlbukxankrtcwhqoll.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpiaGxidWt4YW5rcnRjd2hxb2xsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NzAxODgsImV4cCI6MjA5MDA0NjE4OH0.DebtVdw7bF5nRaXQg8Ta2SsO2Qv42QnGSzoS8hT2vJc';
 
 let supabaseClient = null;
+let adminAuthReady = false;
+let adminAuthCheckRunning = false;
+let verifiedAdminSession = null;
 
 function initSupabase() {
   if (typeof window.supabase !== 'undefined' && typeof window.supabase.createClient === 'function') {
     supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     console.log('Supabase client initialized');
     checkAuthentication();
+    window.addEventListener('focus', checkAuthentication);
+    setInterval(() => {
+      if (!document.hidden) checkAuthentication();
+    }, 60000);
   } else {
     console.warn('Supabase JS library not loaded');
   }
 }
 
 async function checkAuthentication() {
-  if (!supabaseClient) return;
+  if (!supabaseClient || adminAuthCheckRunning) return;
+  adminAuthCheckRunning = true;
 
   try {
-    const { data, error } = await supabaseClient.auth.getSession();
-    if (!data?.session) {
-      window.location.href = './login.html';
-    } else {
-      updateUserProfile(data.session.user);
+    const { data, error } = await supabaseClient.auth.getUser();
+    if (error || !data?.user || !(await updateUserProfile(data.user))) {
+      adminAuthReady = false;
+      verifiedAdminSession = null;
+      localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
+      await supabaseClient.auth.signOut();
+      window.location.href = '/login';
+      return;
+    }
+    if (!document.querySelector('.page.active')) {
+      navigateTo(localStorage.getItem('lastVisitedPage') || 'dashboard');
     }
   } catch (error) {
     console.error('Auth check error:', error);
-    window.location.href = './login.html';
+    adminAuthReady = false;
+    verifiedAdminSession = null;
+    localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
+    window.location.href = '/login';
+  } finally {
+    adminAuthCheckRunning = false;
   }
 }
 
-function updateUserProfile(user) {
+async function updateUserProfile(user) {
+  await loadAdminRolesFromDatabase(user);
   const accessSession = resolveAdminSession(user);
+  if (!accessSession) return false;
+  verifiedAdminSession = accessSession;
+  adminAuthReady = true;
   localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, JSON.stringify(accessSession));
   applyAdminNavigationPermissions(user);
 
@@ -131,6 +154,7 @@ function updateUserProfile(user) {
     headerAvatar.textContent = initials;
     headerAvatar.title = fullName;
   }
+  return true;
 }
 
 async function handleLogout() {
@@ -139,7 +163,7 @@ async function handleLogout() {
   try {
     await supabaseClient.auth.signOut();
     localStorage.removeItem('rememberEmail');
-    window.location.href = './login.html';
+    window.location.href = '/login';
   } catch (error) {
     console.error('Logout error:', error);
     alert('Error logging out. Please try again.');
@@ -158,7 +182,8 @@ async function openProfileModal() {
     document.getElementById('profileUserId').value = user.id;
     document.getElementById('profileEmail').value = user.email || '';
     document.getElementById('profileFullName').value = user.user_metadata?.full_name || '';
-    document.getElementById('profileRole').value = user.user_metadata?.role || 'Administrator';
+    document.getElementById('profileRole').value = getCurrentAdminSession().isSuperAdmin
+      ? 'Admin' : user.user_metadata?.role || 'Administrator';
     document.getElementById('profilePhone').value = user.user_metadata?.phone || '';
     document.getElementById('profileAddress').value = user.user_metadata?.address || '';
     document.getElementById('profileBio').value = user.user_metadata?.bio || '';
@@ -206,7 +231,8 @@ async function saveProfile() {
         phone: phone,
         address: address,
         bio: bio,
-        role: session.user.user_metadata?.role || 'Administrator'
+        role: getCurrentAdminSession().isSuperAdmin ? 'Admin'
+          : session.user.user_metadata?.role || 'Administrator'
       }
     });
 
@@ -254,7 +280,26 @@ async function changePassword() {
       return;
     }
 
-    // Update password
+    // Require the existing password before changing it. An active Supabase
+    // session alone is not proof that the person at the keyboard knows it.
+    const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
+    const email = sessionData?.session?.user?.email;
+    if (sessionError || !email) {
+      showToast('Your session has expired. Please sign in again.', 'error');
+      return;
+    }
+
+    const { error: reauthError } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password: currentPassword
+    });
+
+    if (reauthError) {
+      showToast('Current password is incorrect.', 'error');
+      return;
+    }
+
+    // Update the password only after successful re-authentication.
     const { error: updateError } = await supabaseClient.auth.updateUser({
       password: newPassword
     });
@@ -400,6 +445,7 @@ function setupRealtimeListeners() {
       },
       (payload) => {
         const data = payload.new;
+        if (!canAccessReport(data)) return;
         const reporterName = data.reporter_name || 'User';
         const message = data.message || 'No message';
         addNotification(
@@ -515,7 +561,9 @@ let deleteTarget = null;
 let deleteType = null;
 
 const ITEMS_PER_PAGE = 10;
+const ADMIN_ROLES_PER_PAGE = 5;
 const FEATURE_TO_PAGE_MAP = {
+  'about-us': 'about-us',
   barangay: 'barangay',
   news: 'news',
   reports: 'reports',
@@ -525,8 +573,8 @@ const FEATURE_TO_PAGE_MAP = {
   hotline: 'hotline'
 };
 const ALL_ADMIN_PAGES = ['dashboard', ...Object.values(FEATURE_TO_PAGE_MAP), 'users', 'manage-admin'];
-const ADMIN_ROLE_STORAGE_KEY = 'itiwi_admin_roles';
 const ADMIN_SESSION_STORAGE_KEY = 'itiwi_admin_session';
+let databaseAdminRoles = null;
 
 function resolvePageId(page) {
   if (!page) return null;
@@ -538,81 +586,165 @@ function resolvePageId(page) {
 }
 
 function getAdminRoles() {
-  try {
-    const raw = localStorage.getItem(ADMIN_ROLE_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (error) {
-    console.warn('Failed to parse admin roles from storage:', error);
-    return [];
+  return databaseAdminRoles ?? [];
+}
+
+function mapDatabaseAdminRole(role) {
+  return {
+    id: role.id,
+    roleName: role.role_name,
+    feature: role.feature,
+    permissions: Array.isArray(role.permissions) ? role.permissions : [],
+    reportCategories: normalizeReportCategories(role.report_categories),
+    transparencyCategories: normalizeTransparencyCategories(role.transparency_categories),
+    isSuperAdmin: Boolean(role.is_super_admin),
+    assignedEmail: role.assigned_email,
+    authUserId: role.auth_user_id,
+    createdAt: role.created_at
+  };
+}
+
+async function loadAdminRolesFromDatabase(user) {
+  if (!supabaseClient || !user?.email) throw new Error('Admin role check unavailable.');
+
+  const { data, error } = await supabaseClient
+    .from('admin_roles')
+    .select('id, role_name, feature, permissions, report_categories, transparency_categories, is_super_admin, assigned_email, auth_user_id, created_at')
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  databaseAdminRoles = (data || []).map(mapDatabaseAdminRole);
+
+  if (document.querySelector('.manage-admin-page.active')) {
+    renderAdminRoles();
   }
 }
 
-function saveAdminRoles(roles) {
-  localStorage.setItem(ADMIN_ROLE_STORAGE_KEY, JSON.stringify(roles));
+async function saveAdminRolesToDatabase(roles) {
+  const { data, error } = await supabaseClient
+    .from('admin_roles')
+    .insert(roles.map(role => ({
+      role_name: role.roleName,
+      feature: role.feature,
+      permissions: role.permissions,
+      report_categories: role.reportCategories,
+      transparency_categories: role.transparencyCategories || [],
+      is_super_admin: false,
+      assigned_email: role.assignedEmail,
+      auth_user_id: role.authUserId
+    })))
+    .select('id, role_name, feature, permissions, report_categories, transparency_categories, is_super_admin, assigned_email, auth_user_id, created_at');
+
+  if (error) throw error;
+  return (data || []).map(mapDatabaseAdminRole);
+}
+
+function canAccessUserDirectory() {
+  return adminAuthReady && verifiedAdminSession?.isSuperAdmin === true;
 }
 
 function getCurrentAdminSession() {
-  try {
-    const raw = localStorage.getItem(ADMIN_SESSION_STORAGE_KEY);
-    if (!raw) return { isSuperAdmin: false, permissions: ['dashboard'], roleName: 'Administrator' };
-    const parsed = JSON.parse(raw);
-    return {
-      isSuperAdmin: Boolean(parsed?.isSuperAdmin),
-      permissions: Array.isArray(parsed?.permissions) ? parsed.permissions : ['dashboard'],
-      roleName: parsed?.roleName || 'Administrator'
-    };
-  } catch (error) {
-    return { isSuperAdmin: false, permissions: ['dashboard'], roleName: 'Administrator' };
+  return verifiedAdminSession || {
+    isSuperAdmin: false,
+    permissions: [],
+    reportCategories: [],
+    roleName: 'Administrator'
+  };
+}
+
+function getReportCategoriesForSession(session = getCurrentAdminSession()) {
+  if (session?.isSuperAdmin) return REPORT_CATEGORIES;
+  return normalizeReportCategories(session?.reportCategories);
+}
+
+function canAccessReport(report, session = getCurrentAdminSession()) {
+  if (session?.isSuperAdmin) return true;
+  if (!canAccessFeature('reports', session)) return false;
+  const assignedEmail = String(report?.assigned_admin_email || '').toLowerCase();
+  if (assignedEmail && assignedEmail === String(session?.email || '').toLowerCase()) {
+    return true;
   }
+  const category = String(report?.category || 'Other').trim() || 'Other';
+  return getReportCategoriesForSession(session).includes(category);
+}
+
+function syncReportCategoryFilter() {
+  const select = document.getElementById('reportCategoryFilter');
+  if (!select) return;
+
+  const session = getCurrentAdminSession();
+  const allowedCategories = session.isSuperAdmin
+    ? REPORT_CATEGORIES
+    : getReportCategoriesForSession(session);
+  const previousValue = select.value;
+
+  select.innerHTML = '';
+  if (allowedCategories.length === 0) {
+    select.append(new Option('No assigned categories', ''));
+    select.disabled = true;
+    return;
+  }
+
+  // A single-category report admin should always start on that category.
+  if (allowedCategories.length === 1) {
+    select.append(new Option(allowedCategories[0], allowedCategories[0]));
+    select.value = allowedCategories[0];
+    select.disabled = true;
+    return;
+  }
+
+  select.append(new Option('All Categories', ''));
+  allowedCategories.forEach(category => select.append(new Option(category, category)));
+  select.value = allowedCategories.includes(previousValue) ? previousValue : '';
+  select.disabled = false;
 }
 
 function resolveAdminSession(user) {
   const email = String(user?.email || '').toLowerCase();
   const assignedRoles = getAdminRoles();
-  const matchingRole = assignedRoles.find(role => (role.assignedEmail || '').toLowerCase() === email);
-  const metadataRole = String(user?.user_metadata?.role || '').toLowerCase();
+  const matchingRoles = assignedRoles.filter(role =>
+    role.authUserId ? role.authUserId === user?.id : Boolean(email) && (role.assignedEmail || '').toLowerCase() === email
+  );
+  const superRole = matchingRoles.find(role => role.isSuperAdmin);
 
-  if (matchingRole?.isSuperAdmin || metadataRole.includes('super')) {
+  if (superRole || user?.app_metadata?.is_super_admin === true) {
     return {
       isSuperAdmin: true,
       permissions: ADMIN_FEATURES.map(feature => feature.value),
-      roleName: matchingRole?.roleName || 'Super Admin'
+      reportCategories: REPORT_CATEGORIES,
+      transparencyCategories: TRANSPARENCY_CATEGORIES.map(item => item.value),
+      email,
+      roleName: 'Admin'
     };
   }
 
-  if (matchingRole) {
+  if (matchingRoles.length) {
     return {
       isSuperAdmin: false,
-      permissions: Array.isArray(matchingRole.permissions) && matchingRole.permissions.length > 0
-        ? matchingRole.permissions
-        : buildPermissionSet(matchingRole.feature || matchingRole.permission),
-      roleName: matchingRole.roleName || 'Admin'
+      permissions: [...new Set(matchingRoles.flatMap(role =>
+        Array.isArray(role.permissions) && role.permissions.length
+          ? role.permissions
+          : buildPermissionSet(role.feature || role.permission)
+      ))],
+      reportCategories: normalizeReportCategories(matchingRoles.flatMap(role => role.reportCategories || [])),
+      transparencyCategories: normalizeTransparencyCategories(matchingRoles.flatMap(role => role.transparencyCategories || [])),
+      email,
+      roleName: matchingRoles[0].roleName || 'Admin'
     };
   }
 
-  const fallbackRole = String(user?.user_metadata?.role || '').trim();
-  if (fallbackRole && fallbackRole.toLowerCase().includes('admin')) {
-    return {
-      isSuperAdmin: false,
-      permissions: ['dashboard'],
-      roleName: fallbackRole
-    };
-  }
-
-  return {
-    isSuperAdmin: false,
-    permissions: ['dashboard'],
-    roleName: 'Administrator'
-  };
+  return null;
 }
 
 function getAllowedPagesForSession(session) {
-  const allowed = new Set(['dashboard']);
+  const allowed = new Set();
   if (!session || !session.permissions) return allowed;
 
   if (session.isSuperAdmin) {
+    allowed.add('dashboard');
     ALL_ADMIN_PAGES.forEach(page => allowed.add(page));
     return allowed;
   }
@@ -627,9 +759,10 @@ function getAllowedPagesForSession(session) {
 }
 
 function canAccessPage(page) {
+  if (!adminAuthReady) return false;
   const session = getCurrentAdminSession();
-  if (page === 'dashboard') return true;
-  if (page === 'users') return Boolean(session.isSuperAdmin);
+  if (page === 'dashboard') return Boolean(session.isSuperAdmin);
+  if (page === 'users') return canAccessUserDirectory();
   if (page === 'manage-admin') return Boolean(session.isSuperAdmin);
 
   const allowedPages = getAllowedPagesForSession(session);
@@ -643,13 +776,13 @@ function applyAdminNavigationPermissions(user = null) {
   const allowedPages = getAllowedPagesForSession(session);
   document.querySelectorAll('.nav-item').forEach(item => {
     const page = item.dataset.page;
-    const isVisible = allowedPages.has(page) || page === 'dashboard';
+    const isVisible = allowedPages.has(page);
     item.style.display = isVisible ? '' : 'none';
   });
 
-  if (currentPage && !allowedPages.has(currentPage) && currentPage !== 'dashboard') {
-    const fallbackPage = 'dashboard';
-    if (canAccessPage(fallbackPage)) {
+  if (currentPage && !allowedPages.has(currentPage)) {
+    const fallbackPage = allowedPages.values().next().value;
+    if (fallbackPage) {
       navigateTo(fallbackPage);
     }
   }
@@ -665,8 +798,228 @@ const paginationState = {
   placeReviews: { current: 1, total: 0 },
   services: { current: 1, total: 0 },
   hotline: { current: 1, total: 0 },
-  users: { current: 1, total: 0 }
+  users: { current: 1, total: 0 },
+  adminRoles: { current: 1, total: 0 }
 };
+
+// Keep the complete displayed datasets so PDF exports include all filtered pages.
+const tableExportRows = {};
+
+function setupTableDownloads() {
+  const tables = {
+    barangayTableBody: 'barangays',
+    newsTableBody: 'news',
+    reportsTableBody: 'reports',
+    transparencyTableBody: 'transparency',
+    touristTableBody: 'tourist-destinations',
+    serviceTableBody: 'service-requests',
+    hotlineTableBody: 'hotlines',
+    usersTableBody: 'users'
+  };
+
+  for (const [bodyId, name] of Object.entries(tables)) {
+    const body = document.getElementById(bodyId);
+    const header = body?.closest('.card')?.querySelector('.card-header');
+    if (!header) continue;
+    const actions = header.querySelector('.card-header-actions') || header;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn btn-secondary pdf-download-btn';
+    button.innerHTML = '<i class="fa-solid fa-file-pdf" aria-hidden="true"></i><span>Download PDF</span>';
+    button.title = 'Downloads a styled PDF file';
+    button.setAttribute('aria-label', `Download ${name.replace(/-/g, ' ')} as a styled PDF`);
+    button.addEventListener('click', () => downloadTablePdf(bodyId, name, header.querySelector('h2')?.textContent || name));
+    actions.appendChild(button);
+  }
+}
+
+function exportColumnsForTable(bodyId) {
+  const status = row => formatAdminStatus(row.status);
+  const serviceStatus = row => formatServiceStatus(row.status);
+  const date = value => value ? formatDate(value) : '';
+  const attachmentCount = row => Array.isArray(row.image_urls) ? row.image_urls.length : 0;
+  return {
+    dashboardReportTableBody: [
+      ['Reporter Name', row => row.reporter_name || 'Anonymous'],
+      ['Message', row => row.message], ['Status', status],
+      ['Attachments', attachmentCount], ['Date Submitted', row => date(row.created_at)]
+    ],
+    dashboardServiceTableBody: [
+      ['Requested By', row => getServiceRequesterName(row)],
+      ['Type', row => row._label], ['Status', serviceStatus],
+      ['Date Requested', row => date(row.created_at)]
+    ],
+    barangayTableBody: [
+      ['Barangay Name', row => row.name], ['Description', row => row.description],
+      ['Geographic Data', row => row.geographic_data]
+    ],
+    newsTableBody: [
+      ['Title', row => row.title], ['Description', row => row.description],
+      ['Category', row => row.category || 'General'],
+      ['Image URL', row => row.image_url && !row.image_url.startsWith('data:') ? row.image_url : ''],
+      ['Published', row => row.is_published ? 'Yes' : 'No'],
+      ['Created', row => date(row.created_at)]
+    ],
+    reportsTableBody: [
+      ['Reporter Name', row => row.reporter_name || 'Anonymous'],
+      ['Message', row => row.message], ['Category', row => row.category || 'Other'],
+      ['Status', status], ['Attachments', attachmentCount],
+      ['Submitted (PHT)', row => formatSubmittedAt(row.created_at)],
+      ['Time Since Submission', row => formatSubmissionAge(row.created_at)],
+      ['Last Updated', row => date(row.updated_at)]
+    ],
+    transparencyTableBody: [
+      ['Title', row => row.title], ['Type', row => (row.type || '').replace(/_/g, ' ')],
+      ['Description', row => row.description], ['PDF URL', row => row.pdf_url],
+      ['Created', row => date(row.created_at)], ['Last Updated', row => date(row.updated_at)]
+    ],
+    touristTableBody: [
+      ['Name', row => row.name], ['Location', row => row.location || row.short_location],
+      ['Category', row => row.category], ['Description', row => row.description],
+      ['Reviews', row => allPlaceReviews.filter(review => review.place_id === row.id).length],
+      ['Created', row => date(row.created_at)], ['Last Updated', row => date(row.updated_at)]
+    ],
+    serviceTableBody: [
+      ['Requested By', row => getServiceRequesterName(row)],
+      ['Type', row => row.type || row.service_type], ['Status', serviceStatus],
+      ['Appointment Date', row => date(row.appointment_date || row.date)],
+      ['Submitted (PHT)', row => formatSubmittedAt(row.created_at)],
+      ['Time Since Submission', row => formatSubmissionAge(row.created_at)]
+    ],
+    hotlineTableBody: [
+      ['Name', row => row.name || row.department], ['Category', row => row.category || 'General'],
+      ['Hotline Number', row => Array.isArray(row.phone_numbers) ? row.phone_numbers.join(', ') : row.phone_numbers || row.hotline_number]
+    ],
+    usersTableBody: [
+      ['Email', row => row.email],
+      ['Full Name', row => row.display_name || row.user_metadata?.full_name],
+      ['Phone', row => row.phone || row.user_metadata?.phone],
+      ['Address', row => row.address || row.user_metadata?.address],
+      ['Verification', row => getVerificationBadgeText(row.verification_status)],
+      ['Created', row => date(row.created_at)]
+    ]
+  }[bodyId] || [];
+}
+
+function pdfExportText(value) {
+  // Convert decorative mathematical letters to ordinary text supported by Helvetica.
+  return String(value ?? '').normalize('NFKC')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '')
+    .trim();
+}
+
+function pdfColumnStyles(columns, availableWidth) {
+  const weights = columns.map(([label]) => {
+    if (/description|message|geographic|address/i.test(label)) return 3.5;
+    if (/url$/i.test(label)) return 1.2;
+    if (/title|name|requested by|email|location|hotline number/i.test(label)) return 2.4;
+    if (/date|created|updated|submitted|time since/i.test(label)) return 1.8;
+    return 1.4;
+  });
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  return Object.fromEntries(weights.map((weight, index) =>
+    [index, { cellWidth: availableWidth * weight / total }]));
+}
+
+function downloadTablePdf(bodyId, name, title) {
+  const rows = tableExportRows[bodyId] || [];
+  if (!rows.length) {
+    showToast('There are no records to export in this table.', 'error');
+    return;
+  }
+  if (!window.jspdf?.jsPDF) {
+    showToast('PDF download is unavailable. Please reload the page and try again.', 'error');
+    return;
+  }
+
+  try {
+    const columns = exportColumnsForTable(bodyId);
+    const doc = new window.jspdf.jsPDF({
+      orientation: columns.length > 5 ? 'landscape' : 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+    if (typeof doc.autoTable !== 'function') throw new Error('PDF table library did not load.');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const exportedAt = new Date().toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
+    const statusColumn = columns.findIndex(column => column[0] === 'Status' || column[0] === 'Verification');
+    const links = new Map();
+    const body = rows.map((row, rowIndex) => columns.map((column, columnIndex) => {
+      const value = column[1](row);
+      if (/url$/i.test(column[0])) {
+        const url = String(value || '').trim();
+        if (!/^https?:\/\//i.test(url)) return '';
+        links.set(`${rowIndex}:${columnIndex}`, url);
+        return /pdf/i.test(column[0]) ? 'Open PDF' : 'View image';
+      }
+      return pdfExportText(value);
+    }));
+
+    doc.autoTable({
+      head: [columns.map(column => column[0])],
+      body,
+      tableWidth: pageWidth - 24,
+      columnStyles: pdfColumnStyles(columns, pageWidth - 24),
+      rowPageBreak: 'avoid',
+      startY: 43,
+      margin: { top: 43, right: 12, bottom: 18, left: 12 },
+      theme: 'grid',
+      styles: {
+        font: 'helvetica', fontSize: 8.5, cellPadding: 2.8,
+        textColor: [30, 41, 59], lineColor: [226, 232, 240],
+        lineWidth: 0.15, overflow: 'linebreak', valign: 'top'
+      },
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      didParseCell: data => {
+        if (data.section === 'body' && /description|message|geographic|address/i.test(columns[data.column.index][0])) {
+          data.cell.styles.halign = 'justify';
+        }
+        if (data.section === 'body' && links.has(`${data.row.index}:${data.column.index}`)) {
+          data.cell.styles.textColor = [25, 118, 210];
+        }
+        if (data.section !== 'body' || data.column.index !== statusColumn) return;
+        const value = String(data.cell.raw).toLowerCase();
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fillColor = value.includes('pending') ? [255, 237, 213]
+          : value.includes('returned') ? [254, 226, 226]
+          : value.includes('completed') || value.includes('resolved') || value.includes('verified') ? [220, 252, 231]
+          : [219, 234, 254];
+      },
+      didDrawCell: data => {
+        if (data.section !== 'body') return;
+        const url = links.get(`${data.row.index}:${data.column.index}`);
+        if (url) doc.link(data.cell.x, data.cell.y, data.cell.width, data.cell.height, { url });
+      },
+      didDrawPage: data => {
+        doc.setFillColor(25, 118, 210);
+        doc.rect(0, 0, pageWidth, 5, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(25, 118, 210);
+        doc.text('iTIWI ADMIN DASHBOARD', 12, 15);
+        doc.setFontSize(16);
+        doc.setTextColor(15, 23, 42);
+        doc.text(title, 12, 25);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`${rows.length} records  |  Exported ${exportedAt}`, 12, 33);
+        doc.setDrawColor(226, 232, 240);
+        doc.line(12, 37, pageWidth - 12, 37);
+        doc.text(`Page ${data.pageNumber}`, pageWidth - 12, pageHeight - 8, { align: 'right' });
+      }
+    });
+
+    doc.save(`${name}-${new Date().toISOString().slice(0, 10)}.pdf`);
+    showToast(`Downloaded ${rows.length} ${rows.length === 1 ? 'record' : 'records'} as PDF.`, 'success');
+  } catch (error) {
+    console.error('PDF export failed:', error);
+    showToast('Could not create PDF: ' + error.message, 'error');
+  }
+}
 
 // Notifications array
 let notifications = [];
@@ -725,19 +1078,97 @@ document.addEventListener('DOMContentLoaded', () => {
   setupSidebarCollapse();
   setupSearchListeners();
   setupNotifications();
-  setupNewsImagePreview();
   setupNewsSchedule();
+  setupTableDownloads();
   setupLogoutButton();
   setupRealtimeListeners();
+  setupFileDropZones();
 
-  const defaultRoleCount = getAdminRoles().length;
-  if (defaultRoleCount === 0) {
-    saveAdminRoles([]);
-  }
-
-  const lastPage = localStorage.getItem('lastVisitedPage') || 'dashboard';
-  navigateTo(lastPage);
 });
+
+// Let every admin upload use the same change handler for picked and dropped files.
+function fileMatchesAccept(file, accept) {
+  if (!accept) return true;
+  return accept.split(',').some(rule => {
+    const value = rule.trim().toLowerCase();
+    const type = (file.type || '').toLowerCase();
+    const name = file.name.toLowerCase();
+    if (value.startsWith('.')) return name.endsWith(value);
+    if (value.endsWith('/*')) return type.startsWith(value.slice(0, -1));
+    return type === value;
+  });
+}
+
+function hasDraggedFiles(event) {
+  return Array.from(event.dataTransfer?.types || []).includes('Files');
+}
+
+function bindFileDropZone(input, zone) {
+  if (!input || !zone || zone.dataset.dropBound) return;
+  zone.dataset.dropBound = 'true';
+  zone.classList.add('file-drop-zone');
+  zone.dataset.dropHint = input.multiple ? 'Drop files here' : 'Drop a file here';
+
+  zone.addEventListener('dragenter', event => {
+    if (!hasDraggedFiles(event)) return;
+    event.preventDefault();
+    zone.classList.add('is-drag-over');
+  });
+  zone.addEventListener('dragover', event => {
+    if (!hasDraggedFiles(event)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    zone.classList.add('is-drag-over');
+  });
+  zone.addEventListener('dragleave', event => {
+    if (!zone.contains(event.relatedTarget)) zone.classList.remove('is-drag-over');
+  });
+  zone.addEventListener('drop', event => {
+    event.preventDefault();
+    zone.classList.remove('is-drag-over');
+    const dropped = Array.from(event.dataTransfer?.files || []);
+    if (!dropped.length) return;
+    if (!input.multiple && dropped.length > 1) {
+      showToast('Drop one file in this upload area.', 'error');
+      return;
+    }
+    const invalid = dropped.find(file => !fileMatchesAccept(file, input.accept));
+    if (invalid) {
+      showToast(`Unsupported file type: ${invalid.name}`, 'error');
+      return;
+    }
+    const transfer = new DataTransfer();
+    // These inputs keep their files until Save; gallery and Charter handlers keep
+    // their own pending lists and clear the input after each selection.
+    if (input.multiple && !['newsImage', 'touristImage', 'aboutCharterUpload'].includes(input.id)) {
+      Array.from(input.files || []).forEach(file => transfer.items.add(file));
+    }
+    dropped.forEach(file => transfer.items.add(file));
+    input.files = transfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
+function setupFileDropZones() {
+  document.querySelectorAll('input[type="file"]').forEach(input => {
+    if (input.classList.contains('official-photo-input')) return;
+    let zone = input.closest('.logo-upload-wrapper') ||
+      (input.previousElementSibling?.matches('.charter-upload-panel') ? input.previousElementSibling : null);
+    if (!zone) {
+      // Native file inputs need a visible drop target of their own.
+      zone = document.createElement('div');
+      input.parentNode.insertBefore(zone, input);
+      zone.appendChild(input);
+    }
+    bindFileDropZone(input, zone);
+  });
+  document.addEventListener('dragover', event => {
+    if (hasDraggedFiles(event)) event.preventDefault();
+  });
+  document.addEventListener('drop', event => {
+    if (hasDraggedFiles(event)) event.preventDefault();
+  });
+}
 
 // ============================================================
 // NAVIGATION
@@ -754,6 +1185,7 @@ function setupNavigation() {
 
 function navigateTo(page) {
   if (!page) return;
+  closeSidebar();
   const session = getCurrentAdminSession();
   if (!canAccessPage(page)) {
     showToast('You do not have access to this section.', 'error');
@@ -787,6 +1219,8 @@ function navigateTo(page) {
     loadDashboardService();
   } else if (page === 'barangay') {
     loadBarangayTable();
+  } else if (page === 'about-us') {
+    loadAboutUs();
   } else if (page === 'news') {
     loadNews();
   } else if (page === 'reports') {
@@ -797,6 +1231,7 @@ function navigateTo(page) {
     loadTourist();
   } else if (page === 'services') {
     loadServices();
+    loadAppointmentUnavailableDates();
   } else if (page === 'hotline') {
     loadHotline();
   } else if (page === 'users') {
@@ -805,7 +1240,12 @@ function navigateTo(page) {
     loadManageAdmin();
   }
 
-  document.getElementById('sidebar').classList.remove('open');
+}
+
+function closeSidebar() {
+  document.getElementById('sidebar')?.classList.remove('open');
+  document.getElementById('sidebarOverlay')?.classList.remove('active');
+  document.body.style.overflow = '';
 }
 
 function setupMobileMenu() {
@@ -827,12 +1267,6 @@ function setupMobileMenu() {
       overlay.classList.add('active');
       document.body.style.overflow = 'hidden';
     }
-  }
-
-  function closeSidebar() {
-    sidebar.classList.remove('open');
-    overlay.classList.remove('active');
-    document.body.style.overflow = '';
   }
 
   menuToggle.addEventListener('click', (e) => {
@@ -868,9 +1302,18 @@ function setupMobileMenu() {
 
 function setupSidebarCollapse() {
   const collapseBtn = document.getElementById('sidebarCollapseBtn');
-  const brandLogo = document.querySelector('.brand-logo');
+  const brandLogo = document.getElementById('sidebarLogoBtn');
   const sidebar = document.getElementById('sidebar');
   const body = document.body;
+
+  const updateToggleLabels = () => {
+    const label = sidebar.classList.contains('collapsed') ? 'Expand Sidebar' : 'Collapse Sidebar';
+    for (const button of [collapseBtn, brandLogo]) {
+      button.setAttribute('aria-label', label);
+      button.setAttribute('title', label);
+      button.setAttribute('aria-expanded', String(!sidebar.classList.contains('collapsed')));
+    }
+  };
 
   // Load collapsed state from localStorage
   const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
@@ -878,12 +1321,11 @@ function setupSidebarCollapse() {
     sidebar.classList.add('collapsed');
     body.classList.add('sidebar-collapsed');
   }
+  updateToggleLabels();
 
   const toggleSidebar = () => {
     if (window.innerWidth <= 768) {
-      sidebar.classList.remove('open');
-      document.getElementById('sidebarOverlay')?.classList.remove('active');
-      body.style.overflow = '';
+      closeSidebar();
       return;
     }
 
@@ -891,6 +1333,7 @@ function setupSidebarCollapse() {
     body.classList.toggle('sidebar-collapsed');
     const collapsed = sidebar.classList.contains('collapsed');
     localStorage.setItem('sidebarCollapsed', collapsed);
+    updateToggleLabels();
   };
 
   collapseBtn.addEventListener('click', toggleSidebar);
@@ -951,14 +1394,27 @@ async function loadDashboardStats() {
       .select('*', { count: 'exact', head: true });
     document.getElementById('totalNews').textContent = newsCount || 0;
 
-    const { count: reportsCount } = await supabaseClient
+    const session = getCurrentAdminSession();
+    const allowedCategories = getReportCategoriesForSession(session);
+    let reportsCountQuery = supabaseClient
       .from('reports')
       .select('*', { count: 'exact', head: true });
+    if (!session.isSuperAdmin) {
+      reportsCountQuery = allowedCategories.length
+        ? reportsCountQuery.in('category', allowedCategories)
+        : null;
+    }
+    const { count: reportsCount } = reportsCountQuery
+      ? await reportsCountQuery
+      : { count: 0 };
     document.getElementById('totalReports').textContent = reportsCount || 0;
 
     // Fetch real user count from Firebase backend API
     try {
-      const response = await fetch('/api/user-count');
+      const { data: authData } = await supabaseClient.auth.getSession();
+      const response = await fetch('/api/user-count', {
+        headers: { Authorization: 'Bearer ' + (authData?.session?.access_token || '') }
+      });
       const data = await response.json();
 
       if (data.success) {
@@ -1007,10 +1463,20 @@ async function loadAnalytics() {
 
 async function loadPendingStats() {
   try {
-    const { count: pendingReports } = await supabaseClient
+    const session = getCurrentAdminSession();
+    const allowedCategories = getReportCategoriesForSession(session);
+    let pendingReportsQuery = supabaseClient
       .from('reports')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'pending');
+    if (!session.isSuperAdmin) {
+      pendingReportsQuery = allowedCategories.length
+        ? pendingReportsQuery.in('category', allowedCategories)
+        : null;
+    }
+    const { count: pendingReports } = pendingReportsQuery
+      ? await pendingReportsQuery
+      : { count: 0 };
     document.getElementById('pendingReports').textContent = pendingReports || 0;
 
     const serviceTables = [
@@ -1018,8 +1484,8 @@ async function loadPendingStats() {
       'cenodeath_appointments',
       'cenomar_appointments',
       'death_certificate_appointments',
-      'facility_borrow_requests',
-      'marriage_certificate_appointments'
+      'marriage_certificate_appointments',
+      'facility_borrow_requests'
     ];
 
     let totalPendingServices = 0;
@@ -1054,9 +1520,17 @@ async function loadTransparencyCount() {
 
 async function loadReportStatusBreakdown() {
   try {
-    const { data } = await supabaseClient
+    const session = getCurrentAdminSession();
+    const allowedCategories = getReportCategoriesForSession(session);
+    let reportStatusQuery = supabaseClient
       .from('reports')
       .select('status');
+    if (!session.isSuperAdmin) {
+      reportStatusQuery = allowedCategories.length
+        ? reportStatusQuery.in('category', allowedCategories)
+        : null;
+    }
+    const { data } = reportStatusQuery ? await reportStatusQuery : { data: [] };
 
     const statusCounts = { pending: 0, reviewing: 0, resolved: 0 };
     (data || []).forEach(r => {
@@ -1085,8 +1559,8 @@ async function loadServiceStatusBreakdown() {
       'cenodeath_appointments',
       'cenomar_appointments',
       'death_certificate_appointments',
-      'facility_borrow_requests',
-      'marriage_certificate_appointments'
+      'marriage_certificate_appointments',
+      'facility_borrow_requests'
     ];
 
     const statusCounts = { pending: 0, processing: 0, completed: 0, rejected: 0 };
@@ -1143,9 +1617,17 @@ async function loadNewsByCategory() {
 
 async function loadReportsByCategory() {
   try {
-    const { data } = await supabaseClient
+    const session = getCurrentAdminSession();
+    const allowedCategories = getReportCategoriesForSession(session);
+    let reportCategoryQuery = supabaseClient
       .from('reports')
       .select('category');
+    if (!session.isSuperAdmin) {
+      reportCategoryQuery = allowedCategories.length
+        ? reportCategoryQuery.in('category', allowedCategories)
+        : null;
+    }
+    const { data } = reportCategoryQuery ? await reportCategoryQuery : { data: [] };
 
     const categoryCounts = {};
     (data || []).forEach(item => {
@@ -1166,8 +1648,8 @@ async function loadServicesByType() {
       { name: 'cenodeath_appointments', type: 'Cenodeath Appointments' },
       { name: 'cenomar_appointments', type: 'Cenomar Appointments' },
       { name: 'death_certificate_appointments', type: 'Death Certificate' },
-      { name: 'facility_borrow_requests', type: 'Facility Borrow' },
-      { name: 'marriage_certificate_appointments', type: 'Marriage Certificate' }
+      { name: 'marriage_certificate_appointments', type: 'Marriage Certificate' },
+      { name: 'facility_borrow_requests', type: 'Facility Borrowing' }
     ];
 
     const typeCounts = {};
@@ -1213,6 +1695,19 @@ function renderCategoryList(elementId, categoryCounts) {
 
 function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function formatAdminStatus(status, fallback = 'Pending') {
+  const normalized = (status || '').toLowerCase();
+  if (!normalized) return fallback;
+  if (normalized === 'rejected') return 'Returned';
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function formatServiceStatus(status, fallback = 'Pending') {
+  return String(status || '').trim().toLowerCase() === 'processing'
+    ? 'Ready for Release'
+    : formatAdminStatus(status, fallback);
 }
 
 function escapeHtml(text) {
@@ -1356,7 +1851,7 @@ async function loadPerformanceTrend() {
     const serviceTables = [
       'birth_certificate_appointments', 'cenodeath_appointments',
       'cenomar_appointments', 'death_certificate_appointments',
-      'facility_borrow_requests', 'marriage_certificate_appointments'
+      'marriage_certificate_appointments', 'facility_borrow_requests'
     ];
     for (const table of serviceTables) {
       try {
@@ -1525,11 +2020,23 @@ async function renderDashboardReportTable(tbody) {
   }
 
   try {
-    const { data, error } = await supabaseClient
+    const session = getCurrentAdminSession();
+    const allowedCategories = getReportCategoriesForSession(session);
+    if (!session.isSuperAdmin && allowedCategories.length === 0) {
+      const colSpan = tbody.closest('table').querySelectorAll('th').length;
+      tbody.innerHTML = `<tr><td colspan="${colSpan}" class="empty-state">No reports assigned to your account</td></tr>`;
+      return;
+    }
+
+    let dashboardReportQuery = supabaseClient
       .from('reports')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(5);
+    if (!session.isSuperAdmin) {
+      dashboardReportQuery = dashboardReportQuery.in('category', allowedCategories);
+    }
+    const { data, error } = await dashboardReportQuery;
 
     if (error) throw error;
 
@@ -1557,11 +2064,12 @@ async function renderDashboardReportTable(tbody) {
 
         reports = reports.map(r => ({
           ...r,
-          reporter_name: userMap[r.user_id] || r.user_id.substring(0, 12) || 'Anonymous'
+          reporter_name: r.reporter_name || userMap[r.user_id] || r.user_id?.substring(0, 12) || 'Anonymous'
         }));
       }
     }
 
+    tableExportRows.dashboardReportTableBody = reports;
     const colSpan = tbody.closest('table').querySelectorAll('th').length;
     if (!reports || reports.length === 0) {
       tbody.innerHTML = `<tr><td colspan="${colSpan}" class="empty-state">No reports found</td></tr>`;
@@ -1585,7 +2093,7 @@ async function renderDashboardReportTable(tbody) {
       const tdStatus = document.createElement('td');
       const statusBadge = document.createElement('span');
       statusBadge.className = `status-badge ${getStatusClass(report.status)}`;
-      statusBadge.textContent = (report.status || 'pending').charAt(0).toUpperCase() + (report.status || 'pending').slice(1);
+      statusBadge.textContent = formatAdminStatus(report.status);
       tdStatus.appendChild(statusBadge);
 
       const tdAttachment = document.createElement('td');
@@ -1639,8 +2147,8 @@ async function renderDashboardServiceTable(tbody) {
       { name: 'cenodeath_appointments', label: 'Cenodeath Appointments' },
       { name: 'cenomar_appointments', label: 'Cenomar Appointments' },
       { name: 'death_certificate_appointments', label: 'Death Certificate' },
-      { name: 'facility_borrow_requests', label: 'Facility Borrow' },
-      { name: 'marriage_certificate_appointments', label: 'Marriage Certificate' }
+      { name: 'marriage_certificate_appointments', label: 'Marriage Certificate' },
+      { name: 'facility_borrow_requests', label: 'Facility Borrowing' }
     ];
 
     for (const table of serviceTables) {
@@ -1693,10 +2201,12 @@ async function renderDashboardServiceTable(tbody) {
     combinedData = combinedData
       .map(item => ({
         ...item,
-        display_name: item.user_id ? userDisplayNames[item.user_id] : null
+        display_name: userDisplayNames[item.user_id] || item.display_name || item.requester_name || item.full_name || item.name || null
       }))
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
       .slice(0, 5);
+
+    tableExportRows.dashboardServiceTableBody = combinedData;
 
     const colSpan = tbody.closest('table').querySelectorAll('th').length;
     if (combinedData.length === 0) {
@@ -1709,7 +2219,7 @@ async function renderDashboardServiceTable(tbody) {
       const tr = document.createElement('tr');
 
       const tdRequestedBy = document.createElement('td');
-      tdRequestedBy.textContent = service.display_name || service.requested_by || 'N/A';
+      tdRequestedBy.textContent = getServiceRequesterName(service);
 
       const tdType = document.createElement('td');
       tdType.textContent = service._label || 'Service';
@@ -1717,7 +2227,7 @@ async function renderDashboardServiceTable(tbody) {
       const tdStatus = document.createElement('td');
       const statusBadge = document.createElement('span');
       statusBadge.className = `status-badge ${getStatusClass(service.status)}`;
-      statusBadge.textContent = (service.status || 'pending').charAt(0).toUpperCase() + (service.status || 'pending').slice(1);
+      statusBadge.textContent = formatServiceStatus(service.status);
       tdStatus.appendChild(statusBadge);
 
       const tdDate = document.createElement('td');
@@ -1781,7 +2291,9 @@ async function fetchBarangays() {
 }
 
 async function renderBarangayTable(tbody, limit = null, showPagination = false, barangayData = null) {
-  const barangays = barangayData !== null ? barangayData : await fetchBarangays();
+  const barangays = [...(barangayData !== null ? barangayData : await fetchBarangays())]
+    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
+  if (showPagination) tableExportRows.barangayTableBody = barangays;
 
   if (!showPagination) {
     const data = limit ? barangays.slice(0, limit) : barangays;
@@ -1945,14 +2457,7 @@ function openAddModal() {
   document.getElementById('logoPreview').innerHTML = '<i class="fa-solid fa-image"></i><span>No image selected</span>';
   document.getElementById('coverImagePreview').innerHTML = '<i class="fa-solid fa-image"></i><span>No image selected</span>';
 
-  // Clear officials
-  document.getElementById('punongBarangay').value = '';
-  document.getElementById('skChairman').value = '';
-  document.getElementById('barangaySecretary').value = '';
-  document.getElementById('barangayTreasurer').value = '';
-  for (let i = 1; i <= 7; i++) {
-    document.getElementById(`kagawad${i}`).value = '';
-  }
+  populateOfficials(null);
 
   // Clear coordinates
   document.getElementById('barangayLatitude').value = '';
@@ -1970,6 +2475,7 @@ async function openEditModal(id) {
   document.getElementById('barangaySaveBtn').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update';
   setupLogoUpload();
   setupCoverImageUpload();
+  document.getElementById('barangayOfficialsList').replaceChildren();
 
   if (!supabaseClient) {
     showToast('Database connection unavailable', 'error');
@@ -2027,7 +2533,37 @@ function closeBarangayModal() {
   if (coverInput) coverInput.value = '';
 }
 
+// Check every page rather than relying on the currently filtered dashboard rows.
+function normalizeRecordName(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+async function ensureUniqueRecordName(table, column, value, editId, label) {
+  const normalized = normalizeRecordName(value);
+  const pageSize = 500;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabaseClient.from(table)
+      .select(`id,${column}`).order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw new Error('Unable to check for duplicate names. Please try again.');
+    if (!Array.isArray(data)) throw new Error('Unable to check for duplicate names. Please try again.');
+    if (data.some(record => String(record.id) !== String(editId || '') &&
+        normalizeRecordName(record[column]) === normalized)) {
+      throw new Error(`${label} already exists. Please use a different ${column === 'title' ? 'title' : 'name'}.`);
+    }
+    if (data.length < pageSize) return;
+  }
+}
+
+function recordSaveError(error, label) {
+  if (error?.code === '23505') {
+    return `${label} already exists. Please use a different name or title.`;
+  }
+  return error.message || 'Please try again.';
+}
+
 async function saveBarangay() {
+  if (document.getElementById('barangaySaveBtn').disabled) return;
   const editId = document.getElementById('barangayEditId').value;
   const name = document.getElementById('barangayName').value.trim();
   const description = document.getElementById('barangayDescription').value.trim();
@@ -2037,34 +2573,27 @@ async function saveBarangay() {
   const logoBase64 = document.getElementById('barangayLogoBase64').value;
   const coverImageBase64 = document.getElementById('barangayCoverImageBase64').value;
 
-  // Collect officials
+  if (document.getElementById('barangayOfficialsList').dataset.loadError === 'true') {
+    showToast('Officials data could not be loaded. Repair the saved data before updating.', 'error');
+    return;
+  }
   const officials = collectOfficials();
 
   // Validate required fields
-  if (!name || !description || !geographicData || !latitude || !longitude) {
-    showToast('Please fill all required fields (basic info and coordinates)', 'error');
+  if (!name) {
+    showToast('Please enter the barangay name.', 'error');
     return;
   }
 
-  // Validate officials
-  const requiredOfficials = [
-    'punong_barangay', 'sk_chairman', 'barangay_secretary', 'barangay_treasurer'
-  ];
-  for (const official of requiredOfficials) {
-    if (!officials[official] || officials[official].trim() === '') {
-      showToast(`Please fill in all required officials`, 'error');
-      return;
-    }
-  }
-
-  // Validate kagawad
-  if (!officials.kagawad || officials.kagawad.length < 7) {
-    showToast('Please fill in all 7 Kagawad names', 'error');
+  if ((latitude || longitude) &&
+      (!latitude || !longitude || !Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude)) ||
+       Number(latitude) < -90 || Number(latitude) > 90 || Number(longitude) < -180 || Number(longitude) > 180)) {
+    showToast('Enter both valid latitude and longitude coordinates, or leave both blank.', 'error');
     return;
   }
-  for (const kagawad of officials.kagawad) {
-    if (!kagawad || kagawad.trim() === '') {
-      showToast('Please fill in all 7 Kagawad names', 'error');
+  for (const official of officials) {
+    if (official.file && !official.file.type.startsWith('image/')) {
+      showToast('Official photos must be images.', 'error');
       return;
     }
   }
@@ -2081,21 +2610,34 @@ async function saveBarangay() {
       return;
     }
 
-    const payload = {
-      name,
-      description,
-      geographic_data: geographicData,
-      latitude,
-      longitude,
-      officials: JSON.stringify(officials)
-    };
+    await ensureUniqueRecordName('barangays', 'name', name, editId, 'A barangay with this name');
 
-    if (logoBase64) {
-      payload.logo_url = logoBase64;
+    const savedOfficials = [];
+    for (const official of officials) {
+      savedOfficials.push({
+        name: official.name,
+        position: official.position,
+        image_url: official.file
+          ? await uploadOfficialPhoto(official.file)
+          : official.image_url
+      });
     }
 
-    if (coverImageBase64) {
-      payload.barangay_img = coverImageBase64;
+    const payload = {
+      name,
+      description: description || null,
+      geographic_data: geographicData || null,
+      latitude: latitude ? Number(latitude) : null,
+      longitude: longitude ? Number(longitude) : null,
+      officials: JSON.stringify(savedOfficials)
+    };
+
+    if (logoBase64 || document.getElementById('barangayLogo').files[0]) {
+      payload.logo_url = await compressedImageDataUrl(document.getElementById('barangayLogo').files[0], logoBase64);
+    }
+
+    if (coverImageBase64 || document.getElementById('barangayCoverImage').files[0]) {
+      payload.barangay_img = await compressedImageDataUrl(document.getElementById('barangayCoverImage').files[0], coverImageBase64);
     }
 
     if (editId) {
@@ -2116,7 +2658,7 @@ async function saveBarangay() {
     loadBarangayTable();
   } catch (error) {
     console.error('Error saving barangay:', error);
-    showToast('Failed to save barangay: ' + error.message, 'error');
+    showToast('Failed to save barangay: ' + recordSaveError(error, 'A barangay with this name'), 'error');
   } finally {
     saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save';
     saveBtn.disabled = false;
@@ -2125,52 +2667,457 @@ async function saveBarangay() {
 
 // ---------- Helper Functions for Officials ----------
 function collectOfficials() {
-  const kagawad = [];
-  for (let i = 1; i <= 7; i++) {
-    const kagawadValue = document.getElementById(`kagawad${i}`).value.trim();
-    kagawad.push(kagawadValue);
-  }
-
-  return {
-    punong_barangay: document.getElementById('punongBarangay').value.trim(),
-    sk_chairman: document.getElementById('skChairman').value.trim(),
-    barangay_secretary: document.getElementById('barangaySecretary').value.trim(),
-    barangay_treasurer: document.getElementById('barangayTreasurer').value.trim(),
-    kagawad: kagawad
-  };
+  return Array.from(document.querySelectorAll('#barangayOfficialsList .barangay-official-row')).map(row => ({
+    name: row.querySelector('.official-name').value.trim(),
+    position: row.querySelector('.official-position').value.trim(),
+    image_url: row.dataset.imageUrl || null,
+    file: row.querySelector('.official-photo-input').files[0] || null
+  })).filter(official => official.name || official.image_url || official.file);
 }
 
 function populateOfficials(officialsJson) {
-  if (!officialsJson) {
-    document.getElementById('punongBarangay').value = '';
-    document.getElementById('skChairman').value = '';
-    document.getElementById('barangaySecretary').value = '';
-    document.getElementById('barangayTreasurer').value = '';
-    for (let i = 1; i <= 7; i++) {
-      document.getElementById(`kagawad${i}`).value = '';
-    }
-    return;
-  }
-
+  const list = document.getElementById('barangayOfficialsList');
+  list.replaceChildren();
+  list.dataset.loadError = 'false';
   try {
-    const officials = typeof officialsJson === 'string' ? JSON.parse(officialsJson) : officialsJson;
-
-    document.getElementById('punongBarangay').value = officials.punong_barangay || '';
-    document.getElementById('skChairman').value = officials.sk_chairman || '';
-    document.getElementById('barangaySecretary').value = officials.barangay_secretary || '';
-    document.getElementById('barangayTreasurer').value = officials.barangay_treasurer || '';
-
-    if (officials.kagawad && Array.isArray(officials.kagawad)) {
-      for (let i = 1; i <= 7; i++) {
-        document.getElementById(`kagawad${i}`).value = officials.kagawad[i - 1] || '';
-      }
-    } else {
-      for (let i = 1; i <= 7; i++) {
-        document.getElementById(`kagawad${i}`).value = '';
+    let officials = officialsJson;
+    for (let depth = 0; typeof officials === 'string' && depth < 10; depth++) {
+      const text = officials.trim();
+      if (!text) { officials = []; break; }
+      if (/^[\[{\"]/.test(text)) {
+        officials = JSON.parse(text);
+      } else {
+        officials = text.split(/\r?\n|,/).map(name => name.trim()).filter(Boolean)
+          .map(name => ({ name, position: 'Barangay Official' }));
       }
     }
+    const rows = [];
+    if (Array.isArray(officials)) {
+      officials.forEach(official => {
+        if (typeof official === 'string') official = { name: official, position: 'Barangay Official' };
+        if (!official || typeof official.name !== 'string' || /^[\[{\"]/.test(official.name.trim())) {
+          throw new Error('Invalid saved official');
+        }
+        rows.push({ ...official, position: typeof official.position === 'string'
+          ? official.position : 'Barangay Official' });
+      });
+    } else if (officials && typeof officials === 'object') {
+      const legacyRoles = [
+        ['punong_barangay', 'Punong Barangay'],
+        ['sk_chairman', 'SK Chairman'],
+        ['barangay_secretary', 'Barangay Secretary'],
+        ['barangay_treasurer', 'Barangay Treasurer']
+      ];
+      if (!legacyRoles.some(([key]) => key in officials) && !('kagawad' in officials)) {
+        throw new Error('Unrecognized saved officials');
+      }
+      for (const [key, position] of legacyRoles) {
+        if (officials[key]) rows.push({ name: officials[key], position });
+      }
+      (Array.isArray(officials.kagawad) ? officials.kagawad : []).forEach(name => {
+        if (name) rows.push({ name, position: 'Barangay Kagawad' });
+      });
+    } else if (officials != null) {
+      throw new Error('Invalid saved officials');
+    }
+    const positions = ['Punong Barangay', ...Array(7).fill('Barangay Kagawad'),
+      'SK Chairman', 'Barangay Secretary', 'Barangay Treasurer'];
+    for (const position of positions) {
+      const index = rows.findIndex(official => official.position.trim().toLowerCase() === position.toLowerCase());
+      addOfficialRow(index >= 0 ? rows.splice(index, 1)[0] : { name: '', position });
+    }
+    rows.forEach(official => addOfficialRow(official));
   } catch (error) {
     console.error('Error parsing officials JSON:', error);
+    list.replaceChildren();
+    list.dataset.loadError = 'true';
+    list.textContent = 'Saved officials data is malformed and needs repair before updating.';
+    showToast('Could not load officials safely. Saved data needs repair.', 'error');
+  }
+}
+
+function addOfficialRow(official = {}, listId = 'barangayOfficialsList') {
+  const row = document.createElement('div');
+  row.className = 'barangay-official-row';
+  row.dataset.imageUrl = official.image_url || '';
+  row.innerHTML = `
+    <div class="official-photo-controls">
+      <div class="official-photo-preview"><i class="fa-solid fa-user"></i></div>
+      <input type="file" class="official-photo-input" accept="image/*" hidden>
+      <button type="button" class="btn btn-secondary btn-sm official-photo-button">Choose Photo</button>
+      ${listId === 'barangayOfficialsList' ? '<button type="button" class="btn btn-secondary btn-sm official-photo-remove-button" hidden>Remove Photo</button>' : ''}
+    </div>
+    <div class="official-fields">
+      <div class="form-group"><label>Name</label><input class="official-name" type="text" placeholder="Official's full name"></div>
+      <div class="form-group"><label>Position</label><input class="official-position" type="text" placeholder="e.g. Punong Barangay"></div>
+    </div>
+    <button type="button" class="btn btn-sm btn-delete official-remove-button" title="Remove official" aria-label="Remove official"><i class="fa-solid fa-trash"></i></button>
+  `;
+  row.querySelector('.official-name').value = official.name || '';
+  row.querySelector('.official-position').value = official.position || '';
+  row.querySelector('.official-name').setAttribute('aria-label', 'Official name');
+  row.querySelector('.official-position').setAttribute('aria-label', 'Official position');
+  row.querySelector('.official-photo-button').setAttribute('aria-label', `Choose photo for ${official.name || 'official'}`);
+  const fileInput = row.querySelector('.official-photo-input');
+  const preview = row.querySelector('.official-photo-preview');
+  const removePhotoButton = row.querySelector('.official-photo-remove-button');
+  const updateRemovePhotoButton = () => {
+    if (removePhotoButton) removePhotoButton.hidden = !row.dataset.imageUrl && !fileInput.files.length;
+  };
+  if (official.image_url) {
+    const image = document.createElement('img');
+    image.src = official.image_url;
+    image.alt = `${official.name || 'Official'} photo`;
+    preview.replaceChildren(image);
+  }
+  row.querySelector('.official-photo-button').addEventListener('click', () => fileInput.click());
+  if (removePhotoButton) {
+    removePhotoButton.setAttribute('aria-label', `Remove photo for ${official.name || 'official'}`);
+    removePhotoButton.addEventListener('click', () => {
+      row.dataset.imageUrl = '';
+      fileInput.value = '';
+      const placeholder = document.createElement('i');
+      placeholder.className = 'fa-solid fa-user';
+      preview.replaceChildren(placeholder);
+      updateRemovePhotoButton();
+    });
+  }
+  updateRemovePhotoButton();
+  bindFileDropZone(fileInput, row.querySelector('.official-photo-controls'));
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    updateRemovePhotoButton();
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (fileInput.files[0] !== file) return;
+      const image = document.createElement('img');
+      image.src = reader.result;
+      image.alt = 'Selected official photo';
+      preview.replaceChildren(image);
+    };
+    reader.readAsDataURL(file);
+  });
+  row.querySelector('.official-remove-button').addEventListener('click', () => row.remove());
+  document.getElementById(listId).appendChild(row);
+}
+
+async function uploadOfficialPhoto(file, bucket = 'barangay-officials') {
+  file = await compressImageForUpload(file, 5 * 1024 * 1024);
+  if (file.size > 5 * 1024 * 1024) throw new Error('Official photo is still over 5 MB after compression. Please choose a smaller image.');
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path = `officials/${Date.now()}-${Math.random().toString(36).slice(2, 10)}-${safeName}`;
+  const { error } = await supabaseClient.storage.from(bucket).upload(path, file, {
+    contentType: file.type,
+    upsert: false
+  });
+  if (error) throw error;
+  const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+const ABOUT_FIELDS = {
+  vision: 'aboutVision',
+  mission: 'aboutMission',
+  history: 'aboutHistory',
+  geography: 'aboutGeography'
+};
+const ABOUT_IMAGE_FIELDS = { history: 'history_image_path', geography: 'geography_image_path' };
+const aboutImagePaths = { history: '', geography: '' };
+const aboutPendingImages = { history: null, geography: null };
+let charterFiles = [];
+let pendingCharterFiles = [];
+const CHARTER_FILE_EXTENSIONS = /\.(pdf|doc|docx|xls|xlsx|png|jpe?g|webp)$/i;
+const CHARTER_CONTENT_TYPES = {
+  pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp'
+};
+
+function renderAboutImage(section) {
+  const prefix = section === 'history' ? 'aboutHistoryImage' : 'aboutGeographyImage';
+  const preview = document.getElementById(`${prefix}Preview`);
+  const remove = document.getElementById(`${prefix}Remove`);
+  const status = document.getElementById(`${prefix}Status`);
+  preview.replaceChildren();
+  const file = aboutPendingImages[section];
+  const path = aboutImagePaths[section];
+  preview.hidden = !file && !path;
+  remove.hidden = !file && !path;
+  status.textContent = file
+    ? `${file.name} — ready to save`
+    : path ? 'Current image is shown below.' : 'JPG, PNG, or WebP. Large images are compressed when saved.';
+  if (!file && !path) {
+    return;
+  }
+  const image = document.createElement('img');
+  image.alt = `${section} preview`;
+  preview.appendChild(image);
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (aboutPendingImages[section] === file) image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  } else {
+    image.src = supabaseClient.storage.from('municipal-profile-images').getPublicUrl(path).data.publicUrl;
+  }
+}
+
+function selectAboutImage(section, file) {
+  if (!file || !Object.hasOwn(ABOUT_IMAGE_FIELDS, section)) return;
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || !file.size) {
+    showToast('Choose a JPG, PNG, or WebP image.', 'error');
+    document.getElementById(section === 'history' ? 'aboutHistoryImage' : 'aboutGeographyImage').value = '';
+    return;
+  }
+  aboutPendingImages[section] = file;
+  document.getElementById(section === 'history' ? 'aboutHistoryImage' : 'aboutGeographyImage').value = '';
+  renderAboutImage(section);
+}
+
+function clearAboutImage(section) {
+  if (!Object.hasOwn(ABOUT_IMAGE_FIELDS, section)) return;
+  aboutPendingImages[section] = null;
+  aboutImagePaths[section] = '';
+  renderAboutImage(section);
+}
+
+async function uploadAboutImage(section, originalFile) {
+  const file = await compressImageForUpload(originalFile, 5 * 1024 * 1024);
+  if (file.size > 5 * 1024 * 1024) throw new Error('Image is still over 5 MB after compression.');
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path = `${section}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}-${safeName}`;
+  const { error } = await supabaseClient.storage.from('municipal-profile-images').upload(path, file, {
+    contentType: file.type, upsert: false
+  });
+  if (error) throw error;
+  return path;
+}
+
+function addCharterFiles(fileList) {
+  for (const file of Array.from(fileList || [])) {
+    if (!CHARTER_FILE_EXTENSIONS.test(file.name) || file.size === 0) {
+      showToast(`Choose a nonempty PDF, Word, Excel, or image file: ${file.name}`, 'error');
+      continue;
+    }
+    pendingCharterFiles.push(file);
+  }
+  document.getElementById('aboutCharterUpload').value = '';
+  renderCharterFiles();
+}
+
+function renderCharterFiles() {
+  const list = document.getElementById('aboutCharterFiles');
+  list.replaceChildren();
+  const entries = [
+    ...charterFiles.map((file, index) => ({ file, index, pending: false })),
+    ...pendingCharterFiles.map((file, index) => ({ file, index, pending: true }))
+  ];
+  if (!entries.length) {
+    const empty = document.createElement('p');
+    empty.className = 'form-help-text';
+    empty.textContent = 'No Charter files uploaded yet.';
+    list.appendChild(empty);
+    return;
+  }
+  for (const { file, index, pending } of entries) {
+    const row = document.createElement('div');
+    row.className = 'charter-file-row';
+    const fileIcon = document.createElement('span');
+    fileIcon.className = 'charter-file-icon';
+    fileIcon.setAttribute('aria-hidden', 'true');
+    const icon = document.createElement('i');
+    const extension = file.name.split('.').pop().toLowerCase();
+    icon.className = ['jpg', 'jpeg', 'png', 'webp'].includes(extension)
+      ? 'fa-solid fa-file-image'
+      : extension === 'pdf' ? 'fa-solid fa-file-pdf' : 'fa-solid fa-file-lines';
+    fileIcon.appendChild(icon);
+    row.appendChild(fileIcon);
+    const details = document.createElement('div');
+    details.className = 'charter-file-details';
+    const name = document.createElement('span');
+    name.className = 'charter-file-name';
+    name.textContent = file.name;
+    name.title = file.name;
+    details.appendChild(name);
+    const status = document.createElement('small');
+    if (pending) {
+      status.textContent = file.type.startsWith('image/') && file.size > 10 * 1024 * 1024
+        ? 'Will compress when saved'
+        : 'Ready to upload';
+    } else {
+      status.textContent = 'Uploaded';
+    }
+    details.appendChild(status);
+    row.appendChild(details);
+    const actions = document.createElement('div');
+    actions.className = 'charter-file-actions';
+    if (!pending && file.path) {
+      const link = document.createElement('a');
+      const publicUrl = supabaseClient.storage.from('municipal-charter').getPublicUrl(file.path).data.publicUrl;
+      link.href = publicUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.className = 'charter-view-button';
+      link.setAttribute('aria-label', `View ${file.name}`);
+      link.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span>View file</span>';
+      actions.appendChild(link);
+    }
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'btn btn-sm btn-delete';
+    remove.textContent = 'Remove';
+    remove.addEventListener('click', () => {
+      if (pending) pendingCharterFiles.splice(index, 1);
+      else charterFiles.splice(index, 1);
+      renderCharterFiles();
+    });
+    actions.appendChild(remove);
+    row.appendChild(actions);
+    list.appendChild(row);
+  }
+}
+
+async function uploadCharterFile(file) {
+  const originalExtension = file.name.split('.').pop().toLowerCase();
+  if (['jpg', 'jpeg', 'png', 'webp'].includes(originalExtension)) {
+    if (!file.type.startsWith('image/')) {
+      file = new File([file], file.name, { type: CHARTER_CONTENT_TYPES[originalExtension], lastModified: file.lastModified });
+    }
+    file = await compressImageForUpload(file, 10 * 1024 * 1024);
+    if (file.size > 10 * 1024 * 1024) {
+      throw new Error(`Charter image is still over 10 MB after compression: ${file.name}`);
+    }
+  }
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const extension = file.name.split('.').pop().toLowerCase();
+  const path = `charter/${Date.now()}-${Math.random().toString(36).slice(2, 10)}-${safeName}`;
+  const { error } = await supabaseClient.storage.from('municipal-charter').upload(path, file, {
+    contentType: CHARTER_CONTENT_TYPES[extension], upsert: false
+  });
+  if (error) throw error;
+  return { name: file.name, path };
+}
+
+function selectAboutSection(sectionId) {
+  const buttons = document.querySelectorAll('#aboutUsPage [data-about-section]');
+  if (!Array.from(buttons).some(button => button.dataset.aboutSection === sectionId)) return;
+  buttons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.aboutSection === sectionId)));
+  document.querySelectorAll('#aboutUsPage .about-category-panel').forEach(panel => {
+    panel.hidden = panel.id !== sectionId;
+  });
+}
+
+async function loadAboutUs() {
+  if (!supabaseClient) return;
+  try {
+    const { data, error } = await supabaseClient.from('municipal_profile').select('*').eq('id', 1).maybeSingle();
+    if (error) throw error;
+    for (const [column, id] of Object.entries(ABOUT_FIELDS)) {
+      document.getElementById(id).value = column === 'vision'
+        ? (data?.vision || data?.vision_mission || '')
+        : (data?.[column] || '');
+    }
+    for (const [section, column] of Object.entries(ABOUT_IMAGE_FIELDS)) {
+      aboutImagePaths[section] = data?.[column] || '';
+      aboutPendingImages[section] = null;
+      renderAboutImage(section);
+    }
+    charterFiles = Array.isArray(data?.citizens_charter_files) ? data.citizens_charter_files : [];
+    pendingCharterFiles = [];
+    renderCharterFiles();
+    const list = document.getElementById('municipalOfficialsList');
+    list.replaceChildren();
+    for (const official of sortMunicipalOfficials(Array.isArray(data?.officials) ? data.officials : [])) {
+      addMunicipalOfficialRow(official);
+    }
+  } catch (error) {
+    console.error('Error loading About Us:', error);
+    showToast('Failed to load About Us: ' + error.message, 'error');
+  }
+}
+
+function addMunicipalOfficialRow(official = {}) {
+  addOfficialRow(official, 'municipalOfficialsList');
+  document.querySelector('#municipalOfficialsList .barangay-official-row:last-child .official-position').placeholder = 'e.g. Municipal Mayor';
+}
+
+function sortMunicipalOfficials(officials) {
+  const isMayor = official => /\bmayor\b/i.test(official.position || '') && !/\bvice\b/i.test(official.position || '');
+  return [...officials.filter(isMayor), ...officials.filter(official => !isMayor(official))];
+}
+
+async function saveAboutUs() {
+  if (!supabaseClient) {
+    showToast('Database connection unavailable', 'error');
+    return;
+  }
+  const officials = Array.from(document.querySelectorAll('#municipalOfficialsList .barangay-official-row')).map(row => ({
+    name: row.querySelector('.official-name').value.trim(),
+    position: row.querySelector('.official-position').value.trim(),
+    image_url: row.dataset.imageUrl || null,
+    file: row.querySelector('.official-photo-input').files[0] || null
+  }));
+  if (officials.some(item => !item.name || !item.position)) {
+    selectAboutSection('aboutOfficialsSection');
+    const missingField = Array.from(document.querySelectorAll('#municipalOfficialsList .official-name, #municipalOfficialsList .official-position')).find(input => !input.value.trim());
+    missingField?.focus();
+    showToast('Fill in the name and position for each official.', 'error');
+    return;
+  }
+  if (officials.some(item => item.file && !['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(item.file.type))) {
+    selectAboutSection('aboutOfficialsSection');
+    showToast('Official photos must be JPG, PNG, WebP, or GIF images.', 'error');
+    return;
+  }
+  const button = document.getElementById('aboutSaveBtn');
+  if (button.disabled) return;
+  const saveStatus = document.getElementById('aboutSaveStatus');
+  saveStatus.textContent = 'Saving your changes. Please keep this page open.';
+  document.querySelectorAll('#aboutUsPage .form-section').forEach(section => { section.inert = true; });
+  button.disabled = true;
+  button.innerHTML = '<span class="loading-spinner"></span> Saving...';
+  try {
+    const payload = { id: 1 };
+    for (const [column, id] of Object.entries(ABOUT_FIELDS)) payload[column] = document.getElementById(id).value.trim();
+    for (const [section, column] of Object.entries(ABOUT_IMAGE_FIELDS)) {
+      payload[column] = aboutPendingImages[section]
+        ? await uploadAboutImage(section, aboutPendingImages[section])
+        : aboutImagePaths[section];
+    }
+    payload.vision_mission = '';
+    payload.citizens_charter_files = [...charterFiles];
+    for (const file of pendingCharterFiles) {
+      payload.citizens_charter_files.push(await uploadCharterFile(file));
+    }
+    payload.officials = [];
+    for (const official of sortMunicipalOfficials(officials)) {
+      payload.officials.push({
+        name: official.name,
+        position: official.position,
+        image_url: official.file ? await uploadOfficialPhoto(official.file, 'municipal-officials') : official.image_url
+      });
+    }
+    const { error } = await supabaseClient.from('municipal_profile').upsert(payload, { onConflict: 'id' });
+    if (error) throw error;
+    showToast('About Us updated successfully!', 'success');
+    await loadAboutUs();
+    saveStatus.textContent = 'Changes saved. About Us is up to date.';
+  } catch (error) {
+    console.error('Error saving About Us:', error);
+    saveStatus.textContent = 'Changes could not be saved. Please try again.';
+    showToast('Failed to save About Us: ' + error.message, 'error');
+  } finally {
+    button.disabled = false;
+    document.querySelectorAll('#aboutUsPage .form-section').forEach(section => { section.inert = false; });
+    button.innerHTML = '<i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save changes';
   }
 }
 
@@ -2223,18 +3170,6 @@ async function confirmDelete() {
       addNotification('News Deleted', 'A news article has been removed', 'warning');
       loadDashboardStats();
       loadNews();
-    } else if (deleteType === 'report') {
-      if (!supabaseClient) {
-        showToast('Database connection unavailable', 'error');
-        deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete';
-        deleteBtn.disabled = false;
-        return;
-      }
-      const { error } = await supabaseClient.from('reports').delete().eq('id', deleteTarget);
-      if (error) throw error;
-      showToast('Report deleted successfully!', 'success');
-      addNotification('Report Deleted', 'A report has been removed', 'warning');
-      loadReports();
     } else if (deleteType === 'transparency') {
       if (!supabaseClient) {
         showToast('Database connection unavailable', 'error');
@@ -2245,8 +3180,9 @@ async function confirmDelete() {
 
       // Find the record to get its type
       const record = allTransparency.find(t => t.id === deleteTarget);
+      if (!record || !canAccessTransparency(record.type)) throw new Error('You cannot manage this transparency category.');
       if (record) {
-        const tableName = `transparency_${record.type}`;
+        const tableName = `transparency_${canonicalTransparencyType(record.type)}`;
         const { error } = await supabaseClient.from(tableName).delete().eq('id', deleteTarget);
         if (error) throw error;
       }
@@ -2274,6 +3210,7 @@ async function confirmDelete() {
 
       let deleted = false;
       for (const tableName of tableNames) {
+      if (!canAccessTransparency(tableName.replace('transparency_', ''))) continue;
         try {
           const { error } = await supabaseClient.from(tableName).delete().eq('id', deleteTarget);
           if (!error) {
@@ -2312,30 +3249,6 @@ async function confirmDelete() {
         console.error('Error deleting review:', error);
         throw error;
       }
-    } else if (deleteType === 'service') {
-      if (!supabaseClient) {
-        showToast('Database connection unavailable', 'error');
-        deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete';
-        deleteBtn.disabled = false;
-        return;
-      }
-
-      // Find which table this record belongs to
-      const recordToDelete = allServices.find(s => s.id === deleteTarget);
-      if (recordToDelete && recordToDelete.table_name) {
-        const { error } = await supabaseClient
-          .from(recordToDelete.table_name)
-          .delete()
-          .eq('id', deleteTarget);
-
-        if (error) throw error;
-        showToast('Service deleted successfully!', 'success');
-        addNotification('Service Deleted', 'A service request has been removed', 'warning');
-        console.log(`Deleted from table: ${recordToDelete.table_name}`);
-        loadServices();
-      } else {
-        throw new Error('Could not determine which table contains this record');
-      }
     } else if (deleteType === 'hotline') {
       if (!supabaseClient) {
         showToast('Database connection unavailable', 'error');
@@ -2348,18 +3261,6 @@ async function confirmDelete() {
       showToast('Hotline deleted successfully!', 'success');
       addNotification('Hotline Deleted', 'A hotline record has been removed', 'warning');
       loadHotline();
-    } else if (deleteType === 'user') {
-      if (!supabaseClient) {
-        showToast('Database connection unavailable', 'error');
-        deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete';
-        deleteBtn.disabled = false;
-        return;
-      }
-      const { error } = await supabaseClient.from('users').delete().eq('id', deleteTarget);
-      if (error) throw error;
-      showToast('User deleted successfully!', 'success');
-      addNotification('User Deleted', 'A user has been removed', 'warning');
-      loadUsers();
     }
   } catch (error) {
     console.error('Error deleting:', error);
@@ -2374,6 +3275,10 @@ async function confirmDelete() {
 // Close modals on overlay click
 document.addEventListener('click', (e) => {
   if (e.target.classList.contains('modal-overlay') && e.target.classList.contains('active')) {
+    if (e.target.id === 'appointmentAvailabilityModal') {
+      closeAppointmentAvailabilityModal();
+      return;
+    }
     e.target.classList.remove('active');
     deleteTarget = null;
     deleteType = null;
@@ -2383,6 +3288,10 @@ document.addEventListener('click', (e) => {
 // Close modals on Escape key
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
+    if (document.getElementById('imageLightbox')?.classList.contains('active')) return;
+    if (document.getElementById('appointmentAvailabilityModal')?.classList.contains('active')) {
+      closeAppointmentAvailabilityModal();
+    }
     document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
     deleteTarget = null;
     deleteType = null;
@@ -2392,6 +3301,94 @@ document.addEventListener('keydown', (e) => {
 // ============================================================
 // NEWS CRUD
 // ============================================================
+const galleryImages = { news: [], tourist: [] };
+
+function setGalleryImages(kind, record = {}) {
+  const urls = Array.isArray(record.image_urls) && record.image_urls.length
+    ? record.image_urls
+    : (record.image_url ? [record.image_url] : []);
+  galleryImages[kind] = urls.filter(url => typeof url === 'string' && url.trim()).slice(0, 5).map(url => ({ url }));
+  renderGalleryImages(kind);
+}
+
+function addGalleryImages(kind, files) {
+  const input = document.getElementById(kind === 'news' ? 'newsImage' : 'touristImage');
+  const selected = Array.from(files || []);
+  input.value = '';
+  if (galleryImages[kind].length + selected.length > 5) {
+    showToast('You can upload up to 5 images.', 'error');
+    return;
+  }
+  for (const file of selected) {
+    const validation = validateFileUpload(file, ['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+    if (!validation.valid || !file.size) {
+      showToast('Image upload error: ' + (validation.valid ? 'The image is empty.' : validation.error), 'error');
+      return;
+    }
+  }
+  galleryImages[kind].push(...selected.map(file => ({ file })));
+  renderGalleryImages(kind);
+}
+
+function renderGalleryImages(kind) {
+  const preview = document.getElementById(kind === 'news' ? 'newsImagePreview' : 'touristImagePreview');
+  preview.replaceChildren();
+  if (!galleryImages[kind].length) {
+    preview.textContent = 'No images selected';
+    return;
+  }
+  galleryImages[kind].forEach((item, index) => {
+    const tile = document.createElement('div');
+    tile.className = 'image-gallery-tile';
+    const image = document.createElement('img');
+    image.alt = `Image ${index + 1}`;
+    tile.appendChild(image);
+    if (item.url) image.src = item.url;
+    else {
+      const reader = new FileReader();
+      reader.onload = () => { if (tile.isConnected) image.src = reader.result; };
+      reader.readAsDataURL(item.file);
+    }
+    const label = document.createElement('span');
+    label.textContent = index === 0 ? 'Cover' : `${index + 1}`;
+    tile.appendChild(label);
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'remove-image-btn';
+    remove.title = 'Remove image';
+    remove.setAttribute('aria-label', `Remove image ${index + 1}`);
+    remove.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+    remove.addEventListener('click', () => {
+      galleryImages[kind].splice(index, 1);
+      renderGalleryImages(kind);
+    });
+    tile.appendChild(remove);
+    preview.appendChild(tile);
+  });
+}
+
+async function uploadGalleryImages(kind) {
+  const bucket = kind === 'news' ? 'NEWS' : 'places-images';
+  const urls = [];
+  for (const item of galleryImages[kind]) {
+    if (item.url) {
+      urls.push(item.url);
+      continue;
+    }
+    const file = await compressImageForUpload(item.file, 5 * 1024 * 1024);
+    const validation = validateFileUpload(file, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], 5 * 1024 * 1024);
+    if (!validation.valid) throw new Error(validation.error);
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `${kind === 'news' ? 'news' : 'destination/touristguide'}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}-${safeName}`;
+    const { error } = await supabaseClient.storage.from(bucket).upload(path, file, {
+      contentType: file.type, upsert: false
+    });
+    if (error) throw error;
+    urls.push(supabaseClient.storage.from(bucket).getPublicUrl(path).data.publicUrl);
+  }
+  return urls;
+}
+
 async function loadNews() {
   const tbody = document.getElementById('newsTableBody');
   if (!tbody) return;
@@ -2422,6 +3419,7 @@ async function loadNews() {
 
 async function renderNewsTable(newsData) {
   const tbody = document.getElementById('newsTableBody');
+  tableExportRows.newsTableBody = newsData;
   const colSpan = tbody.closest('table').querySelectorAll('th').length;
 
   const totalItems = newsData.length;
@@ -2600,8 +3598,7 @@ function openNewsModal() {
   document.getElementById('newsContent').value = '';
   document.getElementById('newsCategory').value = '';
   document.getElementById('newsImage').value = '';
-  document.getElementById('newsImageUrl').value = '';
-  document.getElementById('newsImagePreview').innerHTML = '<i class="fa-solid fa-image"></i><span>No image selected</span>';
+  setGalleryImages('news');
   document.getElementById('newsScheduleCheckbox').checked = false;
   document.getElementById('newsScheduleDate').value = '';
   document.getElementById('newsScheduleTime').value = '';
@@ -2637,15 +3634,8 @@ async function openEditNewsModal(id) {
       document.getElementById('newsTitle').value = data.title || '';
       document.getElementById('newsContent').value = data.description || '';
       document.getElementById('newsCategory').value = data.category || '';
-      document.getElementById('newsImageUrl').value = data.image_url || '';
       document.getElementById('newsImage').value = '';
-
-      if (data.image_url) {
-        const previewDiv = document.getElementById('newsImagePreview');
-        previewDiv.innerHTML = `<img src="${data.image_url}" alt="News image" style="max-width: 100%; max-height: 200px; border-radius: 8px;" />`;
-      } else {
-        document.getElementById('newsImagePreview').innerHTML = '<i class="fa-solid fa-image"></i><span>No image selected</span>';
-      }
+      setGalleryImages('news', data);
 
       // Load scheduling data
       if (data.scheduled_at) {
@@ -2719,41 +3709,6 @@ function updateSchedulePreview() {
   }
 }
 
-function removeNewsImage() {
-  document.getElementById('newsImage').value = '';
-  document.getElementById('newsImageUrl').value = '';
-  document.getElementById('newsImagePreview').innerHTML = '<i class="fa-solid fa-image"></i><span>No image selected</span>';
-}
-
-function setupNewsImagePreview() {
-  const fileInput = document.getElementById('newsImage');
-  if (!fileInput) return;
-
-  fileInput.addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        const previewDiv = document.getElementById('newsImagePreview');
-        previewDiv.innerHTML = `
-          <div class="preview-image-wrapper">
-            <img src="${event.target.result}" alt="Preview" style="max-width: 100%; max-height: 200px; border-radius: 8px;" />
-            <button type="button" class="remove-image-btn" title="Remove image">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </div>
-        `;
-        previewDiv.querySelector('.remove-image-btn').addEventListener('click', (e) => {
-          e.preventDefault();
-          fileInput.value = '';
-          previewDiv.innerHTML = '';
-        });
-      };
-      reader.readAsDataURL(file);
-    }
-  });
-}
-
 function setupNewsSchedule() {
   const dateInput = document.getElementById('newsScheduleDate');
   const timeInput = document.getElementById('newsScheduleTime');
@@ -2777,11 +3732,10 @@ async function saveNews() {
   const editId = document.getElementById('newsEditId').value;
   const title = document.getElementById('newsTitle').value.trim();
   const content = document.getElementById('newsContent').value.trim();
-  const fileInput = document.getElementById('newsImage');
-  const existingImageUrl = document.getElementById('newsImageUrl').value;
+  const category = document.getElementById('newsCategory').value.trim();
 
-  if (!title || !content) {
-    showToast('Please fill all required fields', 'error');
+  if (!title || !category) {
+    showToast('Please enter a title and category.', 'error');
     return;
   }
 
@@ -2797,42 +3751,9 @@ async function saveNews() {
       return;
     }
 
-    let imageUrl = existingImageUrl;
-
-    // Upload new image if selected
-    if (fileInput.files.length > 0) {
-      const file = fileInput.files[0];
-
-      // Validate file upload
-      const validation = validateFileUpload(file, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], 5 * 1024 * 1024);
-      if (!validation.valid) {
-        showToast('File upload error: ' + validation.errors.join(', '), 'error');
-        return;
-      }
-
-      const fileName = `news_${Date.now()}_${sanitizeText(file.name)}`;
-      const { data, error: uploadError } = await supabaseClient.storage
-        .from('NEWS')
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabaseClient.storage
-        .from('NEWS')
-        .getPublicUrl(data.path);
-
-      imageUrl = urlData.publicUrl;
-    }
-
-    const payload = { title, description: content, image_url: imageUrl };
-
-    // Add category if selected
-    const category = document.getElementById('newsCategory').value;
-    if (category && category.trim() !== '') {
-      payload.category = category;
-    } else {
-      payload.category = 'Announcement'; // Default category
-    }
+    const imageUrls = await uploadGalleryImages('news');
+    const imageUrl = imageUrls[0] || null;
+    const payload = { title, description: content, category, image_url: imageUrl, image_urls: imageUrls };
 
     // Add scheduled_at if scheduling is enabled
     const scheduledAtValue = document.getElementById('newsScheduledAt').value;
@@ -3007,6 +3928,98 @@ async function sendVerificationStatusPushNotification({ userId, status, rejectio
   }
 }
 
+async function sendReportStatusPushNotification({ reportId, userId, status, reviewMessage = '', rejectionReason = '', accomplishmentMessage = '' }) {
+  const normalizedUserId = String(userId || '').trim();
+  if (!reportId || !normalizedUserId) {
+    console.warn('Report status push skipped: report has no user_id', reportId);
+    return false;
+  }
+
+  const title = status === 'reviewing' ? 'Your report is under review'
+    : status === 'resolved' ? 'Your report was resolved'
+    : status === 'rejected' ? 'Your report was returned'
+    : 'Your report status was updated';
+  const description = status === 'reviewing'
+    ? (reviewMessage || 'The admin is reviewing your report.')
+    : status === 'resolved'
+      ? (accomplishmentMessage || 'The admin marked your report as resolved.')
+      : status === 'rejected'
+        ? `Your report was returned. Reason: ${rejectionReason}`
+        : 'Your report is pending review.';
+
+  try {
+    const response = await fetch('/api/send-notification', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        topic: `report_user_${normalizedUserId.replace(/[^a-zA-Z0-9\-_.~%]/g, '_')}`,
+        type: 'report_status',
+        reportId,
+        status,
+        rejectionReason,
+        title,
+        description,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Failed to send report status push:', response.status, errorText);
+      return false;
+    }
+
+    console.log('Report status push notification sent:', await response.json());
+    return true;
+  } catch (error) {
+    console.error('Error sending report status push notification:', error);
+    return false;
+  }
+}
+
+async function sendOnlineServiceStatusPushNotification(record, status, reason = '') {
+  const userId = String(record.user_id || '').trim();
+  if (!userId) {
+    console.warn('Service status push skipped: request has no user_id', record.id);
+    return false;
+  }
+
+  const serviceLabel = record.type || 'Online service';
+  const statusText = status === 'processing' ? 'ready for release'
+    : status === 'completed' ? 'completed'
+    : status === 'rejected' ? 'returned'
+    : 'pending';
+  const description = `Your ${serviceLabel} request is ${statusText}.` +
+    (reason ? ` ${status === 'rejected' ? 'Reason' : 'Note'}: ${reason}` : '');
+  try {
+    const response = await fetch('/api/send-notification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        topic: `online_service_user_${userId.replace(/[^a-zA-Z0-9\-_.~%]/g, '_')}`,
+        type: 'online_service_status',
+        requestId: String(record.id),
+        status,
+        serviceLabel,
+        applicantName: record.display_name || '',
+        table: record.table_name,
+        title: `${serviceLabel} request ${statusText}`,
+        description,
+      }),
+    });
+    if (!response.ok) {
+      console.error('Failed to send service status push:', response.status, await response.text());
+      return false;
+    }
+    console.log('Service status push notification sent:', await response.json());
+    return true;
+  } catch (error) {
+    console.error('Error sending service status push notification:', error);
+    return false;
+  }
+}
+
 function openDeleteNews(id, title) {
   deleteTarget = id;
   deleteType = 'news';
@@ -3030,10 +4043,35 @@ async function loadReports() {
   }
 
   try {
-    const { data, error } = await supabaseClient
+    const session = getCurrentAdminSession();
+    const allowedCategories = getReportCategoriesForSession(session);
+    syncReportCategoryFilter();
+    const assignedEmail = String(session.email || '').trim();
+    if (!session.isSuperAdmin && allowedCategories.length === 0 && !assignedEmail) {
+      allReports = [];
+      renderReportsTable(allReports);
+      return;
+    }
+
+    let query = supabaseClient
       .from('reports')
-      .select('id, user_id, message, image_urls, status, rejection_reason, resolution_notes, accomplishment_message, accomplishment_files, created_at, updated_at')
+      .select('*')
       .order('created_at', { ascending: false });
+
+    if (!session.isSuperAdmin) {
+      if (allowedCategories.length && assignedEmail) {
+        const categories = allowedCategories
+          .map(category => `"${category.replace(/"/g, '\\"')}"`)
+          .join(',');
+        query = query.or(`category.in.(${categories}),assigned_admin_email.eq."${assignedEmail.replace(/"/g, '\\"')}"`);
+      } else if (allowedCategories.length) {
+        query = query.in('category', allowedCategories);
+      } else {
+        query = query.eq('assigned_admin_email', assignedEmail);
+      }
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 
@@ -3070,8 +4108,8 @@ async function loadReports() {
 
         allReports = allReports.map(r => ({
           ...r,
-          reporter_name: userMap[r.user_id] || r.user_id.substring(0, 12) || 'Anonymous',
-          reporter_email: emailMap[r.user_id] || ''
+          reporter_name: r.reporter_name || userMap[r.user_id] || r.user_id.substring(0, 12) || 'Anonymous',
+          reporter_email: r.reporter_email || emailMap[r.user_id] || ''
         }));
       }
     }
@@ -3086,6 +4124,7 @@ async function loadReports() {
 
 function renderReportsTable(reportsData) {
   const tbody = document.getElementById('reportsTableBody');
+  tableExportRows.reportsTableBody = reportsData;
   const colSpan = tbody.closest('table').querySelectorAll('th').length;
 
   const totalItems = reportsData.length;
@@ -3122,11 +4161,28 @@ function renderReportsTable(reportsData) {
     tdMessage.style.fontSize = '13px';
     tdMessage.title = r.message || '';
 
+    const tdCategory = document.createElement('td');
+    tdCategory.textContent = r.category || 'Other';
+    tdCategory.style.fontSize = '13px';
+
     const tdStatus = document.createElement('td');
     const statusBadge = document.createElement('span');
     statusBadge.className = `status-badge ${getStatusClass(r.status)}`;
-    statusBadge.textContent = (r.status || 'pending').charAt(0).toUpperCase() + (r.status || 'pending').slice(1);
+    statusBadge.textContent = formatAdminStatus(r.status);
     tdStatus.appendChild(statusBadge);
+    if (r.assigned_admin_email) {
+      const forwardedTo = document.createElement('div');
+      forwardedTo.textContent = `Forwarded to: ${r.assigned_admin_email}`;
+      forwardedTo.style.cssText = 'margin-top: 6px; font-size: 11px; color: #64748b;';
+      tdStatus.appendChild(forwardedTo);
+
+      if (r.forwarded_by_email) {
+        const forwardedBy = document.createElement('div');
+        forwardedBy.textContent = `Forwarded by: ${r.forwarded_by_email}`;
+        forwardedBy.style.cssText = 'margin-top: 3px; font-size: 11px; color: #64748b;';
+        tdStatus.appendChild(forwardedBy);
+      }
+    }
 
     const tdAttachments = document.createElement('td');
     const imageUrls = r.image_urls || [];
@@ -3134,8 +4190,11 @@ function renderReportsTable(reportsData) {
     tdAttachments.style.fontSize = '13px';
 
     const tdDate = document.createElement('td');
-    tdDate.textContent = formatDate(r.created_at);
-    tdDate.style.fontSize = '13px';
+    tdDate.textContent = formatSubmittedDate(r.created_at);
+    tdDate.title = formatSubmittedAt(r.created_at);
+    tdDate.className = 'submission-time-cell';
+
+    const tdAge = createSubmissionAgeCell(r.created_at);
 
     const tdUpdated = document.createElement('td');
     tdUpdated.textContent = formatDate(r.updated_at);
@@ -3157,22 +4216,17 @@ function renderReportsTable(reportsData) {
     editBtn.innerHTML = '<i class="fa-solid fa-pencil"></i>';
     editBtn.addEventListener('click', () => openEditReportModal(r.id));
 
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'btn btn-sm btn-delete btn-icon';
-    deleteBtn.title = 'Delete';
-    deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
-    deleteBtn.addEventListener('click', () => openDeleteReport(r.id, r.reporter_name || 'Report'));
-
     actionsDiv.appendChild(viewBtn);
     actionsDiv.appendChild(editBtn);
-    actionsDiv.appendChild(deleteBtn);
     tdActions.appendChild(actionsDiv);
 
     tr.appendChild(tdReporter);
     tr.appendChild(tdMessage);
+    tr.appendChild(tdCategory);
     tr.appendChild(tdStatus);
     tr.appendChild(tdAttachments);
     tr.appendChild(tdDate);
+    tr.appendChild(tdAge);
     tr.appendChild(tdUpdated);
     tr.appendChild(tdActions);
 
@@ -3255,15 +4309,36 @@ async function openReportModal(id) {
 
     if (error) throw error;
     if (data) {
+      if (!canAccessReport(data)) {
+        showToast('You do not have access to this report category.', 'error');
+        return;
+      }
       const reportData = allReports.find(r => r.id === id);
       const reporterName = reportData?.reporter_name || data.reporter_name || 'Anonymous';
       const reporterEmail = reportData?.reporter_email || data.reporter_email || '';
 
       document.getElementById('reportViewId').value = id;
-      document.getElementById('reportViewReporterName').value = reporterName;
-      document.getElementById('reportViewReporterEmail').value = reporterEmail;
-      document.getElementById('reportViewMessage').value = data.message || '';
-      document.getElementById('reportViewSubmittedDate').value = formatDate(data.created_at);
+      document.getElementById('reportViewReporterName').textContent = reporterName;
+      document.getElementById('reportViewReporterEmail').textContent = reporterEmail || 'No email provided';
+      document.getElementById('reportViewCategory').textContent = data.category || 'Other';
+      const reportStatus = document.getElementById('reportViewStatus');
+      reportStatus.textContent = formatAdminStatus(data.status);
+      reportStatus.className = `status-badge ${getStatusClass(data.status)}`;
+      const forwardingGroup = document.getElementById('reportViewForwardingGroup');
+      const forwardingField = document.getElementById('reportViewForwarding');
+      if (data.assigned_admin_email) {
+        const sender = data.forwarded_by_email || 'Unknown admin';
+        forwardingField.textContent = `Forwarded by ${sender} to ${data.assigned_admin_email}`;
+        forwardingGroup.style.display = 'block';
+      } else {
+        forwardingField.textContent = '';
+        forwardingGroup.style.display = 'none';
+      }
+      document.getElementById('reportViewMessage').textContent = data.message || 'No message provided.';
+      document.getElementById('reportViewSubmittedDate').textContent = formatSubmittedAt(data.created_at);
+      const reportAge = document.getElementById('reportViewAge');
+      reportAge.textContent = formatSubmissionAge(data.created_at);
+      reportAge.dataset.submittedAt = parseSubmissionTime(data.created_at)?.toISOString() || '';
 
       // Display attachments
       const imageUrls = data.image_urls || [];
@@ -3304,7 +4379,7 @@ async function openReportModal(id) {
       const accomplishmentSection = document.getElementById('reportViewAccomplishmentSection');
       if (data.status === 'resolved' && data.accomplishment_message) {
         accomplishmentSection.style.display = 'block';
-        document.getElementById('reportViewAccomplishmentMessage').value = data.accomplishment_message || '';
+        document.getElementById('reportViewAccomplishmentMessage').textContent = data.accomplishment_message || '';
 
         // Display accomplishment files
         const accomplishmentFilesContainer = document.getElementById('reportViewAccomplishmentFiles');
@@ -3329,7 +4404,21 @@ async function openReportModal(id) {
         accomplishmentSection.style.display = 'none';
       }
 
+      const previousReturnFiles = document.getElementById('reportViewReturnFiles');
+      previousReturnFiles?.remove();
+      if (data.status === 'rejected' && Array.isArray(data.return_files) && data.return_files.length) {
+        const section = document.createElement('div');
+        section.id = 'reportViewReturnFiles';
+        section.className = 'form-group';
+        const heading = document.createElement('strong');
+        heading.textContent = 'Return attachments';
+        section.appendChild(heading);
+        appendReturnFileLinks(section, data.return_files);
+        attachmentsContainer.parentElement.appendChild(section);
+      }
+
       document.getElementById('reportModal').classList.add('active');
+      document.querySelector('#reportModal .modal-body').scrollTop = 0;
     }
   } catch (error) {
     console.error('Error loading report:', error);
@@ -3341,9 +4430,40 @@ function closeReportModal() {
   document.getElementById('reportModal').classList.remove('active');
 }
 
+function populateReportForwardingOptions(report) {
+  const select = document.getElementById('reportForwardTo');
+  if (!select) return;
+
+  const category = String(report.category || 'Other').trim() || 'Other';
+  const recipients = getAdminRoles()
+    .filter(role => {
+      const permissions = Array.isArray(role.permissions) && role.permissions.length
+        ? role.permissions
+        : buildPermissionSet(role.feature);
+      return role.isSuperAdmin || permissions.includes('reports');
+    })
+    .filter((role, index, roles) =>
+      roles.findIndex(item => item.assignedEmail === role.assignedEmail) === index
+    );
+
+  select.innerHTML = '<option value="">Unassigned</option>';
+  recipients.forEach(role => {
+    const option = new Option(
+      `${role.roleName || 'Report Admin'} (${role.assignedEmail || 'No email'})`,
+      role.id
+    );
+    option.selected = role.id === report.assigned_admin_role_id ||
+      role.assignedEmail === report.assigned_admin_email;
+    select.append(option);
+  });
+}
+
 async function openEditReportModal(id) {
   document.getElementById('reportEditId').value = id;
   document.getElementById('reportEditReason').value = '';
+  document.getElementById('reportReturnTemplate').value = '';
+  document.getElementById('reportReturnFiles').value = '';
+  document.getElementById('reportReviewMessage').value = '';
   document.getElementById('accomplishmentMessage').value = '';
   document.getElementById('accomplishmentFiles').value = '';
   document.getElementById('accomplishmentFilesList').innerHTML = '';
@@ -3353,7 +4473,19 @@ async function openEditReportModal(id) {
     const record = allReports.find(r => r.id === id);
 
     if (record) {
+      if (!canAccessReport(record)) {
+        showToast('You do not have access to this report category.', 'error');
+        return;
+      }
+      populateReportForwardingOptions(record);
       document.getElementById('reportEditStatus').value = record.status || 'pending';
+      if (record.status === 'rejected') {
+        document.getElementById('reportEditReason').value = record.rejection_reason || '';
+      }
+
+      if (record.status === 'reviewing' && record.review_message) {
+        document.getElementById('reportReviewMessage').value = record.review_message;
+      }
 
       // Populate existing accomplishment data if report is already resolved
       if (record.status === 'resolved') {
@@ -3387,22 +4519,90 @@ function toggleReportReasonField() {
   const status = document.getElementById('reportEditStatus').value;
   const reasonGroup = document.getElementById('reportEditReasonGroup');
   const reasonLabel = document.getElementById('reportEditReasonLabel');
+  const reviewMessageGroup = document.getElementById('reportReviewMessageGroup');
   const accomplishmentSection = document.getElementById('accomplishmentSection');
 
   if (status === 'rejected') {
     reasonGroup.style.display = 'block';
-    reasonLabel.textContent = 'Rejection Reason *';
+    reasonLabel.textContent = 'Return Reason *';
+    reviewMessageGroup.style.display = 'none';
     accomplishmentSection.style.display = 'none';
   } else if (status === 'resolved') {
     reasonGroup.style.display = 'none';
+    reviewMessageGroup.style.display = 'none';
     accomplishmentSection.style.display = 'block';
+  } else if (status === 'reviewing') {
+    reasonGroup.style.display = 'none';
+    reviewMessageGroup.style.display = 'block';
+    accomplishmentSection.style.display = 'none';
   } else {
     reasonGroup.style.display = 'none';
+    reviewMessageGroup.style.display = 'none';
     accomplishmentSection.style.display = 'none';
   }
 
   if (reasonGroup.style.display === 'none') {
     document.getElementById('reportEditReason').value = '';
+    document.getElementById('reportReturnTemplate').value = '';
+    document.getElementById('reportReturnFiles').value = '';
+  }
+  if (reviewMessageGroup.style.display === 'none') {
+    document.getElementById('reportReviewMessage').value = '';
+  }
+}
+
+function applyReturnReasonTemplate(selectId, reasonId) {
+  const selected = document.getElementById(selectId).value;
+  if (selected && selected !== 'custom') {
+    document.getElementById(reasonId).value = selected;
+  } else if (selected === 'custom') {
+    document.getElementById(reasonId).value = '';
+    document.getElementById(reasonId).focus();
+  }
+}
+
+function validateReturnFiles(files) {
+  const allowedExtensions = /\.(pdf|doc|docx)$/i;
+  for (const file of files) {
+    if (!(file.type.startsWith('image/') || allowedExtensions.test(file.name))) {
+      throw new Error(`Unsupported file type: ${file.name}`);
+    }
+    if (!file.type.startsWith('image/') && file.size > 10 * 1024 * 1024) {
+      throw new Error(`${file.name} exceeds the 10 MB limit.`);
+    }
+  }
+}
+
+async function uploadReturnFiles(kind, recordId, files) {
+  validateReturnFiles(files);
+  const uploaded = [];
+  for (const [index, originalFile] of Array.from(files).entries()) {
+    const file = await compressAdminImage(originalFile);
+    if (file.size > 10 * 1024 * 1024) throw new Error(`${originalFile.name} is still over 10 MB after compression.`);
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `returns/${kind}/${recordId}/${Date.now()}-${index}-${safeName}`;
+    const { error } = await supabaseClient.storage.from('report-images').upload(path, file, {
+      cacheControl: '3600',
+      contentType: file.type || undefined,
+      upsert: false
+    });
+    if (error) throw error;
+    const { data } = supabaseClient.storage.from('report-images').getPublicUrl(path);
+    uploaded.push({ name: originalFile.name, url: data.publicUrl, uploadedAt: new Date().toISOString() });
+  }
+  return uploaded;
+}
+
+function appendReturnFileLinks(container, files) {
+  for (const file of files) {
+    if (!file?.url || !/^https:\/\//i.test(file.url)) continue;
+    const link = document.createElement('a');
+    link.href = file.url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = file.name || 'View attachment';
+    link.style.cssText = 'display: block; margin-top: 8px; word-break: break-word;';
+    container.appendChild(link);
   }
 }
 
@@ -3468,17 +4668,43 @@ async function updateReportStatus() {
   const reportId = document.getElementById('reportEditId').value;
   const status = document.getElementById('reportEditStatus').value;
   const reason = document.getElementById('reportEditReason').value;
+  const reviewMessage = document.getElementById('reportReviewMessage')?.value || '';
   const accomplishmentMessage = document.getElementById('accomplishmentMessage')?.value || '';
   const accomplishmentFiles = document.getElementById('accomplishmentFiles')?.files || [];
+  const returnFiles = document.getElementById('reportReturnFiles').files;
+  const forwardRoleId = document.getElementById('reportForwardTo')?.value || '';
 
   if (!reportId) {
     showToast('Report ID not found', 'error');
     return;
   }
 
-  if (status === 'rejected' && !reason.trim()) {
-    showToast('Please provide a rejection reason', 'error');
+  const report = allReports.find(item => item.id === reportId);
+  if (!report || !canAccessReport(report)) {
+    showToast('You do not have access to update this report.', 'error');
+    closeEditReportModal();
     return;
+  }
+
+  const forwardRecipient = forwardRoleId
+    ? getAdminRoles().find(role => role.id === forwardRoleId)
+    : null;
+  if (forwardRoleId && !forwardRecipient) {
+    showToast('The selected forwarding admin is no longer available.', 'error');
+    return;
+  }
+
+  if (status === 'rejected' && !reason.trim()) {
+    showToast('Please provide a return reason', 'error');
+    return;
+  }
+  if (status === 'rejected') {
+    try {
+      validateReturnFiles(returnFiles);
+    } catch (error) {
+      showToast(error.message, 'error');
+      return;
+    }
   }
 
   if (status === 'resolved' && !accomplishmentMessage.trim()) {
@@ -3506,31 +4732,80 @@ async function updateReportStatus() {
     }
 
     const updateData = { status };
+    const forwardingChanged =
+      (forwardRecipient?.id || null) !== (report.assigned_admin_role_id || null);
+    if (forwardRecipient) {
+      updateData.assigned_admin_role_id = forwardRecipient.id;
+      updateData.assigned_admin_email = forwardRecipient.assignedEmail;
+      if (forwardingChanged) {
+        const { data: userData } = await supabaseClient.auth.getUser();
+        updateData.forwarded_by_email = userData?.user?.email || null;
+        updateData.forwarded_at = new Date().toISOString();
+      }
+    } else {
+      updateData.assigned_admin_role_id = null;
+      updateData.assigned_admin_email = null;
+      updateData.forwarded_by_email = null;
+      updateData.forwarded_at = null;
+    }
     if (status === 'rejected') {
       updateData.rejection_reason = reason.trim();
+      if (!('return_files' in report) && returnFiles.length) {
+        throw new Error('Return attachments are not available yet. Run supabase/add_return_files.sql first.');
+      }
+      if ('return_files' in report) {
+        updateData.return_files = returnFiles.length
+          ? [...(Array.isArray(report.return_files) ? report.return_files : []), ...await uploadReturnFiles('report', reportId, returnFiles)]
+          : (report.return_files || null);
+      }
+      updateData.review_message = null;
       updateData.resolution_notes = null;
       updateData.accomplishment_message = null;
       updateData.accomplishment_files = null;
     } else if (status === 'resolved') {
       updateData.rejection_reason = null;
+      if ('return_files' in report) updateData.return_files = null;
+      updateData.review_message = null;
       updateData.resolution_notes = null;
       updateData.accomplishment_message = accomplishmentMessage.trim();
       updateData.accomplishment_files = accomplishmentFileUrls;
     } else {
       updateData.rejection_reason = null;
+      if ('return_files' in report) updateData.return_files = null;
+      updateData.review_message = status === 'reviewing' && reviewMessage.trim()
+        ? reviewMessage.trim()
+        : null;
       updateData.resolution_notes = null;
       updateData.accomplishment_message = null;
       updateData.accomplishment_files = null;
     }
 
-    const { error } = await supabaseClient
+    const { data: savedReport, error } = await supabaseClient
       .from('reports')
       .update(updateData)
-      .eq('id', reportId);
+      .eq('id', reportId)
+      .select('id, status')
+      .single();
 
     if (error) throw error;
-    showToast('Report status updated successfully!', 'success');
-    addNotification('Report Status Changed', `Report status changed to ${status}`, 'info');
+    if (!savedReport || savedReport.status !== status) {
+      throw new Error('The report status change was not saved.');
+    }
+    const pushSent = report.status !== status
+      ? await sendReportStatusPushNotification({
+        reportId,
+        userId: report.user_id,
+        status,
+        reviewMessage: reviewMessage.trim(),
+        rejectionReason: status === 'rejected' ? reason.trim() : '',
+        accomplishmentMessage: status === 'resolved' ? accomplishmentMessage.trim() : '',
+      })
+      : true;
+    showToast(pushSent
+      ? 'Report status updated successfully!'
+      : 'Report status saved, but the user push notification could not be sent.',
+      pushSent ? 'success' : 'error');
+    addNotification('Report Status Changed', `Report status changed to ${formatAdminStatus(status)}`, 'info');
     closeEditReportModal();
     loadReports();
   } catch (error) {
@@ -3547,7 +4822,8 @@ async function uploadAccomplishmentFiles(reportId, files) {
 
   try {
     for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+      const originalFile = files[i];
+      const file = await compressAdminImage(originalFile);
       const timestamp = Date.now();
       const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const path = `accomplishment/${reportId}/${timestamp}-${i}-${sanitizedName}`;
@@ -3556,6 +4832,7 @@ async function uploadAccomplishmentFiles(reportId, files) {
         .from('report-images')
         .upload(path, file, {
           cacheControl: '3600',
+          contentType: file.type || undefined,
           upsert: false
         });
 
@@ -3569,7 +4846,7 @@ async function uploadAccomplishmentFiles(reportId, files) {
         .getPublicUrl(path);
 
       fileUrls.push({
-        name: file.name,
+        name: originalFile.name,
         url: publicUrlData.publicUrl,
         uploadedAt: new Date().toISOString()
       });
@@ -3582,19 +4859,34 @@ async function uploadAccomplishmentFiles(reportId, files) {
   return fileUrls;
 }
 
-function openDeleteReport(id, title) {
-  deleteTarget = id;
-  deleteType = 'report';
-  document.getElementById('deleteMessage').textContent = `Are you sure you want to delete "${title}"? This action cannot be undone.`;
-  document.getElementById('deleteModal').classList.add('active');
-}
-
 // ============================================================
 // TRANSPARENCY
 // ============================================================
+function canonicalTransparencyType(type) {
+  return type === 'bids' ? 'bids_projects' : type === 'programs' ? 'programs_projects' : type;
+}
+
+function canAccessTransparency(type, session = getCurrentAdminSession()) {
+  if (session?.isSuperAdmin) return true;
+  return canAccessFeature('transparency', session) &&
+    normalizeTransparencyCategories(session?.transparencyCategories).includes(canonicalTransparencyType(type));
+}
+
+function syncTransparencyCategoryFilter() {
+  const select = document.getElementById('transparencyTypeFilter');
+  const previous = canonicalTransparencyType(select.value);
+  const allowed = TRANSPARENCY_CATEGORIES.filter(category => canAccessTransparency(category.value));
+  select.replaceChildren();
+  if (allowed.length !== 1) select.append(new Option(allowed.length ? 'All Types' : 'No assigned categories', ''));
+  allowed.forEach(category => select.append(new Option(category.label, category.value)));
+  select.value = allowed.length === 1 ? allowed[0].value : allowed.some(category => category.value === previous) ? previous : '';
+  select.disabled = allowed.length <= 1;
+}
+
 let allTransparency = [];
 
 async function loadTransparency() {
+  syncTransparencyCategoryFilter();
   const tbody = document.getElementById('transparencyTableBody');
   if (!tbody) return;
 
@@ -3617,7 +4909,7 @@ async function loadTransparency() {
       if (!transparencyError && transparencyData) {
         allRecords = allRecords.concat(transparencyData.map(item => ({
           ...item,
-          type: item.type || 'general'
+          type: canonicalTransparencyType(item.type || 'general')
         })));
       }
     } catch (e) {
@@ -3641,7 +4933,7 @@ async function loadTransparency() {
           .select('*');
 
         if (!error && data) {
-          let type = tableName.replace('transparency_', '').replace('_projects', '');
+          let type = tableName.replace('transparency_', '');
           allRecords = allRecords.concat(data.map(item => ({
             ...item,
             type: type
@@ -3659,8 +4951,8 @@ async function loadTransparency() {
       return dateB - dateA;
     });
 
-    allTransparency = allRecords;
-    renderTransparencyTable(allTransparency);
+    allTransparency = allRecords.filter(record => canAccessTransparency(record.type));
+    filterTransparency();
   } catch (error) {
     console.error('Error loading transparency records:', error);
     showToast('Failed to load transparency records from database', 'error');
@@ -3669,6 +4961,7 @@ async function loadTransparency() {
 
 function renderTransparencyTable(transparencyData) {
   const tbody = document.getElementById('transparencyTableBody');
+  tableExportRows.transparencyTableBody = transparencyData;
   const colSpan = tbody.closest('table').querySelectorAll('th').length;
 
   const totalItems = transparencyData.length;
@@ -3799,22 +5092,32 @@ function renderTransparencyPagination(totalItems) {
   });
 }
 
+function setTransparencyRecordType(type) {
+  const category = TRANSPARENCY_CATEGORIES.find(item => item.value === canonicalTransparencyType(type));
+  document.getElementById('transparencyCurrentType').value = category?.value || '';
+  document.getElementById('transparencyModalTitle').textContent = category
+    ? `Add ${category.label} Record` : 'Add Transparency Record';
+}
+
 function openTransparencyModal() {
   const typeFilter = document.getElementById('transparencyTypeFilter');
-  const selectedType = typeFilter ? typeFilter.value : '';
+  const selectedType = canonicalTransparencyType(typeFilter ? typeFilter.value : '');
+  const chooseCategory = getCurrentAdminSession().isSuperAdmin && !selectedType;
+  if ((!selectedType && !chooseCategory) || (selectedType && !canAccessTransparency(selectedType))) {
+    showToast('Select an assigned transparency category first.', 'error');
+    return;
+  }
 
-  const typeLabels = {
-    'annual_budget': 'Annual Budget',
-    'bids_projects': 'Bids',
-    'executive_orders': 'Executive Orders',
-    'financial_reports': 'Financial Reports',
-    'legislative_ordinances': 'Legislative Ordinances',
-    'programs_projects': 'Programs'
-  };
-
-  const typeLabel = typeLabels[selectedType] || 'Transparency';
-  document.getElementById('transparencyModalTitle').textContent = `Add ${typeLabel} Record`;
-  document.getElementById('transparencyCurrentType').value = selectedType;
+  const categoryGroup = document.getElementById('transparencyRecordCategoryGroup');
+  const categorySelect = document.getElementById('transparencyRecordCategory');
+  categoryGroup.hidden = !chooseCategory;
+  if (chooseCategory) {
+    categorySelect.replaceChildren(new Option('Select category', ''));
+    TRANSPARENCY_CATEGORIES.forEach(category =>
+      categorySelect.append(new Option(category.label, category.value)));
+    categorySelect.value = '';
+  }
+  setTransparencyRecordType(chooseCategory ? '' : selectedType);
   document.getElementById('transparencyEditId').value = '';
   document.getElementById('transparencyTitle').value = '';
   document.getElementById('transparencyDescription').value = '';
@@ -3859,6 +5162,7 @@ async function openEditTransparencyModal(id) {
 
     // Search through all transparency tables to find the record
     for (const [typeKey, tableName] of Object.entries(tables)) {
+      if (!canAccessTransparency(typeKey)) continue;
       const { data, error } = await supabaseClient
         .from(tableName)
         .select('*')
@@ -3879,6 +5183,7 @@ async function openEditTransparencyModal(id) {
 
     const typeLabel = typeLabels[foundType] || 'Transparency';
     document.getElementById('transparencyModalTitle').textContent = `Edit ${typeLabel} Record`;
+    document.getElementById('transparencyRecordCategoryGroup').hidden = true;
     document.getElementById('transparencyEditId').value = id;
     document.getElementById('transparencyCurrentType').value = foundType;
     document.getElementById('transparencySaveBtn').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update';
@@ -3903,6 +5208,7 @@ function closeTransparencyModal() {
 }
 
 async function saveTransparency() {
+  if (document.getElementById('transparencySaveBtn').disabled) return;
   const editId = document.getElementById('transparencyEditId').value;
   const currentType = document.getElementById('transparencyCurrentType').value;
   const title = document.getElementById('transparencyTitle').value.trim();
@@ -3911,8 +5217,8 @@ async function saveTransparency() {
   const isPublished = document.getElementById('transparencyIsPublished').checked;
   const pdfFile = document.getElementById('transparencyPdfUrl').files[0];
 
-  if (!title || !description) {
-    showToast('Please fill all required fields', 'error');
+  if (!title) {
+    showToast('Please enter a title.', 'error');
     return;
   }
 
@@ -3935,7 +5241,11 @@ async function saveTransparency() {
     'programs_projects': 'transparency_programs_projects'
   };
 
-  const tableName = tableMap[currentType] || 'transparency_annual_budget';
+  const tableName = tableMap[currentType];
+  if (!tableName || !canAccessTransparency(currentType)) {
+    showToast('You cannot manage this transparency category.', 'error');
+    return;
+  }
 
   const typeLabels = {
     'annual_budget': 'Annual Budget',
@@ -3959,6 +5269,8 @@ async function saveTransparency() {
       return;
     }
 
+    await ensureUniqueRecordName(tableName, 'title', title, editId, 'A document with this title in this category');
+
     let pdfUrl = null;
 
     // Handle PDF upload if new file selected
@@ -3981,7 +5293,7 @@ async function saveTransparency() {
 
     const payload = {
       title,
-      description,
+      description: description || null,
       display_order: parseInt(displayOrder) || 0,
       is_published: isPublished
     };
@@ -4015,7 +5327,7 @@ async function saveTransparency() {
     loadTransparency();
   } catch (error) {
     console.error('Error saving transparency record:', error);
-    showToast('Failed to save record: ' + error.message, 'error');
+    showToast('Failed to save record: ' + recordSaveError(error, 'A document with this title in this category'), 'error');
   } finally {
     saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save';
     saveBtn.disabled = false;
@@ -4151,6 +5463,7 @@ async function loadTourist() {
 
 function renderTouristTable(touristData) {
   const tbody = document.getElementById('touristTableBody');
+  tableExportRows.touristTableBody = touristData;
   const colSpan = tbody.closest('table').querySelectorAll('th').length;
 
   const totalItems = touristData.length;
@@ -4204,82 +5517,22 @@ function renderTouristTable(touristData) {
       : 0;
 
     if (placeReviews.length > 0) {
-      const reviewsContainer = document.createElement('div');
-      reviewsContainer.style.cssText = `
-        display: contents;
-      `;
-
-      reviewsContainer.addEventListener('mouseenter', function() {
-        if (this.querySelector('div')) {
-          this.querySelector('div').style.boxShadow = '0 4px 12px rgba(251, 191, 36, 0.2)';
-          this.querySelector('div').style.transform = 'scale(1.02)';
-        }
-      });
-
-      reviewsContainer.addEventListener('mouseleave', function() {
-        if (this.querySelector('div')) {
-          this.querySelector('div').style.boxShadow = 'none';
-          this.querySelector('div').style.transform = 'scale(1)';
-        }
-      });
-
-      reviewsContainer.addEventListener('click', () => {
+      const reviewsButton = document.createElement('button');
+      reviewsButton.type = 'button';
+      reviewsButton.className = 'tourist-review-summary';
+      reviewsButton.setAttribute('aria-label', `${avgRating} out of 5 from ${placeReviews.length} review${placeReviews.length === 1 ? '' : 's'}. View reviews for ${t.name || 'destination'}`);
+      reviewsButton.title = 'View reviews';
+      reviewsButton.addEventListener('click', () => {
         openPlaceReviewsModal(t.id, t.name);
       });
-
-      const starsDiv = document.createElement('div');
-      starsDiv.style.cssText = `
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-        padding: 10px 14px;
-        border-radius: 10px;
-        border: 1px solid #fcd34d;
-        cursor: pointer;
-        transition: all 0.3s ease;
-      `;
-
-      const starsContainer = document.createElement('div');
-      starsContainer.style.cssText = `
-        display: flex;
-        gap: 2px;
-        font-size: 16px;
-      `;
-
-      const fullStars = Math.floor(avgRating);
-      const hasHalfStar = avgRating % 1 >= 0.5;
-      const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
-
-      starsContainer.innerHTML =
-        '★'.repeat(fullStars) +
-        (hasHalfStar ? '⭐' : '') +
-        '☆'.repeat(emptyStars);
-      starsContainer.style.cssText += `
-        color: #fbbf24;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-        letter-spacing: 1px;
-      `;
-
+      const star = document.createElement('span');
+      star.className = 'tourist-review-star';
+      star.setAttribute('aria-hidden', 'true');
+      star.textContent = '★';
       const ratingText = document.createElement('span');
       ratingText.textContent = `${avgRating} (${placeReviews.length})`;
-      ratingText.style.cssText = `
-        font-weight: 700;
-        color: #d97706;
-        font-size: 13px;
-        white-space: nowrap;
-      `;
-
-      starsDiv.appendChild(starsContainer);
-      starsDiv.appendChild(ratingText);
-
-      const viewIcon = document.createElement('i');
-      viewIcon.className = 'fa-solid fa-arrow-up-right';
-      viewIcon.style.cssText = 'color: #2196F3; font-size: 12px;';
-
-      reviewsContainer.appendChild(starsDiv);
-      reviewsContainer.appendChild(viewIcon);
-      tdReviews.appendChild(reviewsContainer);
+      reviewsButton.append(star, ratingText);
+      tdReviews.appendChild(reviewsButton);
     } else {
       const noReviewsSpan = document.createElement('span');
       noReviewsSpan.textContent = 'No reviews yet';
@@ -4419,10 +5672,8 @@ function openTouristModal() {
   document.getElementById('touristIsFeatured').checked = false;
   document.getElementById('touristIsPublished').checked = false;
   document.getElementById('touristImage').value = '';
-  document.getElementById('touristImageBase64').value = '';
-  document.getElementById('touristImagePreview').innerHTML = '<i class="fa-solid fa-image"></i><span>No image selected</span>';
+  setGalleryImages('tourist');
   document.getElementById('touristSaveBtn').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save';
-  setupTouristImageUpload();
   document.getElementById('touristModal').classList.add('active');
 }
 
@@ -4454,11 +5705,8 @@ async function openEditTouristModal(id) {
       document.getElementById('touristIsFeatured').checked = record.is_featured || false;
       document.getElementById('touristIsPublished').checked = record.is_published || false;
 
-      if (record.image_url) {
-        document.getElementById('touristImagePreview').innerHTML = '<i class="fa-solid fa-image"></i><span>' + record.image_url.split('/').pop() + '</span>';
-      }
-
-      setupTouristImageUpload();
+      document.getElementById('touristImage').value = '';
+      setGalleryImages('tourist', record);
     } else {
       throw new Error('Record not found');
     }
@@ -4476,6 +5724,7 @@ function closeTouristModal() {
 }
 
 async function saveTourist() {
+  if (document.getElementById('touristSaveBtn').disabled) return;
   const editId = document.getElementById('touristEditId').value;
   const name = document.getElementById('touristName').value.trim();
   const shortLocation = document.getElementById('touristLocation').value.trim();
@@ -4488,10 +5737,9 @@ async function saveTourist() {
   const distanceLabel = document.getElementById('touristDistanceLabel').value.trim();
   const isFeatured = document.getElementById('touristIsFeatured').checked;
   const isPublished = document.getElementById('touristIsPublished').checked;
-  const imageBase64 = document.getElementById('touristImageBase64').value;
 
-  if (!name || !shortLocation || !category || !description) {
-    showToast('Please fill all required fields: Name, Location, Category, Description', 'error');
+  if (!name || !shortLocation || !category) {
+    showToast('Please fill all required fields: Name, Location, Category', 'error');
     return;
   }
 
@@ -4515,50 +5763,32 @@ async function saveTourist() {
       return;
     }
 
-    let imageUrl = null;
+    await ensureUniqueRecordName('places', 'name', name, editId, 'A tourist spot with this name');
 
-    if (imageBase64) {
-      const fileName = `tourist_${Date.now()}.jpg`;
-      const { data, error } = await supabaseClient.storage
-        .from('places-images')
-        .upload(`destination/touristguide/${fileName}`, decodeBase64(imageBase64), {
-          contentType: 'image/jpeg',
-          upsert: false
-        });
-
-      if (error) {
-        console.error('Image upload error:', error);
-      } else if (data) {
-        const { data: urlData } = supabaseClient.storage
-          .from('places-images')
-          .getPublicUrl(`destination/touristguide/${fileName}`);
-        imageUrl = urlData.publicUrl;
-      }
-    }
+    const imageUrls = await uploadGalleryImages('tourist');
 
     const payload = {
       name,
       short_location: shortLocation,
       full_address: fullAddress || null,
       category,
-      description,
+      description: description || null,
       phone: contactNumber || null,
       latitude: latNum,
       longitude: lonNum,
       distance_label: distanceLabel || null,
       is_featured: isFeatured,
-      is_published: isPublished
+      is_published: isPublished,
+      image_url: imageUrls[0] || null,
+      image_urls: imageUrls
     };
-
-    if (imageUrl) {
-      payload.image_url = imageUrl;
-    }
 
     const { data, error } = editId
       ? await supabaseClient.from('places').update(payload).eq('id', editId)
       : await supabaseClient.from('places').insert([payload]);
 
     if (error) {
+      if (error.code === '23505') throw error;
       console.error('Database error:', error);
       if (error.message && error.message.includes('row-level security')) {
         throw new Error('Access denied: The RLS policy for the places table does not allow this operation. Please contact your admin.');
@@ -4572,7 +5802,7 @@ async function saveTourist() {
     loadTourist();
   } catch (error) {
     console.error('Error saving tourist guide:', error);
-    showToast('Failed to save destination: ' + error.message, 'error');
+    showToast('Failed to save destination: ' + recordSaveError(error, 'A tourist spot with this name'), 'error');
   } finally {
     saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save';
     saveBtn.disabled = false;
@@ -4589,6 +5819,113 @@ function openDeleteTourist(id, name) {
 // ============================================================
 // ONLINE SERVICES
 // ============================================================
+function openAppointmentAvailabilityModal() {
+  const modal = document.getElementById('appointmentAvailabilityModal');
+  if (!modal) return;
+  modal.classList.add('active');
+  document.getElementById('appointmentAvailabilityTrigger')?.setAttribute('aria-expanded', 'true');
+  modal.querySelector('.modal-close')?.focus();
+  loadAppointmentUnavailableDates();
+}
+
+function closeAppointmentAvailabilityModal() {
+  document.getElementById('appointmentAvailabilityModal')?.classList.remove('active');
+  const trigger = document.getElementById('appointmentAvailabilityTrigger');
+  trigger?.setAttribute('aria-expanded', 'false');
+  trigger?.focus();
+}
+
+async function loadAppointmentUnavailableDates() {
+  const container = document.getElementById('appointmentUnavailableDates');
+  if (!container) return;
+  if (!supabaseClient) {
+    container.textContent = 'Database connection unavailable.';
+    return;
+  }
+  container.textContent = 'Loading unavailable dates...';
+
+  const { data, error } = await supabaseClient
+    .from('appointment_unavailable_dates')
+    .select('date, reason')
+    .order('date', { ascending: true });
+
+  if (error) {
+    container.textContent = 'Date management is unavailable. Run supabase/appointment_unavailable_dates_setup.sql in Supabase.';
+    return;
+  }
+
+  container.replaceChildren();
+  if (!data?.length) {
+    container.textContent = 'No additional dates have been disabled.';
+    return;
+  }
+
+  for (const entry of data) {
+    const row = document.createElement('div');
+    row.className = 'appointment-closure-row';
+    const details = document.createElement('div');
+    const date = document.createElement('strong');
+    date.textContent = new Date(`${entry.date}T12:00:00`).toLocaleDateString('en-PH', {
+      year: 'numeric', month: 'long', day: 'numeric'
+    });
+    const reason = document.createElement('span');
+    reason.textContent = entry.reason || 'Unavailable for appointments';
+    details.append(date, reason);
+
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.className = 'btn btn-secondary btn-sm';
+    removeButton.textContent = 'Enable Date';
+    removeButton.addEventListener('click', () => removeAppointmentUnavailableDate(entry.date));
+    row.append(details, removeButton);
+    container.appendChild(row);
+  }
+}
+
+async function addAppointmentUnavailableDate() {
+  if (!supabaseClient) {
+    showToast('Database connection unavailable.', 'error');
+    return;
+  }
+  const dateInput = document.getElementById('appointmentClosedDate');
+  const reasonInput = document.getElementById('appointmentClosedReason');
+  const date = dateInput.value;
+  if (!date) {
+    showToast('Choose a date to disable.', 'error');
+    return;
+  }
+
+  const { error } = await supabaseClient.from('appointment_unavailable_dates').insert({
+    date,
+    reason: reasonInput.value.trim() || 'Unavailable for appointments'
+  });
+  if (error) {
+    showToast(error.code === '23505' ? 'This date is already disabled.' : `Could not disable date: ${error.message}`, 'error');
+    return;
+  }
+  dateInput.value = '';
+  reasonInput.value = '';
+  showToast('Appointment date disabled.', 'success');
+  loadAppointmentUnavailableDates();
+}
+
+async function removeAppointmentUnavailableDate(date) {
+  if (!supabaseClient) {
+    showToast('Database connection unavailable.', 'error');
+    return;
+  }
+  const { error } = await supabaseClient
+    .from('appointment_unavailable_dates')
+    .delete()
+    .eq('date', date);
+  if (error) {
+    showToast(`Could not enable date: ${error.message}`, 'error');
+    return;
+  }
+  showToast('Date enabled for appointments, unless it is a holiday or closed weekday.', 'success');
+  loadAppointmentUnavailableDates();
+}
+
 let allServices = [];
 let serviceTableName = null;
 
@@ -4606,8 +5943,8 @@ async function loadServicesData() {
       { name: 'cenodeath_appointments', type: 'Cenodeath Appointments' },
       { name: 'cenomar_appointments', type: 'Cenomar Appointments' },
       { name: 'death_certificate_appointments', type: 'Death Certificate' },
-      { name: 'facility_borrow_requests', type: 'Facility Borrow' },
-      { name: 'marriage_certificate_appointments', type: 'Marriage Certificate' }
+      { name: 'marriage_certificate_appointments', type: 'Marriage Certificate' },
+      { name: 'facility_borrow_requests', type: 'Facility Borrowing' }
     ];
 
     for (const serviceTable of serviceTables) {
@@ -4626,7 +5963,7 @@ async function loadServicesData() {
             status: item.status || item.appointment_status || 'pending',
             contact_number: item.contact_number || item.phone || item.phone_number || item.mobile || '',
             description: item.description || item.notes || item.details || item.purpose || '',
-            created_at: item.created_at || item.date || item.appointment_date || item.created_date || new Date().toISOString(),
+            created_at: item.created_at || item.created_date || null,
             date: item.date || item.appointment_date || item.created_at || item.created_date || new Date().toISOString(),
             table_name: serviceTable.name,
             ...item
@@ -4666,7 +6003,7 @@ async function loadServicesData() {
 
     combinedData = combinedData.map(item => ({
       ...item,
-      display_name: item.user_id ? userDisplayNames[item.user_id] : null
+      display_name: userDisplayNames[item.user_id] || item.display_name || item.requester_name || item.full_name || item.name || null
     }));
 
     combinedData.sort((a, b) => {
@@ -4701,8 +6038,8 @@ async function loadServices() {
       { name: 'cenodeath_appointments', type: 'Cenodeath Appointments' },
       { name: 'cenomar_appointments', type: 'Cenomar Appointments' },
       { name: 'death_certificate_appointments', type: 'Death Certificate' },
-      { name: 'facility_borrow_requests', type: 'Facility Borrow' },
-      { name: 'marriage_certificate_appointments', type: 'Marriage Certificate' }
+      { name: 'marriage_certificate_appointments', type: 'Marriage Certificate' },
+      { name: 'facility_borrow_requests', type: 'Facility Borrowing' }
     ];
 
     console.log('Loading services from all tables...');
@@ -4729,7 +6066,7 @@ async function loadServices() {
             status: item.status || item.appointment_status || 'pending',
             contact_number: item.contact_number || item.phone || item.phone_number || item.mobile || '',
             description: item.description || item.notes || item.details || item.purpose || '',
-            created_at: item.created_at || item.date || item.appointment_date || item.created_date || new Date().toISOString(),
+            created_at: item.created_at || item.created_date || null,
             date: item.date || item.appointment_date || item.created_at || item.created_date || new Date().toISOString(),
             table_name: serviceTable.name,
             ...item // Keep all original fields
@@ -4779,7 +6116,7 @@ async function loadServices() {
     // Add display_name to each service record
     combinedData = combinedData.map(item => ({
       ...item,
-      display_name: item.user_id ? userDisplayNames[item.user_id] : null
+      display_name: userDisplayNames[item.user_id] || item.display_name || item.requester_name || item.full_name || item.name || null
     }));
 
     // Sort by date descending
@@ -4801,6 +6138,7 @@ async function loadServices() {
 
 function renderServiceTable(servicesData) {
   const tbody = document.getElementById('serviceTableBody');
+  tableExportRows.serviceTableBody = servicesData;
   const colSpan = tbody.closest('table').querySelectorAll('th').length;
 
   const totalItems = servicesData.length;
@@ -4828,7 +6166,7 @@ function renderServiceTable(servicesData) {
     const tr = document.createElement('tr');
 
     const tdRequestedBy = document.createElement('td');
-    tdRequestedBy.textContent = s.display_name || s.requested_by || s.requester || 'N/A';
+    tdRequestedBy.textContent = getServiceRequesterName(s);
     tdRequestedBy.style.fontSize = '13px';
     tdRequestedBy.style.fontWeight = '500';
 
@@ -4840,16 +6178,18 @@ function renderServiceTable(servicesData) {
     const tdStatus = document.createElement('td');
     const statusBadge = document.createElement('span');
     statusBadge.className = `status-badge ${getStatusClass(s.status)}`;
-    statusBadge.textContent = (s.status || 'pending').charAt(0).toUpperCase() + (s.status || 'pending').slice(1);
+    statusBadge.textContent = formatServiceStatus(s.status);
     tdStatus.appendChild(statusBadge);
 
     const tdDate = document.createElement('td');
-    tdDate.textContent = formatDate(s.created_at || s.date);
+    tdDate.textContent = formatDate(s.appointment_date || s.date);
     tdDate.style.fontSize = '13px';
 
     const tdCreated = document.createElement('td');
-    tdCreated.textContent = formatDate(s.created_at);
-    tdCreated.style.fontSize = '13px';
+    tdCreated.textContent = formatSubmittedAt(s.created_at);
+    tdCreated.className = 'submission-time-cell';
+
+    const tdAge = createSubmissionAgeCell(s.created_at);
 
     const tdActions = document.createElement('td');
     const actionsDiv = document.createElement('div');
@@ -4867,15 +6207,8 @@ function renderServiceTable(servicesData) {
     editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
     editBtn.addEventListener('click', () => openEditServiceModal(String(s.id)));
 
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'btn btn-sm btn-delete btn-icon';
-    deleteBtn.title = 'Delete';
-    deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
-    deleteBtn.addEventListener('click', () => openDeleteService(s.id, s.name || 'Service'));
-
     actionsDiv.appendChild(viewBtn);
     actionsDiv.appendChild(editBtn);
-    actionsDiv.appendChild(deleteBtn);
     tdActions.appendChild(actionsDiv);
 
     tr.appendChild(tdRequestedBy);
@@ -4883,6 +6216,7 @@ function renderServiceTable(servicesData) {
     tr.appendChild(tdStatus);
     tr.appendChild(tdDate);
     tr.appendChild(tdCreated);
+    tr.appendChild(tdAge);
     tr.appendChild(tdActions);
 
     // Add click handler to view details
@@ -4977,6 +6311,8 @@ function openServiceModal() {
   document.getElementById('serviceEditId').value = '';
   document.getElementById('serviceStatus').value = 'pending';
   document.getElementById('serviceReason').value = '';
+  document.getElementById('serviceReturnTemplate').value = '';
+  document.getElementById('serviceReturnFiles').value = '';
   document.getElementById('reasonFieldGroup').style.display = 'none';
   document.getElementById('serviceSaveBtn').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save';
   document.getElementById('serviceModal').classList.add('active');
@@ -4986,6 +6322,8 @@ async function openEditServiceModal(id) {
   document.getElementById('serviceModalTitle').textContent = 'Update Service Request Status';
   document.getElementById('serviceEditId').value = id;
   document.getElementById('serviceReason').value = '';
+  document.getElementById('serviceReturnTemplate').value = '';
+  document.getElementById('serviceReturnFiles').value = '';
   document.getElementById('serviceSaveBtn').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update Status';
 
   try {
@@ -4993,6 +6331,9 @@ async function openEditServiceModal(id) {
 
     if (record) {
       document.getElementById('serviceStatus').value = record.status || 'pending';
+      if (record.status === 'rejected') {
+        document.getElementById('serviceReason').value = record.rejection_reason || '';
+      }
       toggleReasonField();
     } else {
       throw new Error('Record not found');
@@ -5045,7 +6386,7 @@ async function openServiceDetailsModal(id) {
     const detailsContent = document.getElementById('serviceDetailsContent');
     detailsContent.innerHTML = '';
 
-    let requestedByValue = 'N/A';
+    let requestedByValue = '';
     if (record.user_id) {
       try {
         const { data: user } = await supabaseClient
@@ -5061,22 +6402,7 @@ async function openServiceDetailsModal(id) {
       }
     }
 
-    const fields = [
-      { label: 'Service Name', value: record.name || 'N/A' },
-      { label: 'Service Type', value: record.type || record.service_type || 'N/A' },
-      { label: 'Requested By', value: record.requested_by || requestedByValue || 'N/A' },
-      { label: 'Status', value: (record.status || 'N/A').charAt(0).toUpperCase() + (record.status || 'N/A').slice(1) },
-      { label: 'Contact Number', value: record.contact_number || record.phone || 'N/A' },
-      { label: 'Date Requested', value: formatDate(record.created_at || record.date) },
-      { label: 'Description', value: record.description || record.notes || 'N/A', fullWidth: true },
-    ];
-
-    const commonFields = ['id', 'name', 'type', 'requested_by', 'status', 'contact_number', 'date', 'created_at', 'description', 'table_name', 'user_id'];
-    Object.keys(record).forEach(key => {
-      if (!commonFields.includes(key) && record[key] && typeof record[key] === 'string') {
-        fields.push({ label: key.replace(/_/g, ' ').charAt(0).toUpperCase() + key.replace(/_/g, ' ').slice(1), value: record[key] });
-      }
-    });
+    const fields = buildServiceDetailsFields(record, requestedByValue);
 
     fields.forEach(field => {
       const fieldDiv = document.createElement('div');
@@ -5085,23 +6411,154 @@ async function openServiceDetailsModal(id) {
       }
 
       const label = document.createElement('label');
-      label.style.cssText = 'display: block; font-size: 12px; font-weight: 600; color: #666; margin-bottom: 4px; text-transform: uppercase;';
+      label.className = 'service-detail-label';
       label.textContent = field.label;
 
       const value = document.createElement('p');
-      value.style.cssText = 'margin: 0; color: #333; font-size: 14px; word-break: break-word;';
+      value.className = 'service-detail-value';
       value.textContent = field.value;
+      if (field.submittedAt && parseSubmissionTime(field.submittedAt)) {
+        value.dataset.submittedAt = parseSubmissionTime(field.submittedAt).toISOString();
+      }
 
       fieldDiv.appendChild(label);
       fieldDiv.appendChild(value);
       detailsContent.appendChild(fieldDiv);
     });
 
+    const relationship = String(record.relationship_to_owner || '').trim().toLowerCase();
+    const needsAuthorization = relationship && relationship !== 'self';
+    for (const [key, title] of [['authorization_letter_path', 'Authorization Letter'], ['owner_valid_id_path', 'Certificate Owner Valid ID']]) {
+      const serviceType = String(record.table_name || record.type || record.service_name || '').toLowerCase();
+      if (key === 'owner_valid_id_path' && !serviceType.includes('birth') && !record[key]) continue;
+      if (!record[key] && !needsAuthorization) continue;
+      const section = document.createElement('div');
+      const label = document.createElement('strong');
+      label.textContent = title;
+      section.appendChild(label);
+      if (!record[key]) {
+        const message = document.createElement('p');
+        message.textContent = 'Not uploaded';
+        section.appendChild(message);
+        detailsContent.appendChild(section);
+        continue;
+      }
+      let data, error;
+      try {
+        ({ data, error } = await supabaseClient.storage.from('birth-certificate-documents').createSignedUrl(record[key], 300));
+      } catch (failure) { error = failure; }
+      if (error || !data?.signedUrl) {
+        const message = document.createElement('p');
+        message.textContent = 'Unable to load document. Please reopen this request or check your service access.';
+        section.appendChild(message);
+      } else {
+        const link = document.createElement('button');
+        link.type = 'button';
+        link.className = 'service-document-preview';
+        link.setAttribute('aria-label', `View ${title}`);
+        link.setAttribute('aria-haspopup', 'dialog');
+        link.addEventListener('click', () => openImageLightbox(data.signedUrl, title));
+        link.title = `View ${title}`;
+        const preview = document.createElement('img');
+        preview.src = data.signedUrl;
+        preview.alt = title;
+        preview.style.cssText = 'display:block;max-width:100%;height:160px;object-fit:contain;margin:10px 0;border-radius:8px';
+        preview.addEventListener('error', () => preview.remove());
+        link.appendChild(preview);
+        section.appendChild(link);
+      }
+      detailsContent.appendChild(section);
+    }
+
+    if (record.status === 'rejected' && Array.isArray(record.return_files) && record.return_files.length) {
+      const section = document.createElement('div');
+      section.style.gridColumn = '1 / -1';
+      const heading = document.createElement('strong');
+      heading.textContent = 'Return attachments';
+      section.appendChild(heading);
+      appendReturnFileLinks(section, record.return_files);
+      detailsContent.appendChild(section);
+    }
+
     document.getElementById('serviceDetailsModal').classList.add('active');
   } catch (error) {
     console.error('Error loading service details:', error);
     showToast('Failed to load service details', 'error');
   }
+}
+
+function buildServiceDetailsFields(record, profileName = '') {
+  const type = String(record.table_name || record.type || record.service_name || record.name || '').toLowerCase();
+  const fields = [];
+  const add = (label, value) => {
+    if (value != null && String(value).trim() && !/^(n\/?a|null|undefined)$/i.test(String(value).trim())) {
+      fields.push({ label, value: String(value).trim() });
+    }
+  };
+  const date = value => value ? formatDate(value) : '';
+  add('Status', formatServiceStatus(record.status, 'Pending'));
+  add('Requested By', getServiceRequesterName(record, profileName));
+  if (type.includes('marriage')) {
+    add('Husband', record.husband_name);
+    add('Wife', record.wife_name);
+    add('Date of Marriage', date(record.marriage_date));
+    add('Place of Marriage', record.place_of_marriage);
+  } else if (type.includes('death_certificate')) {
+    add('Deceased Person', record.deceased_full_name);
+    add('Date of Death', date(record.date_of_death));
+    add('Place of Death', record.place_of_death);
+  } else if (type.includes('facility')) {
+    add('Facility', record.facility_name);
+    add('Event Date', date(record.event_date));
+    add('Time', [record.start_time, record.end_time].filter(Boolean).join(' to '));
+    add('Participants', record.expected_participants);
+  } else {
+    add(type.includes('birth') ? 'Certificate Owner' : 'Name on Request', record.full_name);
+    if (type.includes('birth')) {
+      add('Birthday', date(record.date_of_birth));
+      add('Place of Birth', record.place_of_birth);
+      add('Mother’s Full Name', record.mother_full_name);
+      add('Father’s Full Name', record.father_full_name);
+    }
+  }
+  const relationship = String(record.relationship_to_owner || '').trim();
+  if (relationship) {
+    const relationshipLabel = type.includes('death_certificate') ? 'Relationship to Deceased'
+      : type.includes('marriage') ? 'Relationship to Either Spouse'
+      : type.includes('facility') ? 'Requesting for'
+      : 'Relationship to Certificate Owner';
+    add(relationshipLabel, relationship);
+  }
+  add('Purpose', record.purpose);
+  if (record.appointment_date || record.appointment_time) {
+    add('Appointment', [date(record.appointment_date), record.appointment_time].filter(Boolean).join(' at '));
+  }
+  add('Phone', record.contact_number || record.phone);
+  add('Email', record.email);
+  add('Submitted', formatSubmittedAt(record.created_at));
+  add('Notes', record.notes || (record.description !== record.purpose ? record.description : ''));
+  add('Additional Information', record.additional_information);
+  if (record.status === 'rejected') {
+    add('Reason for Return', record.rejection_reason || record.remarks);
+  } else if (record.status === 'completed') {
+    add('Approval Notes', record.approval_reason || record.remarks);
+  } else if (record.remarks && record.remarks !== record.notes) {
+    add('Admin Remarks', record.remarks);
+  }
+  return fields;
+}
+
+function getServiceRequesterName(record, profileName = '') {
+  const type = String(record.table_name || record.type || record.service_name || record.name || '').toLowerCase();
+  // Certificate full_name can be the owner, but Death and facility forms collect the requester explicitly.
+  const explicitRequester = type.includes('death_certificate') ? record.requestor_full_name
+    : type.includes('facility') ? record.full_name : null;
+  const candidates = [explicitRequester, record.display_name, profileName, record.requested_by,
+    record.requester, record.applicant_name, record.customer_name,
+    record.client_name, record.submitted_by, record.first_name,
+    ...(type.includes('cenomar') || type.includes('cenodeath') ? [record.full_name] : [])];
+  return candidates.find(value => typeof value === 'string' &&
+    value.trim() && !/^(n\/?a|null|undefined)$/i.test(value.trim()))?.trim() || 'N/A';
 }
 
 function closeServiceDetailsModal() {
@@ -5118,12 +6575,21 @@ async function saveService() {
   const editId = document.getElementById('serviceEditId').value;
   const status = document.getElementById('serviceStatus').value;
   const reason = document.getElementById('serviceReason').value.trim();
+  const returnFiles = document.getElementById('serviceReturnFiles').files;
   const reasonFieldGroup = document.getElementById('reasonFieldGroup');
 
   // Check if reason is required but empty
   if (reasonFieldGroup.style.display !== 'none' && !reason) {
     showToast('Please provide a reason for this status change', 'error');
     return;
+  }
+  if (status === 'rejected') {
+    try {
+      validateReturnFiles(returnFiles);
+    } catch (error) {
+      showToast(error.message, 'error');
+      return;
+    }
   }
 
   // If editing, only allow status update
@@ -5150,12 +6616,24 @@ async function saveService() {
       }
 
       const updatePayload = { status };
+      if (status === 'rejected') {
+        if (!('return_files' in originalRecord) && returnFiles.length) {
+          throw new Error('Return attachments are not available yet. Run supabase/add_return_files.sql first.');
+        }
+        if ('return_files' in originalRecord) {
+          updatePayload.return_files = returnFiles.length
+            ? [...(Array.isArray(originalRecord.return_files) ? originalRecord.return_files : []), ...await uploadReturnFiles('service', editId, returnFiles)]
+            : (originalRecord.return_files || null);
+        }
+      } else if ('return_files' in originalRecord) {
+        updatePayload.return_files = null;
+      }
 
       // Add reason to notes/remarks based on status
       if (reason) {
         if (status === 'rejected') {
           updatePayload.rejection_reason = reason;
-          updatePayload.remarks = `Rejected: ${reason}`;
+          updatePayload.remarks = `Returned: ${reason}`;
         } else if (status === 'completed') {
           updatePayload.approval_reason = reason;
           updatePayload.remarks = `Approved: ${reason}`;
@@ -5165,19 +6643,31 @@ async function saveService() {
         }
       }
 
-      const { error } = await supabaseClient
+      const { data: savedRecord, error } = await supabaseClient
         .from(originalRecord.table_name)
         .update(updatePayload)
-        .eq('id', editId);
+        .eq('id', editId)
+        .select('id, status')
+        .single();
 
       if (error) throw error;
-      showToast('Service status updated successfully!', 'success');
-      addNotification('Service Updated', `Service request status has been updated to ${status}`, 'success');
+      if (!savedRecord || savedRecord.status !== status) {
+        throw new Error('The service status change was not saved.');
+      }
+      const statusChanged = originalRecord.status !== status;
+      const pushSent = statusChanged
+        ? await sendOnlineServiceStatusPushNotification(originalRecord, status, reason)
+        : true;
+      showToast(pushSent
+        ? 'Service status updated successfully!'
+        : 'Service status saved, but the user push notification could not be sent.',
+        pushSent ? 'success' : 'error');
+      addNotification('Service Updated', `Service request status has been updated to ${formatServiceStatus(status)}`, 'success');
       closeServiceModal();
       loadServices();
     } catch (error) {
       console.error('Error updating service:', error);
-      showToast('Error updating service status', 'error');
+      showToast('Error updating service status: ' + error.message, 'error');
       const saveBtn = document.getElementById('serviceSaveBtn');
       saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update Status';
       saveBtn.disabled = false;
@@ -5193,10 +6683,12 @@ function toggleReasonField() {
   const status = document.getElementById('serviceStatus').value;
   const reasonFieldGroup = document.getElementById('reasonFieldGroup');
   const reasonLabel = document.getElementById('reasonLabel');
+  document.getElementById('serviceReturnTemplate').style.display = status === 'rejected' ? 'block' : 'none';
+  document.getElementById('serviceReturnFilesGroup').style.display = status === 'rejected' ? 'block' : 'none';
 
   if (status === 'rejected') {
     reasonFieldGroup.style.display = 'block';
-    reasonLabel.textContent = 'Rejection Reason *';
+    reasonLabel.textContent = 'Return Reason *';
   } else if (status === 'completed') {
     reasonFieldGroup.style.display = 'block';
     reasonLabel.textContent = 'Approval Notes *';
@@ -5207,19 +6699,15 @@ function toggleReasonField() {
   // Clear reason when hiding
   if (reasonFieldGroup.style.display === 'none') {
     document.getElementById('serviceReason').value = '';
+    document.getElementById('serviceReturnTemplate').value = '';
+    document.getElementById('serviceReturnFiles').value = '';
   }
-}
-
-function openDeleteService(id, name) {
-  deleteTarget = id;
-  deleteType = 'service';
-  document.getElementById('deleteMessage').textContent = `Are you sure you want to delete "${name}"? This action cannot be undone.`;
-  document.getElementById('deleteModal').classList.add('active');
 }
 
 function getStatusClass(status) {
   const s = (status || '').toLowerCase();
   if (s === 'resolved' || s === 'done' || s === 'completed' || s === 'approved') return 'status-approved';
+  if (s === 'processing') return 'status-processing';
   if (s === 'reviewing' || s === 'under review' || s === 'in progress') return 'status-reviewing';
   if (s === 'rejected') return 'status-rejected';
   return 'status-pending';
@@ -5258,6 +6746,7 @@ async function loadHotline() {
 
 function renderHotlineTable(hotlineData) {
   const tbody = document.getElementById('hotlineTableBody');
+  tableExportRows.hotlineTableBody = hotlineData;
   const colSpan = tbody.closest('table').querySelectorAll('th').length;
 
   const totalItems = hotlineData.length;
@@ -5498,6 +6987,7 @@ function closeHotlineModal() {
 }
 
 async function saveHotline() {
+  if (document.getElementById('hotlineSaveBtn').disabled) return;
   const editId = document.getElementById('hotlineEditId').value;
   const name = document.getElementById('hotlineName').value.trim();
   const category = document.getElementById('hotlineCategory').value.trim();
@@ -5522,6 +7012,8 @@ async function saveHotline() {
       return;
     }
 
+    await ensureUniqueRecordName('hotlines', 'name', name, editId, 'A hotline with this name');
+
     const phoneNumbers = hotlineNumberInput
       .split(',')
       .map(num => num.trim())
@@ -5534,8 +7026,8 @@ async function saveHotline() {
       description
     };
 
-    if (logoBase64) {
-      payload.logo_url = logoBase64;
+    if (logoBase64 || document.getElementById('hotlineLogo').files[0]) {
+      payload.logo_url = await compressedImageDataUrl(document.getElementById('hotlineLogo').files[0], logoBase64);
     }
 
     if (editId) {
@@ -5562,7 +7054,7 @@ async function saveHotline() {
     loadHotline();
   } catch (error) {
     console.error('Error saving hotline:', error);
-    showToast('Failed to save hotline: ' + error.message, 'error');
+    showToast('Failed to save hotline: ' + recordSaveError(error, 'A hotline with this name'), 'error');
   } finally {
     saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save';
     saveBtn.disabled = false;
@@ -5648,6 +7140,14 @@ function setupSearchListeners() {
   const statusFilter = document.getElementById('reportStatusFilter');
   if (statusFilter) {
     statusFilter.addEventListener('change', () => {
+      filterReports();
+    });
+  }
+
+  const reportCategoryFilter = document.getElementById('reportCategoryFilter');
+  if (reportCategoryFilter) {
+    reportCategoryFilter.addEventListener('change', () => {
+      paginationState.reports.current = 1;
       filterReports();
     });
   }
@@ -5882,6 +7382,7 @@ function filterHotline() {
 function filterReports() {
   const searchTerm = (document.getElementById('reportsSearch').value || '').toLowerCase();
   const statusFilter = document.getElementById('reportStatusFilter').value || '';
+  const categoryFilter = document.getElementById('reportCategoryFilter')?.value || '';
   const dateFrom = document.getElementById('reportDateFrom').value;
   const dateTo = document.getElementById('reportDateTo').value;
 
@@ -5891,6 +7392,7 @@ function filterReports() {
       (r.message && r.message.toLowerCase().includes(searchTerm));
 
     const matchStatus = !statusFilter || r.status === statusFilter;
+    const matchCategory = !categoryFilter || (r.category || 'Other') === categoryFilter;
 
     let matchDate = true;
     if (dateFrom || dateTo) {
@@ -5899,7 +7401,7 @@ function filterReports() {
       if (dateTo && createdDate > dateTo) matchDate = false;
     }
 
-    return matchSearch && matchStatus && matchDate;
+    return matchSearch && matchStatus && matchCategory && matchDate;
   });
 
   renderReportsTable(filtered);
@@ -6003,45 +7505,6 @@ function setupHotlineLogoUpload() {
   });
 }
 
-function setupTouristImageUpload() {
-  const imageInput = document.getElementById('touristImage');
-  const imagePreview = document.getElementById('touristImagePreview');
-
-  if (!imageInput || !imagePreview) return;
-
-  imageInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      showToast('Please select a valid image file', 'error');
-      imageInput.value = '';
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target.result;
-      document.getElementById('touristImageBase64').value = base64;
-      imagePreview.innerHTML = `
-        <div class="preview-image-wrapper">
-          <img src="${base64}" alt="image preview" style="max-width: 100%; max-height: 200px; border-radius: 8px;">
-          <button type="button" class="remove-image-btn" title="Remove image">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-      `;
-      imagePreview.querySelector('.remove-image-btn').addEventListener('click', (e) => {
-        e.preventDefault();
-        imageInput.value = '';
-        document.getElementById('touristImageBase64').value = '';
-        imagePreview.innerHTML = '<i class="fa-solid fa-image"></i><span>No image selected</span>';
-      });
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
 
 function setupTransparencyPdfUpload() {
   const pdfInput = document.getElementById('transparencyPdfUrl');
@@ -6079,6 +7542,104 @@ function setupTransparencyPdfUpload() {
 // ============================================================
 // UTILITIES
 // ============================================================
+// Compress large admin photos before they reach Supabase (including base64 columns).
+async function compressAdminImage(file) {
+  if (!file || !file.type.startsWith('image/') || file.size <= 1024 * 1024 || file.type === 'image/gif') return file;
+
+  const image = new Image();
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = () => reject(new Error(`Could not read image: ${file.name}`));
+      image.src = objectUrl;
+    });
+
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Image compression is not supported by this browser.');
+    const outputType = file.type === 'image/png' || file.type === 'image/webp' ? 'image/webp' : 'image/jpeg';
+    const extension = outputType === 'image/webp' ? 'webp' : 'jpg';
+    let best = null;
+
+    for (const maxDimension of [1920, 1440, 1080]) {
+      const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+      for (const quality of [0.85, 0.7, 0.55]) {
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, outputType, quality));
+        if (!blob || blob.type !== outputType) throw new Error('This browser could not compress the selected image.');
+        if (!best || blob.size < best.size) best = blob;
+        if (blob.size <= 1024 * 1024) break;
+      }
+      if (best && best.size <= 1024 * 1024) break;
+    }
+
+    if (!best || best.size >= file.size) return file;
+    const baseName = file.name.replace(/\.[^.]+$/, '');
+    return new File([best], `${baseName}.${extension}`, { type: outputType, lastModified: file.lastModified });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+// Retry at smaller dimensions if the general photo compressor cannot get an
+// unusually large image below the upload limit.
+async function compressImageForUpload(originalFile, maxBytes) {
+  const prepared = await compressAdminImage(originalFile);
+  if (prepared.size <= maxBytes || !prepared.type.startsWith('image/')) return prepared;
+
+  const image = new Image();
+  const objectUrl = URL.createObjectURL(prepared);
+  try {
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = () => reject(new Error(`Could not read image: ${prepared.name}`));
+      image.src = objectUrl;
+    });
+
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Image compression is not supported by this browser.');
+    const outputType = prepared.type === 'image/png' || prepared.type === 'image/webp' ? 'image/webp' : 'image/jpeg';
+    const extension = outputType === 'image/webp' ? 'webp' : 'jpg';
+    let smallest = null;
+    for (const maxDimension of [1600, 1200, 900, 700, 500, 320]) {
+      const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      for (const quality of [0.7, 0.5, 0.35, 0.2]) {
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, outputType, quality));
+        if (!blob || blob.type !== outputType) throw new Error('This browser could not compress the selected image.');
+        if (!smallest || blob.size < smallest.size) smallest = blob;
+        if (blob.size <= maxBytes) {
+          const baseName = prepared.name.replace(/\.[^.]+$/, '');
+          return new File([blob], `${baseName}.${extension}`, { type: outputType, lastModified: prepared.lastModified });
+        }
+      }
+    }
+    if (!smallest || smallest.size >= prepared.size) return prepared;
+    const baseName = prepared.name.replace(/\.[^.]+$/, '');
+    return new File([smallest], `${baseName}.${extension}`, { type: outputType, lastModified: prepared.lastModified });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function compressedImageDataUrl(file, fallback) {
+  if (!file) return fallback;
+  const prepared = await compressAdminImage(file);
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error(`Could not read image: ${file.name}`));
+    reader.readAsDataURL(prepared);
+  });
+}
+
 function decodeBase64(base64String) {
   const base64 = base64String.replace(/^data:image\/[^;]+;base64,/, '');
   const binary = atob(base64);
@@ -6087,6 +7648,26 @@ function decodeBase64(base64String) {
     bytes[i] = binary.charCodeAt(i);
   }
   return bytes;
+}
+
+let submissionAgeTimer = null;
+
+function updateSubmissionAges() {
+  document.querySelectorAll('[data-submitted-at]').forEach(element => {
+    const age = formatSubmissionAge(element.dataset.submittedAt);
+    if (element instanceof HTMLInputElement) element.value = age;
+    else element.textContent = age;
+  });
+}
+
+function createSubmissionAgeCell(submittedAt) {
+  const cell = document.createElement('td');
+  cell.className = 'submission-age-cell';
+  const timestamp = parseSubmissionTime(submittedAt);
+  cell.textContent = formatSubmissionAge(submittedAt);
+  if (timestamp) cell.dataset.submittedAt = timestamp.toISOString();
+  if (!submissionAgeTimer) submissionAgeTimer = setInterval(updateSubmissionAges, 1000);
+  return cell;
 }
 
 function formatDate(dateStr) {
@@ -6249,6 +7830,7 @@ function closePlaceReviewsModal() {
 let allUsers = [];
 
 async function syncUsersFromFirebase() {
+  if (!canAccessUserDirectory()) throw new Error('Admin access required.');
   const syncEndpoint = window.location.protocol === 'file:'
     ? 'http://localhost:5000/api/sync-users'
     : '/api/sync-users';
@@ -6281,6 +7863,12 @@ async function syncUsersFromFirebase() {
 }
 
 async function loadUsers() {
+  if (!canAccessUserDirectory()) {
+    allUsers = [];
+    tableExportRows.usersTableBody = [];
+    document.getElementById('usersTableBody')?.replaceChildren();
+    return;
+  }
   const tbody = document.getElementById('usersTableBody');
   if (!tbody) return;
 
@@ -6293,7 +7881,7 @@ async function loadUsers() {
   try {
     try {
       const syncResult = await syncUsersFromFirebase();
-      console.log(`Synced ${syncResult.usersSynced || 0} Firebase users before loading Manage Users.`);
+      console.log(`Synced ${syncResult.usersSynced || 0} Firebase users before loading Manage Citizen.`);
     } catch (syncError) {
       console.warn('Firebase user sync unavailable; loading existing Supabase users:', syncError);
       showToast(
@@ -6332,6 +7920,7 @@ async function loadUsers() {
     }));
 
     renderUsersTable(allUsers);
+    updateAdminRolePasswordHint();
   } catch (error) {
     console.error('Error loading users:', error);
     showToast('Failed to load users from database: ' + error.message, 'error');
@@ -6348,7 +7937,7 @@ function getVerificationBadgeClass(status) {
 function getVerificationBadgeText(status) {
   if (status === 'verified') return 'Verified';
   if (status === 'pending') return 'Pending';
-  if (status === 'rejected') return 'Rejected';
+  if (status === 'rejected') return 'Returned';
   return 'Not Submitted';
 }
 
@@ -6365,36 +7954,91 @@ function isRlsPolicyError(error) {
 }
 
 function populateAdminRoleFeatureOptions() {
-  const select = document.getElementById('adminRoleFeature');
-  if (!select) return;
+  const container = document.getElementById('adminRoleFeatureOptions');
+  if (!container) return;
 
-  select.innerHTML = '<option value="">Select a feature</option>' +
-    ADMIN_FEATURES.map(feature => `<option value="${feature.value}">${feature.label}</option>`).join('');
+  container.innerHTML = ADMIN_FEATURES.map(feature => `
+    <label class="checkbox-label">
+      <input type="checkbox" name="adminRoleFeatures" value="${escapeHtml(feature.value)}" />
+      <span>${escapeHtml(feature.label)}</span>
+    </label>
+  `).join('');
+  container.querySelectorAll('input').forEach(input => {
+    input.addEventListener('change', updateReportCategoryAccessVisibility);
+  });
 }
 
-function populateAdminRoleUserOptions() {
-  const select = document.getElementById('adminRoleUserSelect');
-  if (!select) return;
+function selectedAdminFeatures() {
+  return Array.from(document.querySelectorAll('input[name="adminRoleFeatures"]:checked'))
+    .map(input => input.value);
+}
 
-  const userOptions = [{ email: '', label: 'No user assignment' }].concat(
-    allUsers
-      .filter(user => user?.email)
-      .map(user => ({ email: user.email, label: `${user.display_name || user.user_metadata?.full_name || user.email} (${user.email})` }))
+function populateAdminReportCategoryOptions() {
+  const container = document.getElementById('adminReportCategoryOptions');
+  if (!container) return;
+
+  container.innerHTML = REPORT_CATEGORIES.map(category => `
+    <label class="checkbox-label">
+      <input type="checkbox" name="adminReportCategories" value="${escapeHtml(category)}" />
+      <span>${escapeHtml(category)}</span>
+    </label>
+  `).join('');
+}
+
+function populateAdminTransparencyCategoryOptions() {
+  document.getElementById('adminTransparencyCategoryOptions').innerHTML = TRANSPARENCY_CATEGORIES.map(category => `
+    <label class="checkbox-label">
+      <input type="checkbox" name="adminTransparencyCategories" value="${category.value}" />
+      <span>${escapeHtml(category.label)}</span>
+    </label>
+  `).join('');
+}
+
+function updateReportCategoryAccessVisibility() {
+  const group = document.getElementById('reportCategoryAccessGroup');
+  if (!group) return;
+
+  group.style.display = selectedAdminFeatures().includes('reports') ? 'block' : 'none';
+  document.getElementById('transparencyCategoryAccessGroup').style.display = selectedAdminFeatures().includes('transparency') ? 'block' : 'none';
+}
+
+function selectedAdminReportCategories() {
+  return Array.from(
+    document.querySelectorAll('input[name="adminReportCategories"]:checked')
+  ).map(input => input.value);
+}
+
+function toggleAdminRolePassword() {
+  const input = document.getElementById('adminRolePassword');
+  const button = document.getElementById('adminPasswordToggle');
+  const visible = input.type === 'password';
+  input.type = visible ? 'text' : 'password';
+  button.setAttribute('aria-pressed', String(visible));
+  button.setAttribute('aria-label', visible ? 'Hide password' : 'Show password');
+  button.innerHTML = `<i class="fa-regular ${visible ? 'fa-eye-slash' : 'fa-eye'}" aria-hidden="true"></i>`;
+}
+
+function updateAdminRolePasswordHint() {
+  const selectedEmail = String(document.getElementById('adminRoleEmail')?.value || '').trim().toLowerCase();
+  const existingAdmin = getAdminRoles().some(role =>
+    String(role.assignedEmail || '').trim().toLowerCase() === selectedEmail
   );
-
-  select.innerHTML = userOptions.map(option => {
-    const value = option.email || '';
-    const label = option.label || 'No user assignment';
-    return `<option value="${value}">${label}</option>`;
-  }).join('');
+  const requiredMark = document.getElementById('adminRolePasswordRequired');
+  const hint = document.getElementById('adminRolePasswordHint');
+  if (requiredMark) requiredMark.style.display = existingAdmin ? 'none' : '';
+  if (hint) hint.textContent = existingAdmin
+    ? 'This admin already has an account. Leave the password blank to keep it.'
+    : 'Required for a new admin account. Existing admins keep their password.';
 }
 
 function loadManageAdmin() {
   populateAdminRoleFeatureOptions();
-  if (allUsers.length === 0 && supabaseClient) {
-    loadUsers();
-  }
-  populateAdminRoleUserOptions();
+  populateAdminReportCategoryOptions();
+  populateAdminTransparencyCategoryOptions();
+  const emailInput = document.getElementById('adminRoleEmail');
+  if (emailInput) emailInput.oninput = updateAdminRolePasswordHint;
+  updateReportCategoryAccessVisibility();
+  updateAdminRolePasswordHint();
   renderAdminRoles();
 }
 
@@ -6405,53 +8049,241 @@ function renderAdminRoles() {
   const roles = getAdminRoles();
   if (!roles.length) {
     list.innerHTML = '<p class="empty-state">No admin roles created yet.</p>';
+    renderAdminRolesPagination(0);
     return;
   }
 
-  list.innerHTML = roles.map(role => {
+  const totalPages = Math.ceil(roles.length / ADMIN_ROLES_PER_PAGE);
+  if (paginationState.adminRoles.current > totalPages) {
+    paginationState.adminRoles.current = totalPages;
+  }
+  const startIndex = (paginationState.adminRoles.current - 1) * ADMIN_ROLES_PER_PAGE;
+  const visibleRoles = roles.slice(startIndex, startIndex + ADMIN_ROLES_PER_PAGE);
+
+  list.innerHTML = visibleRoles.map(role => {
     const permissions = Array.isArray(role.permissions) && role.permissions.length > 0
       ? role.permissions
       : buildPermissionSet(role.feature || role.permission || '');
     const accessLabels = permissions.length
       ? permissions.map(value => ADMIN_FEATURES.find(feature => feature.value === value)?.label || value).join(', ')
       : 'No feature access';
+    const transparencyCategoryLabels = TRANSPARENCY_CATEGORIES.filter(category => (role.transparencyCategories || []).includes(category.value)).map(category => category.label).join(', ');
+    const reportCategoryLabels = normalizeReportCategories(role.reportCategories).join(', ');
 
     return `
       <div class="admin-role-item">
         <div class="admin-role-header">
           <div>
-            <h3>${escapeHtml(role.roleName || 'Unnamed Role')}</h3>
+            <h3>${escapeHtml(role.isSuperAdmin ? 'Admin' : role.roleName || 'Unnamed Role')}</h3>
             <div class="admin-role-meta">
-              <span class="admin-role-tag ${role.isSuperAdmin ? 'super' : ''}">${role.isSuperAdmin ? 'Super Admin' : 'Feature Access'}</span>
+              <span class="admin-role-tag ${role.isSuperAdmin ? 'super' : ''}">${role.isSuperAdmin ? 'Admin' : 'Feature Access'}</span>
               ${role.assignedEmail ? `<span class="admin-role-email">${escapeHtml(role.assignedEmail)}</span>` : '<span class="admin-role-email">Unassigned</span>'}
             </div>
           </div>
-          <button class="btn btn-sm btn-delete" onclick="deleteAdminRole('${role.id}')">
-            <i class="fa-solid fa-trash"></i>
-            Remove
-          </button>
+          <div class="admin-role-actions">
+            <button type="button" class="btn btn-sm btn-secondary" onclick="editAdminRole('${role.id}')">
+              <i class="fa-solid fa-pen"></i> Edit
+            </button>
+            <button type="button" class="btn btn-sm btn-delete" onclick="deleteAdminRole('${role.id}')">
+              <i class="fa-solid fa-trash"></i> Remove
+            </button>
+          </div>
         </div>
+        ${permissions.includes('transparency') && !role.isSuperAdmin ? `<p class="admin-role-access"><strong>Transparency categories:</strong> ${escapeHtml(transparencyCategoryLabels || 'None assigned')}</p>` : ''}
         <p class="admin-role-access"><strong>Access:</strong> ${escapeHtml(accessLabels)}</p>
+        ${permissions.includes('reports') && !role.isSuperAdmin ? `<p class="admin-role-access"><strong>Report categories:</strong> ${escapeHtml(reportCategoryLabels || 'None assigned')}</p>` : ''}
       </div>
     `;
   }).join('');
+
+  renderAdminRolesPagination(roles.length);
 }
 
-async function createAdminRole() {
-  const email = document.getElementById('adminRoleEmail')?.value.trim();
-  const password = document.getElementById('adminRolePassword')?.value || '';
-  const roleName = document.getElementById('adminRoleName')?.value.trim();
-  const selectedFeature = document.getElementById('adminRoleFeature')?.value || '';
-  const selectedUserEmail = document.getElementById('adminRoleUserSelect')?.value || '';
-  const isSuperAdmin = document.getElementById('adminRoleIsSuperAdmin')?.checked || false;
+let editingAdminRoleId = null;
+let adminRoleEditBusy = false;
 
-  if (!email) {
-    showToast('Please enter an admin email.', 'error');
+function updateEditAdminReportVisibility() {
+  const hasReports = document.querySelector('#editAdminRoleFeatures input[value="reports"]')?.checked;
+  document.getElementById('editAdminReportGroup').hidden = !hasReports;
+  document.getElementById('editAdminTransparencyGroup').hidden = !document.querySelector('#editAdminRoleFeatures input[value="transparency"]')?.checked;
+}
+
+function editAdminRole(roleId) {
+  if (adminRoleEditBusy) return;
+  if (!getCurrentAdminSession().isSuperAdmin || databaseAdminRoles === null) {
+    showToast('Only the Admin can edit staff access.', 'error');
+    return;
+  }
+  const role = getAdminRoles().find(item => item.id === roleId);
+  if (!role) return;
+  const accountRoles = getAdminRoles().filter(item =>
+    String(item.assignedEmail || '').toLowerCase() === String(role.assignedEmail || '').toLowerCase()
+  );
+  const isSuperAdmin = accountRoles.some(item => item.isSuperAdmin);
+  const features = new Set(accountRoles.flatMap(item => item.permissions?.length
+    ? item.permissions : buildPermissionSet(item.feature)));
+  const categories = new Set(normalizeReportCategories(accountRoles.flatMap(item => item.reportCategories || [])));
+  editingAdminRoleId = roleId;
+  document.getElementById('editAdminRoleEmail').textContent = role.assignedEmail || 'Unassigned';
+  document.getElementById('editAdminRoleName').value = isSuperAdmin ? 'Admin' : role.roleName || '';
+  document.getElementById('editAdminRoleError').textContent = '';
+  document.getElementById('editAdminFeatureGroup').hidden = isSuperAdmin;
+  document.getElementById('editAdminRoleFeatures').innerHTML = ADMIN_FEATURES.map(feature => `
+    <label class="checkbox-label">
+      <input type="checkbox" value="${escapeHtml(feature.value)}" ${features.has(feature.value) ? 'checked' : ''} />
+      <span>${escapeHtml(feature.label)}</span>
+    </label>
+  `).join('');
+  document.getElementById('editAdminReportCategories').innerHTML = REPORT_CATEGORIES.map(category => `
+    <label class="checkbox-label">
+      <input type="checkbox" value="${escapeHtml(category)}" ${categories.has(category) ? 'checked' : ''} />
+      <span>${escapeHtml(category)}</span>
+    </label>
+  `).join('');
+  const transparencyCategories = new Set(accountRoles.flatMap(item => item.transparencyCategories || []));
+  document.getElementById('editAdminTransparencyCategories').innerHTML = TRANSPARENCY_CATEGORIES.map(category => `
+    <label class="checkbox-label">
+      <input type="checkbox" value="${category.value}" ${transparencyCategories.has(category.value) ? 'checked' : ''} />
+      <span>${escapeHtml(category.label)}</span>
+    </label>
+  `).join('');
+  document.querySelectorAll('#editAdminRoleFeatures input').forEach(input =>
+    input.addEventListener('change', updateEditAdminReportVisibility));
+  updateEditAdminReportVisibility();
+  document.getElementById('editAdminRoleModal').showModal();
+}
+
+function closeEditAdminRole() {
+  if (adminRoleEditBusy) return;
+  document.getElementById('editAdminRoleModal').close();
+  editingAdminRoleId = null;
+}
+
+async function saveEditedAdminRole() {
+  if (!editingAdminRoleId || adminRoleEditBusy) return;
+  const role = getAdminRoles().find(item => item.id === editingAdminRoleId);
+  if (!role) return;
+  const name = document.getElementById('editAdminRoleName').value.trim();
+  const features = Array.from(document.querySelectorAll('#editAdminRoleFeatures input:checked'), input => input.value);
+  const reportCategories = Array.from(document.querySelectorAll('#editAdminReportCategories input:checked'), input => input.value);
+  const transparencyCategories = Array.from(document.querySelectorAll('#editAdminTransparencyCategories input:checked'), input => input.value);
+  const errorMessage = document.getElementById('editAdminRoleError');
+  if (!name) { errorMessage.textContent = 'Enter a role name.'; return; }
+  const accountIsSuperAdmin = getAdminRoles().some(item => item.isSuperAdmin &&
+    String(item.assignedEmail || '').toLowerCase() === String(role.assignedEmail || '').toLowerCase());
+  if (!accountIsSuperAdmin && !features.length) { errorMessage.textContent = 'Select at least one feature.'; return; }
+  if (!accountIsSuperAdmin && features.includes('reports') && !reportCategories.length) {
+    errorMessage.textContent = 'Select at least one report category.';
+    return;
+  }
+  if (!accountIsSuperAdmin && features.includes('transparency') && !transparencyCategories.length) {
+    errorMessage.textContent = 'Select at least one transparency category.';
+    return;
+  }
+  const modal = document.getElementById('editAdminRoleModal');
+  const saveButton = document.getElementById('editAdminRoleSave');
+  adminRoleEditBusy = true;
+  modal.setAttribute('aria-busy', 'true');
+  modal.querySelectorAll('button').forEach(button => { button.disabled = true; });
+  saveButton.textContent = 'Saving...';
+  errorMessage.textContent = '';
+  try {
+    if (!getCurrentAdminSession().isSuperAdmin || databaseAdminRoles === null) {
+      throw new Error('Only the Admin can edit staff access.');
+    }
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    if (!token) throw new Error('Your admin session has expired. Please sign in again.');
+    const response = await fetch('/api/admin-roles/edit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ roleId: editingAdminRoleId, roleName: name, features, reportCategories, transparencyCategories })
+    });
+    if (!response.headers.get('content-type')?.includes('application/json')) {
+      throw new Error('Admin edit API is unavailable. Deploy the API with SUPABASE_SERVICE_ROLE_KEY.');
+    }
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Failed to edit admin access.');
+    await loadAdminRolesFromDatabase({ email: getCurrentAdminSession().email });
+    modal.close();
+    editingAdminRoleId = null;
+    showToast('Admin access updated.', 'success');
+  } catch (error) {
+    console.error('Edit admin role error:', error);
+    errorMessage.textContent = error?.message || 'Failed to edit admin access.';
+    try { await loadAdminRolesFromDatabase({ email: getCurrentAdminSession().email }); }
+    catch (refreshError) { console.warn('Could not refresh admin roles:', refreshError); }
+  } finally {
+    adminRoleEditBusy = false;
+    modal.removeAttribute('aria-busy');
+    modal.querySelectorAll('button').forEach(button => { button.disabled = false; });
+    saveButton.textContent = 'Save Changes';
+  }
+}
+
+function renderAdminRolesPagination(totalItems) {
+  const paginationEl = document.getElementById('adminRolesPagination');
+  const showingEl = document.getElementById('adminRolesShowing');
+  if (!paginationEl || !showingEl) return;
+
+  const totalPages = Math.ceil(totalItems / ADMIN_ROLES_PER_PAGE);
+  const currentPage = paginationState.adminRoles.current;
+  paginationState.adminRoles.total = totalPages;
+  showingEl.textContent = totalItems
+    ? `Showing ${Math.min(currentPage * ADMIN_ROLES_PER_PAGE, totalItems)} of ${totalItems} roles`
+    : 'Showing 0 of 0 roles';
+
+  if (totalPages <= 1) {
+    paginationEl.innerHTML = '';
     return;
   }
 
-  if (!password || password.length < 8) {
-    showToast('Password must be at least 8 characters long.', 'error');
+  let html = `<button class="page-btn prev-btn" data-page="${currentPage - 1}" ${currentPage === 1 ? 'disabled' : ''}><i class="fa-solid fa-chevron-left"></i></button>`;
+  const maxButtons = 5;
+  let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+  let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+  if (endPage - startPage + 1 < maxButtons) {
+    startPage = Math.max(1, endPage - maxButtons + 1);
+  }
+  if (startPage > 1) {
+    html += '<button class="page-btn" data-page="1">1</button>';
+    if (startPage > 2) html += '<span class="page-ellipsis">...</span>';
+  }
+  for (let page = startPage; page <= endPage; page++) {
+    html += `<button class="page-btn ${page === currentPage ? 'active' : ''}" data-page="${page}">${page}</button>`;
+  }
+  if (endPage < totalPages) {
+    if (endPage < totalPages - 1) html += '<span class="page-ellipsis">...</span>';
+    html += `<button class="page-btn" data-page="${totalPages}">${totalPages}</button>`;
+  }
+  html += `<button class="page-btn next-btn" data-page="${currentPage + 1}" ${currentPage === totalPages ? 'disabled' : ''}><i class="fa-solid fa-chevron-right"></i></button>`;
+  paginationEl.innerHTML = html;
+
+  paginationEl.querySelectorAll('.page-btn').forEach(button => {
+    button.addEventListener('click', () => {
+      const page = Number(button.dataset.page);
+      if (page >= 1 && page <= totalPages) {
+        paginationState.adminRoles.current = page;
+        renderAdminRoles();
+      }
+    });
+  });
+}
+
+async function createAdminRole() {
+  const email = String(document.getElementById('adminRoleEmail')?.value || '').trim().toLowerCase();
+  const password = document.getElementById('adminRolePassword')?.value || '';
+  const roleName = document.getElementById('adminRoleName')?.value.trim();
+  const selectedFeatures = selectedAdminFeatures();
+  const reportCategories = selectedAdminReportCategories();
+  const transparencyCategories = Array.from(document.querySelectorAll('input[name="adminTransparencyCategories"]:checked'), input => input.value);
+  if (selectedFeatures.includes('transparency') && !transparencyCategories.length) {
+    showToast('Select at least one transparency category for this admin.', 'error');
+    return;
+  }
+
+  if (!email) {
+    showToast('Please enter an admin email.', 'error');
     return;
   }
 
@@ -6460,8 +8292,13 @@ async function createAdminRole() {
     return;
   }
 
-  if (!isSuperAdmin && !selectedFeature) {
-    showToast('Please select a feature for this admin role.', 'error');
+  if (selectedFeatures.length === 0) {
+    showToast('Please select at least one feature for this admin.', 'error');
+    return;
+  }
+
+  if (selectedFeatures.includes('reports') && reportCategories.length === 0) {
+    showToast('Select at least one report category for this admin.', 'error');
     return;
   }
 
@@ -6469,73 +8306,177 @@ async function createAdminRole() {
     showToast('Supabase is not available. Please refresh the page.', 'error');
     return;
   }
+  if (!getCurrentAdminSession().isSuperAdmin || databaseAdminRoles === null) {
+    showToast('Only the Admin can add staff access.', 'error');
+    return;
+  }
 
   try {
-    const payload = buildAdminAccountCreationPayload({
-      email,
-      password,
-      roleName,
-      feature: selectedFeature,
-      isSuperAdmin
-    });
-
-    const { data, error } = await supabaseClient.auth.signUp(payload);
-    if (error) {
-      throw error;
-    }
-
-    const assignedEmail = data?.user?.email || email;
-    const newRole = {
-      id: `role_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      roleName,
-      feature: isSuperAdmin ? 'all' : selectedFeature,
-      permissions: isSuperAdmin ? ADMIN_FEATURES.map(item => item.value) : buildPermissionSet(selectedFeature),
-      isSuperAdmin,
-      assignedEmail: selectedUserEmail || assignedEmail,
-      createdAt: new Date().toISOString(),
-      authUserId: data?.user?.id || null
-    };
-
     const roles = getAdminRoles();
-    const existingIndex = roles.findIndex(role => role.roleName.toLowerCase() === roleName.toLowerCase() && role.feature === newRole.feature);
-    if (existingIndex >= 0) {
-      showToast('A role with that name and feature already exists.', 'error');
+    const existingAdminRoles = roles.filter(role =>
+      String(role.assignedEmail || '').trim().toLowerCase() === email
+    );
+    const existingAdmin = existingAdminRoles.length > 0;
+    if (!existingAdmin && (!password || password.length < 8)) {
+      showToast('Password must be at least 8 characters long for a new admin account.', 'error');
       return;
     }
+    const roleTemplate = {
+      roleName,
+      assignedEmail: email,
+      authUserId: existingAdminRoles.find(role => role.authUserId)?.authUserId || null
+    };
+    const featuresToAdd = selectedFeatures
+      .filter(feature => !existingAdminRoles.some(role => role.feature === feature));
+    if (!featuresToAdd.length) {
+      showToast(`${email} already has all selected feature access.`, 'error');
+      return;
+    }
+    const newRoles = featuresToAdd.map(feature => ({
+      ...roleTemplate,
+      feature,
+      permissions: feature === 'all' ? ADMIN_FEATURES.map(item => item.value) : buildPermissionSet(feature),
+      reportCategories: feature === 'all' ? REPORT_CATEGORIES
+        : feature === 'reports' ? normalizeReportCategories(reportCategories) : [],
+      transparencyCategories: feature === 'all' ? TRANSPARENCY_CATEGORIES.map(item => item.value)
+        : feature === 'transparency' ? normalizeTransparencyCategories(transparencyCategories) : []
+    }));
 
-    roles.push(newRole);
-    saveAdminRoles(roles);
+    // Insert the selected feature roles together; existing admins keep their login.
+    const savedRoles = await saveAdminRolesToDatabase(newRoles);
+    let authUserId = roleTemplate.authUserId;
+    if (!existingAdmin) {
+      const { data: currentSessionData } = await supabaseClient.auth.getSession();
+      const currentSession = currentSessionData?.session;
+      const payload = buildAdminAccountCreationPayload({
+        email, password, roleName, features: selectedFeatures, reportCategories, transparencyCategories
+      });
+      const { data, error } = await supabaseClient.auth.signUp(payload);
+      if (error) {
+        await supabaseClient.from('admin_roles').delete().in('id', savedRoles.map(role => role.id));
+        throw error;
+      }
+
+      // With email confirmation disabled, signUp can switch the browser to
+      // the new account. Restore the super-admin session before updating.
+      if (currentSession && data?.session?.user?.id !== currentSession.user.id) {
+        await supabaseClient.auth.setSession({
+          access_token: currentSession.access_token,
+          refresh_token: currentSession.refresh_token
+        });
+      }
+      authUserId = data?.user?.id || null;
+      if (authUserId) {
+        const { error: linkError } = await supabaseClient.from('admin_roles')
+          .update({ auth_user_id: authUserId })
+          .in('id', savedRoles.map(role => role.id));
+        if (linkError) console.warn('Could not link admin role to auth user:', linkError.message);
+      }
+    }
+
+    databaseAdminRoles = [...(databaseAdminRoles || []),
+      ...savedRoles.map(role => ({ ...role, authUserId }))];
 
     document.getElementById('adminRoleEmail').value = '';
     document.getElementById('adminRolePassword').value = '';
     document.getElementById('adminRoleName').value = '';
-    document.getElementById('adminRoleFeature').value = '';
-    document.getElementById('adminRoleUserSelect').value = '';
-    document.getElementById('adminRoleIsSuperAdmin').checked = false;
+    document.querySelectorAll('input[name="adminRoleFeatures"]').forEach(input => {
+      input.checked = false;
+    });
+    document.querySelectorAll('input[name="adminTransparencyCategories"]').forEach(input => { input.checked = false; });
+    document.querySelectorAll('input[name="adminReportCategories"]').forEach(input => {
+      input.checked = false;
+    });
+    updateReportCategoryAccessVisibility();
+    updateAdminRolePasswordHint();
     renderAdminRoles();
-    showToast('Admin account created successfully. Email confirmation may be required.', 'success');
+    showToast(existingAdmin
+      ? `${savedRoles.length} feature${savedRoles.length === 1 ? '' : 's'} added to the existing admin.`
+      : 'Admin account created with selected features. Email confirmation may be required.', 'success');
   } catch (error) {
     console.error('Create admin role error:', error);
     showToast(error?.message || 'Failed to create admin account.', 'error');
   }
 }
 
+let pendingAdminRemoval = null;
+let adminRemovalBusy = false;
+
+function closeAdminAccessModal() {
+  if (adminRemovalBusy) return;
+  document.getElementById('adminAccessModal').close();
+  pendingAdminRemoval = null;
+}
+
 function deleteAdminRole(roleId) {
+  if (adminRemovalBusy) return;
   const roles = getAdminRoles();
   const role = roles.find(item => item.id === roleId);
   if (!role) return;
 
-  const confirmed = window.confirm(`Delete the role "${role.roleName}"?`);
-  if (!confirmed) return;
+  if (!getCurrentAdminSession().isSuperAdmin || databaseAdminRoles === null) {
+    showToast('Only the Admin can remove staff access.', 'error');
+    return;
+  }
+  const email = role.assignedEmail || 'this account';
+  pendingAdminRemoval = { roleId, email };
+  document.getElementById('adminAccessEmail').textContent = email;
+  document.getElementById('adminAccessError').textContent = '';
+  document.getElementById('adminAccessModal').showModal();
+}
 
-  const updatedRoles = roles.filter(item => item.id !== roleId);
-  saveAdminRoles(updatedRoles);
-  renderAdminRoles();
-  showToast('Admin role removed.', 'success');
+async function confirmAdminAccessRemoval() {
+  if (!pendingAdminRemoval || adminRemovalBusy) return;
+  const { roleId, email } = pendingAdminRemoval;
+  const modal = document.getElementById('adminAccessModal');
+  const confirmButton = document.getElementById('adminAccessConfirm');
+  const errorMessage = document.getElementById('adminAccessError');
+  adminRemovalBusy = true;
+  modal.setAttribute('aria-busy', 'true');
+  modal.querySelectorAll('button').forEach(button => { button.disabled = true; });
+  confirmButton.textContent = 'Removing access...';
+  errorMessage.textContent = '';
+
+  try {
+    if (!getCurrentAdminSession().isSuperAdmin || databaseAdminRoles === null) {
+      throw new Error('Only the Admin can remove staff access.');
+    }
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    if (!token) throw new Error('Your admin session has expired. Please sign in again.');
+    const response = await fetch('/api/admin-roles/remove', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ roleId })
+    });
+    if (!response.headers.get('content-type')?.includes('application/json')) {
+      throw new Error('Admin removal API is unavailable. Deploy the API with SUPABASE_SERVICE_ROLE_KEY.');
+    }
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Failed to remove admin access.');
+    const removedIds = new Set(result.removedIds || []);
+    databaseAdminRoles = databaseAdminRoles.filter(item => !removedIds.has(item.id));
+    renderAdminRoles();
+    modal.close();
+    pendingAdminRemoval = null;
+    showToast(`Admin access removed for ${email}.`, 'success');
+  } catch (error) {
+    console.error('Delete admin role error:', error);
+    errorMessage.textContent = error?.message || 'Failed to remove admin access. Please try again.';
+  } finally {
+    adminRemovalBusy = false;
+    modal.removeAttribute('aria-busy');
+    modal.querySelectorAll('button').forEach(button => { button.disabled = false; });
+    confirmButton.textContent = 'Remove Access';
+  }
 }
 
 function renderUsersTable(usersData) {
   const tbody = document.getElementById('usersTableBody');
+  tableExportRows.usersTableBody = usersData;
   const colSpan = tbody.closest('table').querySelectorAll('th').length;
 
   const totalItems = usersData.length;
@@ -6591,12 +8532,6 @@ function renderUsersTable(usersData) {
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'action-btns';
 
-    const reviewBtn = document.createElement('button');
-    reviewBtn.className = 'btn btn-sm btn-info btn-icon';
-    reviewBtn.title = 'Review ID';
-    reviewBtn.innerHTML = '<i class="fa-solid fa-id-card"></i>';
-    reviewBtn.addEventListener('click', () => openReviewUserModal(u.id, u));
-
     const editBtn = document.createElement('button');
     editBtn.className = 'btn btn-sm btn-edit btn-icon';
     editBtn.title = 'Edit';
@@ -6611,16 +8546,8 @@ function renderUsersTable(usersData) {
       : '<i class="fa-solid fa-user-slash"></i>';
     blockBtn.addEventListener('click', () => toggleUserActiveState(u));
 
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'btn btn-sm btn-delete btn-icon';
-    deleteBtn.title = 'Delete';
-    deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
-    deleteBtn.addEventListener('click', () => openDeleteUser(u.id, u.email || 'User'));
-
-    actionsDiv.appendChild(reviewBtn);
     actionsDiv.appendChild(editBtn);
     actionsDiv.appendChild(blockBtn);
-    actionsDiv.appendChild(deleteBtn);
     tdActions.appendChild(actionsDiv);
 
     tr.appendChild(tdEmail);
@@ -6813,25 +8740,34 @@ async function openReviewUserModal(userId, userData) {
   reviewModal.classList.add('active');
 }
 
+let imageLightboxTrigger = null;
+
 function openImageLightbox(imageUrl, label = 'Verification image') {
   const lightbox = document.getElementById('imageLightbox');
   const lightboxImage = document.getElementById('imageLightboxImage');
   if (!lightbox || !lightboxImage || !imageUrl) return;
 
+  imageLightboxTrigger = document.activeElement;
   lightboxImage.src = imageUrl;
   lightboxImage.alt = label;
   lightbox.classList.add('active');
+  lightbox.setAttribute('aria-label', label);
+  lightbox.setAttribute('aria-hidden', 'false');
   document.body.classList.add('image-lightbox-open');
+  lightbox.querySelector('.image-lightbox-close')?.focus();
 }
 
 function closeImageLightbox() {
   const lightbox = document.getElementById('imageLightbox');
   const lightboxImage = document.getElementById('imageLightboxImage');
-  if (!lightbox || !lightboxImage) return;
+  if (!lightbox || !lightboxImage || !lightbox.classList.contains('active')) return;
 
   lightbox.classList.remove('active');
+  lightbox.setAttribute('aria-hidden', 'true');
   lightboxImage.removeAttribute('src');
   document.body.classList.remove('image-lightbox-open');
+  imageLightboxTrigger?.focus();
+  imageLightboxTrigger = null;
 }
 
 document.getElementById('imageLightbox')?.addEventListener('click', (event) => {
@@ -6840,6 +8776,10 @@ document.getElementById('imageLightbox')?.addEventListener('click', (event) => {
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') closeImageLightbox();
+  if (event.key === 'Tab' && document.getElementById('imageLightbox')?.classList.contains('active')) {
+    event.preventDefault();
+    document.querySelector('#imageLightbox .image-lightbox-close')?.focus();
+  }
 });
 
 async function getUserIdentityStorageUrls(userId) {
@@ -6893,6 +8833,10 @@ function closeReviewUserModal() {
 }
 
 async function approveUserVerification() {
+  // Didit is the sole source of verification decisions. Manual approvals are disabled.
+  showToast('Manual identity approval is disabled. Verification is decided by Didit.', 'warning');
+  return;
+
   const userId = document.getElementById('reviewUserId').value;
   if (!userId) {
     showToast('No user selected', 'error');
@@ -6944,6 +8888,10 @@ async function approveUserVerification() {
 }
 
 async function rejectUserVerification() {
+  // Didit is the sole source of verification decisions. Manual rejections are disabled.
+  showToast('Manual identity returns are disabled. Verification is decided by Didit.', 'warning');
+  return;
+
   const userId = document.getElementById('reviewUserId').value;
   const rejectionReason = document.getElementById('reviewVerificationReason').value.trim();
 
@@ -6953,7 +8901,7 @@ async function rejectUserVerification() {
   }
 
   if (!rejectionReason) {
-    showToast('Please provide a rejection reason before rejecting this ID.', 'error');
+    showToast('Please provide a return reason before returning this ID.', 'error');
     return;
   }
 
@@ -6986,16 +8934,16 @@ async function rejectUserVerification() {
       rejectionReason
     });
 
-    showToast('User verification rejected.', 'warning');
-    addNotification('Identity Rejected', `User verification was rejected: ${rejectionReason}`, 'warning');
+    showToast('User verification returned.', 'warning');
+    addNotification('Identity Returned', `User verification was returned: ${rejectionReason}`, 'warning');
     closeReviewUserModal();
     loadUsers();
   } catch (error) {
     console.error('Error rejecting user verification:', error);
     if (isRlsPolicyError(error)) {
-      showToast('Rejection blocked by Supabase RLS. Run the SQL fix in supabase/fix_identity_verification_rls.sql, then retry.', 'error');
+      showToast('Return blocked by Supabase RLS. Run the SQL fix in supabase/fix_identity_verification_rls.sql, then retry.', 'error');
     } else {
-      showToast('Failed to reject user verification: ' + error.message, 'error');
+      showToast('Failed to return user verification: ' + error.message, 'error');
     }
   }
 }
@@ -7099,30 +9047,6 @@ async function saveUser() {
   } catch (error) {
     console.error('Error updating user:', error);
     showToast('Failed to update user: ' + error.message, 'error');
-  }
-}
-
-function openDeleteUser(userId, userEmail) {
-  deleteTarget = userId;
-  deleteType = 'user';
-  document.getElementById('deleteMessage').textContent = `Are you sure you want to delete this user (${userEmail})? This action cannot be undone.`;
-  document.getElementById('deleteModal').classList.add('active');
-}
-
-async function deleteUser() {
-  try {
-    const { error } = await supabaseClient
-      .from('users')
-      .delete()
-      .eq('id', deleteTarget);
-
-    if (error) throw error;
-    showToast('User deleted successfully!', 'success');
-    addNotification('User Deleted', 'A user has been removed', 'warning');
-    loadUsers();
-  } catch (error) {
-    console.error('Error deleting user:', error);
-    showToast('Failed to delete user: ' + error.message, 'error');
   }
 }
 

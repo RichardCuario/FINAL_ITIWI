@@ -1,3 +1,4 @@
+const { requireSuperAdmin } = require('./_lib/require-super-admin');
 const { initFirebase, initSupabase } = require('./_lib/init');
 
 module.exports = async (req, res) => {
@@ -16,10 +17,11 @@ module.exports = async (req, res) => {
   }
 
   try {
+    const authorizedClient = await requireSuperAdmin(req, res, initSupabase);
+    if (!authorizedClient) return;
     console.log('Starting user sync from Firebase to Supabase...');
     const admin = initFirebase();
-    const accessToken = req.headers.authorization?.replace(/^Bearer\s+/i, '').trim();
-    const supabase = initSupabase(accessToken);
+    const supabase = authorizedClient;
 
     const listUsersResult = await admin.auth().listUsers(1000);
     const users = listUsersResult.users;
@@ -47,7 +49,6 @@ module.exports = async (req, res) => {
       };
     });
 
-    console.log('Sample user data:', userData.slice(0, 2));
 
     const { error } = await supabase
       .from('users')
@@ -57,7 +58,7 @@ module.exports = async (req, res) => {
       console.error('Supabase upsert error:', error);
       return res.status(500).json({
         success: false,
-        error: error.message
+        error: 'Unable to process user request.'
       });
     }
 
@@ -65,14 +66,13 @@ module.exports = async (req, res) => {
     res.status(200).json({
       success: true,
       message: `Synced ${userData.length} users from Firebase to Supabase`,
-      usersSynced: userData.length,
-      sampleData: userData.slice(0, 3)
+      usersSynced: userData.length
     });
   } catch (error) {
     console.error('Error syncing users:', error);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: 'Unable to process user request.'
     });
   }
 };

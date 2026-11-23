@@ -1,7 +1,13 @@
+import 'service_date_time_picker.dart';
+import 'birth_certificate_details.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'identity_verification_page.dart';
+import 'appointment_calendar.dart';
+import 'appointment_submission_time.dart';
+import 'online_service_status.dart';
+import 'return_attachments.dart';
 import 'verification_service.dart';
 
 class OnlineServicePage extends StatefulWidget {
@@ -67,31 +73,24 @@ class OnlineServicePage extends StatefulWidget {
 
   static void openTarget(BuildContext context, OnlineServiceTarget target) {
     if (target == OnlineServiceTarget.none) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => const OnlineServicePage(),
-        ),
-      );
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const OnlineServicePage()));
       return;
     }
 
     final service = findServiceByTarget(target);
     if (service == null) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => const OnlineServicePage(),
-        ),
-      );
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const OnlineServicePage()));
       return;
     }
 
     _openServiceItem(context, service);
   }
 
-  static void _openServiceItem(
-    BuildContext context,
-    OnlineServiceItem item,
-  ) {
+  static void _openServiceItem(BuildContext context, OnlineServiceItem item) {
     if (item.opensBorrowForm) {
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -130,9 +129,7 @@ class OnlineServicePage extends StatefulWidget {
 
     if (item.opensCenomarAppointmentForm) {
       Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => _CenomarAppointmentPage(item: item),
-        ),
+        MaterialPageRoute(builder: (_) => _CenomarAppointmentPage(item: item)),
       );
       return;
     }
@@ -146,9 +143,9 @@ class OnlineServicePage extends StatefulWidget {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${item.title} is coming soon.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${item.title} is coming soon.')));
   }
 }
 
@@ -166,7 +163,7 @@ class _OnlineServicePageState extends State<OnlineServicePage> {
 
   Future<void> _checkVerificationAndNavigate() async {
     if (_currentUser == null) return;
-    
+
     final isVerified = await _verificationService.isUserVerified();
     if (!isVerified && mounted) {
       Navigator.pushReplacement(
@@ -186,19 +183,12 @@ class _OnlineServicePageState extends State<OnlineServicePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final backgroundColor =
-        isDark ? theme.scaffoldBackgroundColor : const Color(0xFFEAEAEA);
+    final backgroundColor = isDark
+        ? theme.scaffoldBackgroundColor
+        : const Color(0xFFEAEAEA);
     final topGradient = isDark
-        ? const [
-            Color(0xFF0F172A),
-            Color(0xFF172554),
-            Color(0xFF111827),
-          ]
-        : const [
-            Color(0xFF1E88E5),
-            Color(0xFF90CAF9),
-            Color(0xFFEAEAEA),
-          ];
+        ? const [Color(0xFF0F172A), Color(0xFF172554), Color(0xFF111827)]
+        : const [Color(0xFF1E88E5), Color(0xFF90CAF9), Color(0xFFEAEAEA)];
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -225,10 +215,7 @@ class _OnlineServicePageState extends State<OnlineServicePage> {
                     children: [
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: Colors.white,
-                        ),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
                       ),
                       const SizedBox(width: 4),
                       const Text(
@@ -251,8 +238,7 @@ class _OnlineServicePageState extends State<OnlineServicePage> {
                         const SizedBox(height: 14),
                     itemBuilder: (context, index) {
                       final category = OnlineServicePage._categories[index];
-                      return _OnlineServiceCategoryCard(
-                          category: category);
+                      return _OnlineServiceCategoryCard(category: category);
                     },
                   ),
                 ),
@@ -353,19 +339,12 @@ class _OnlineServiceCategoryDetailsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final backgroundColor =
-        isDark ? theme.scaffoldBackgroundColor : const Color(0xFFEAEAEA);
+    final backgroundColor = isDark
+        ? theme.scaffoldBackgroundColor
+        : const Color(0xFFEAEAEA);
     final topGradient = isDark
-        ? const [
-            Color(0xFF0F172A),
-            Color(0xFF172554),
-            Color(0xFF111827),
-          ]
-        : const [
-            Color(0xFF1E88E5),
-            Color(0xFF90CAF9),
-            Color(0xFFEAEAEA),
-          ];
+        ? const [Color(0xFF0F172A), Color(0xFF172554), Color(0xFF111827)]
+        : const [Color(0xFF1E88E5), Color(0xFF90CAF9), Color(0xFFEAEAEA)];
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -392,10 +371,7 @@ class _OnlineServiceCategoryDetailsPage extends StatelessWidget {
                     children: [
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: Colors.white,
-                        ),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
                       ),
                       const SizedBox(width: 4),
                       Expanded(
@@ -473,11 +449,7 @@ class _OnlineServiceCard extends StatelessWidget {
                     color: item.iconColor.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Icon(
-                    item.icon,
-                    color: item.iconColor,
-                    size: 28,
-                  ),
+                  child: Icon(item.icon, color: item.iconColor, size: 28),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -521,7 +493,7 @@ class _BirthCertificateAppointmentPageState
   final _fullNameController = TextEditingController();
   final _contactNumberController = TextEditingController();
   final _emailController = TextEditingController();
-  final _requestorRelationshipController = TextEditingController();
+  final _birthDetails = BirthCertificateDetails();
   final _purposeController = TextEditingController();
   final _notesController = TextEditingController();
 
@@ -537,31 +509,36 @@ class _BirthCertificateAppointmentPageState
     _fullNameController.dispose();
     _contactNumberController.dispose();
     _emailController.dispose();
-    _requestorRelationshipController.dispose();
+    _birthDetails.dispose();
     _purposeController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
   Future<void> _pickAppointmentDate() async {
-    final now = DateTime.now();
-    final firstDate = DateTime(now.year, now.month, now.day + 1);
-    final pickedDate = await showDatePicker(
-      context: context,
-      initialDate: _appointmentDate ?? firstDate,
-      firstDate: firstDate,
-      lastDate: DateTime(now.year + 2),
-    );
-
-    if (pickedDate != null) {
-      setState(() {
-        _appointmentDate = pickedDate;
-      });
+    try {
+      final pickedDate = await pickAvailableAppointmentDate(
+        context,
+        _appointmentDate,
+      );
+      if (!mounted) return;
+      if (pickedDate != null) {
+        setState(() => _appointmentDate = pickedDate);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Appointment dates are unavailable right now. Please try again.',
+          ),
+        ),
+      );
     }
   }
 
   Future<void> _pickAppointmentTime() async {
-    final pickedTime = await showTimePicker(
+    final pickedTime = await showServiceTimePicker(
       context: context,
       initialTime: _appointmentTime ?? const TimeOfDay(hour: 9, minute: 0),
     );
@@ -581,9 +558,7 @@ class _BirthCertificateAppointmentPageState
 
     final response = await Supabase.instance.client
         .from('birth_certificate_appointments')
-        .select(
-          'id, full_name, contact_number, email, relationship_to_owner, purpose, appointment_date, appointment_time, notes, status, remarks, rejection_reason, approval_reason, created_at, updated_at',
-        )
+        .select('*')
         .eq('user_id', user.uid)
         .order('created_at', ascending: false);
 
@@ -622,24 +597,43 @@ class _BirthCertificateAppointmentPageState
     });
 
     try {
-      await Supabase.instance.client.from('birth_certificate_appointments').insert({
-        'user_id': user.uid,
-        'service_name': widget.item.title,
-        'full_name': _fullNameController.text.trim(),
-        'contact_number': _contactNumberController.text.trim(),
-        'email': _emailController.text.trim(),
-        'relationship_to_owner': _requestorRelationshipController.text.trim(),
-        'purpose': _purposeController.text.trim(),
-        'appointment_date': _appointmentDate!.toIso8601String().split('T').first,
-        'appointment_time': _formatTime(_appointmentTime!),
-        'notes': _notesController.text.trim(),
-        'status': 'pending',
-      });
+      if (!await confirmAppointmentDateAvailable(_appointmentDate!)) {
+        if (mounted) {
+          setState(() => _appointmentDate = null);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'That appointment date is no longer available. Please choose another date.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      final birthFields = await _birthDetails.submissionFields();
+      await Supabase.instance.client
+          .from('birth_certificate_appointments')
+          .insert({
+            ...birthFields,
+            'user_id': user.uid,
+            'service_name': widget.item.title,
+            'full_name': _fullNameController.text.trim(),
+            'contact_number': _contactNumberController.text.trim(),
+            'email': _emailController.text.trim(),
+            'purpose': _purposeController.text.trim(),
+            'appointment_date': _appointmentDate!
+                .toIso8601String()
+                .split('T')
+                .first,
+            'appointment_time': _formatTime(_appointmentTime!),
+            'notes': _notesController.text.trim(),
+            'status': 'pending',
+          });
 
       _fullNameController.clear();
       _contactNumberController.clear();
       _emailController.clear();
-      _requestorRelationshipController.clear();
+      _birthDetails.reset();
       _purposeController.clear();
       _notesController.clear();
 
@@ -661,9 +655,7 @@ class _BirthCertificateAppointmentPageState
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Unable to submit appointment: $e'),
-        ),
+        SnackBar(content: Text('Unable to submit appointment: $e')),
       );
     } finally {
       if (mounted) {
@@ -705,7 +697,9 @@ class _BirthCertificateAppointmentPageState
     }
 
     final month = _monthName(date.month);
-    final hour = date.hour == 0 ? 12 : (date.hour > 12 ? date.hour - 12 : date.hour);
+    final hour = date.hour == 0
+        ? 12
+        : (date.hour > 12 ? date.hour - 12 : date.hour);
     final minute = date.minute.toString().padLeft(2, '0');
     final period = date.hour >= 12 ? 'PM' : 'AM';
     return '$month ${date.day}, ${date.year} • $hour:$minute $period';
@@ -737,45 +731,16 @@ class _BirthCertificateAppointmentPageState
     return months[month];
   }
 
-  String _statusLabel(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'approved':
-        return 'Approved';
-      case 'rejected':
-        return 'Rejected';
-      default:
-        return 'Pending';
-    }
-  }
-
-  Color _statusColor(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'approved':
-        return const Color(0xFF16A34A);
-      case 'rejected':
-        return const Color(0xFFDC2626);
-      default:
-        return const Color(0xFF1E88E5);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final backgroundColor =
-        isDark ? theme.scaffoldBackgroundColor : const Color(0xFFEAEAEA);
+    final backgroundColor = isDark
+        ? theme.scaffoldBackgroundColor
+        : const Color(0xFFEAEAEA);
     final topGradient = isDark
-        ? const [
-            Color(0xFF0F172A),
-            Color(0xFF172554),
-            Color(0xFF111827),
-          ]
-        : const [
-            Color(0xFF1E88E5),
-            Color(0xFF90CAF9),
-            Color(0xFFEAEAEA),
-          ];
+        ? const [Color(0xFF0F172A), Color(0xFF172554), Color(0xFF111827)]
+        : const [Color(0xFF1E88E5), Color(0xFF90CAF9), Color(0xFFEAEAEA)];
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -802,10 +767,7 @@ class _BirthCertificateAppointmentPageState
                     children: [
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: Colors.white,
-                        ),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
                       ),
                       const SizedBox(width: 4),
                       Expanded(
@@ -889,25 +851,12 @@ class _BirthCertificateAppointmentPageState
                                   text: 'Valid ID of the requester',
                                 ),
                                 _RequirementItem(
-                                  text: 'Complete name on the birth certificate',
+                                  text:
+                                      'Issuance of transcript of Birth record: ₱50',
                                 ),
                                 _RequirementItem(
-                                  text: 'Date of birth',
-                                ),
-                                _RequirementItem(
-                                  text: 'Place of birth',
-                                ),
-                                _RequirementItem(
-                                  text: 'Full name of the mother',
-                                ),
-                                _RequirementItem(
-                                  text: 'Full name of the father, if available',
-                                ),
-                                _RequirementItem(
-                                  text: 'Authorization letter and valid ID of the certificate owner if the requester is not the owner',
-                                ),
-                                _RequirementItem(
-                                  text: 'Extra cash for applicable processing and copy fees',
+                                  text:
+                                      'Authentication of registered document (if applicable): ₱50',
                                 ),
                               ],
                             ),
@@ -918,8 +867,9 @@ class _BirthCertificateAppointmentPageState
                               children: [
                                 _BorrowTextField(
                                   controller: _fullNameController,
-                                  label: 'Full Name',
-                                  hint: 'Enter your full name',
+                                  label: 'Certificate Owner’s Full Name',
+                                  hint:
+                                      'Enter the name on the birth certificate',
                                 ),
                                 const SizedBox(height: 14),
                                 _BorrowTextField(
@@ -936,16 +886,16 @@ class _BirthCertificateAppointmentPageState
                                   keyboardType: TextInputType.emailAddress,
                                 ),
                                 const SizedBox(height: 14),
-                                _BorrowTextField(
-                                  controller: _requestorRelationshipController,
-                                  label: 'Relationship to Certificate Owner',
-                                  hint: 'Example: Self, Parent, Sister',
+                                BirthCertificateDetailsFields(
+                                  details: _birthDetails,
+                                  enabled: !_isSubmitting,
                                 ),
                                 const SizedBox(height: 14),
                                 _BorrowTextField(
                                   controller: _purposeController,
                                   label: 'Purpose of Request',
-                                  hint: 'Enter the purpose of the birth certificate request',
+                                  hint:
+                                      'Enter the purpose of the birth certificate request',
                                   maxLines: 3,
                                 ),
                                 const SizedBox(height: 14),
@@ -974,6 +924,7 @@ class _BirthCertificateAppointmentPageState
                                     ),
                                   ],
                                 ),
+                                const _AppointmentAvailabilityNote(),
                                 const SizedBox(height: 14),
                                 _BorrowTextField(
                                   controller: _notesController,
@@ -989,18 +940,23 @@ class _BirthCertificateAppointmentPageState
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton(
-                              onPressed: _isSubmitting ? null : _submitAppointment,
+                              onPressed: _isSubmitting
+                                  ? null
+                                  : _submitAppointment,
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF1E88E5),
                                 foregroundColor: Colors.white,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(18),
                                 ),
                               ),
                               child: Text(
-                                _isSubmitting ? 'Submitting...' : 'Book Appointment',
+                                _isSubmitting
+                                    ? 'Submitting...'
+                                    : 'Book Appointment',
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
@@ -1041,8 +997,9 @@ class _BirthCertificateAppointmentPageState
                                     if (snapshot.connectionState ==
                                         ConnectionState.waiting) {
                                       return const Padding(
-                                        padding:
-                                            EdgeInsets.symmetric(vertical: 12),
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 12,
+                                        ),
                                         child: Center(
                                           child: CircularProgressIndicator(),
                                         ),
@@ -1093,21 +1050,24 @@ class _BirthCertificateAppointmentPageState
                                       children: appointments.map((appointment) {
                                         final status =
                                             appointment['status']?.toString() ??
-                                                'pending';
-                                        final statusColor =
-                                            _statusColor(status);
+                                            'pending';
+                                        final statusColor = onlineServiceStatus(
+                                          status,
+                                        ).color;
 
                                         return Container(
                                           width: double.infinity,
-                                          margin:
-                                              const EdgeInsets.only(bottom: 12),
+                                          margin: const EdgeInsets.only(
+                                            bottom: 12,
+                                          ),
                                           padding: const EdgeInsets.all(16),
                                           decoration: BoxDecoration(
                                             color: isDark
                                                 ? const Color(0xFF1F1F28)
                                                 : const Color(0xFFF7F8FA),
-                                            borderRadius:
-                                                BorderRadius.circular(18),
+                                            borderRadius: BorderRadius.circular(
+                                              18,
+                                            ),
                                             border: Border.all(
                                               color: isDark
                                                   ? Colors.white10
@@ -1128,13 +1088,14 @@ class _BirthCertificateAppointmentPageState
                                                                   .isNotEmpty ==
                                                               true
                                                           ? appointment['full_name']
-                                                              .toString()
+                                                                .toString()
                                                           : 'Birth Certificate Appointment',
                                                       style: TextStyle(
                                                         color: isDark
                                                             ? Colors.white
                                                             : const Color(
-                                                                0xFF20242C),
+                                                                0xFF20242C,
+                                                              ),
                                                         fontSize: 15,
                                                         fontWeight:
                                                             FontWeight.w700,
@@ -1142,11 +1103,11 @@ class _BirthCertificateAppointmentPageState
                                                     ),
                                                   ),
                                                   Container(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                      horizontal: 12,
-                                                      vertical: 6,
-                                                    ),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 12,
+                                                          vertical: 6,
+                                                        ),
                                                     decoration: BoxDecoration(
                                                       color: statusColor
                                                           .withValues(
@@ -1158,7 +1119,9 @@ class _BirthCertificateAppointmentPageState
                                                           ),
                                                     ),
                                                     child: Text(
-                                                      _statusLabel(status),
+                                                      onlineServiceStatus(
+                                                        status,
+                                                      ).label,
                                                       style: TextStyle(
                                                         color: statusColor,
                                                         fontWeight:
@@ -1169,6 +1132,8 @@ class _BirthCertificateAppointmentPageState
                                                   ),
                                                 ],
                                               ),
+                                              if (status.trim().toLowerCase() == 'processing')
+                                                const _ReadyForReleaseNote(),
                                               const SizedBox(height: 10),
                                               Text(
                                                 'Schedule: ${_formatDate(appointment['appointment_date']?.toString())} • ${appointment['appointment_time'] ?? 'N/A'}',
@@ -1198,33 +1163,33 @@ class _BirthCertificateAppointmentPageState
                                                   true) ...[
                                                 const SizedBox(height: 10),
                                                 Container(
-                                                  padding:
-                                                      const EdgeInsets.all(12),
+                                                  padding: const EdgeInsets.all(
+                                                    12,
+                                                  ),
                                                   decoration: BoxDecoration(
                                                     color: status == 'rejected'
-                                                        ? Colors.red
-                                                            .withValues(
-                                                              alpha: 0.1,
-                                                            )
+                                                        ? Colors.red.withValues(
+                                                            alpha: 0.1,
+                                                          )
                                                         : Colors.green
-                                                            .withValues(
-                                                              alpha: 0.1,
-                                                            ),
+                                                              .withValues(
+                                                                alpha: 0.1,
+                                                              ),
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                           12,
                                                         ),
                                                     border: Border.all(
-                                                      color: status ==
-                                                              'rejected'
+                                                      color:
+                                                          status == 'rejected'
                                                           ? Colors.red
-                                                              .withValues(
-                                                                alpha: 0.3,
-                                                              )
+                                                                .withValues(
+                                                                  alpha: 0.3,
+                                                                )
                                                           : Colors.green
-                                                              .withValues(
-                                                                alpha: 0.3,
-                                                              ),
+                                                                .withValues(
+                                                                  alpha: 0.3,
+                                                                ),
                                                     ),
                                                   ),
                                                   child: Column(
@@ -1234,10 +1199,11 @@ class _BirthCertificateAppointmentPageState
                                                     children: [
                                                       Text(
                                                         status == 'rejected'
-                                                            ? 'Rejection Reason'
+                                                            ? 'Return Reason'
                                                             : 'Approval Notes',
                                                         style: TextStyle(
-                                                          color: status ==
+                                                          color:
+                                                              status ==
                                                                   'rejected'
                                                               ? Colors.red
                                                               : Colors.green,
@@ -1246,12 +1212,18 @@ class _BirthCertificateAppointmentPageState
                                                               FontWeight.w700,
                                                         ),
                                                       ),
-                                                      const SizedBox(
-                                                        height: 6,
-                                                      ),
+                                                      const SizedBox(height: 6),
                                                       Text(
-                                                        appointment['remarks']
-                                                            .toString(),
+                                                        status == 'rejected' &&
+                                                                appointment['rejection_reason']
+                                                                        ?.toString()
+                                                                        .trim()
+                                                                        .isNotEmpty ==
+                                                                    true
+                                                            ? appointment['rejection_reason']
+                                                                  .toString()
+                                                            : appointment['remarks']
+                                                                  .toString(),
                                                         style: TextStyle(
                                                           color: isDark
                                                               ? Colors.white
@@ -1266,6 +1238,18 @@ class _BirthCertificateAppointmentPageState
                                                   ),
                                                 ),
                                               ],
+                                              if (status == 'rejected')
+                                                ReturnAttachments(
+                                                  files:
+                                                      appointment['return_files'],
+                                                ),
+                                              const SizedBox(height: 10),
+                                              AppointmentSubmissionTime(
+                                                submittedAt:
+                                                    appointment['created_at']
+                                                        ?.toString(),
+                                                isDark: isDark,
+                                              ),
                                               const SizedBox(height: 6),
                                               Text(
                                                 'Updated: ${_formatDateTimeUpdated(appointment['updated_at']?.toString())}',
@@ -1316,9 +1300,16 @@ class _MarriageCertificateAppointmentPageState
   final _formKey = GlobalKey<FormState>();
   final _husbandNameController = TextEditingController();
   final _wifeNameController = TextEditingController();
+  final _marriageDateController = TextEditingController();
+  final _placeOfMarriageController = TextEditingController();
+  DateTime? _marriageDate;
   final _contactNumberController = TextEditingController();
   final _emailController = TextEditingController();
-  final _requestorRelationshipController = TextEditingController();
+  final _authorizationDetails = BirthCertificateDetails(
+    includeBirthday: false,
+    requireOwnerId: false,
+    relationshipLabel: 'Relationship to Either Spouse',
+  );
   final _purposeController = TextEditingController();
   final _notesController = TextEditingController();
 
@@ -1333,33 +1324,40 @@ class _MarriageCertificateAppointmentPageState
   void dispose() {
     _husbandNameController.dispose();
     _wifeNameController.dispose();
+    _marriageDateController.dispose();
+    _placeOfMarriageController.dispose();
     _contactNumberController.dispose();
     _emailController.dispose();
-    _requestorRelationshipController.dispose();
+    _authorizationDetails.dispose();
     _purposeController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
   Future<void> _pickAppointmentDate() async {
-    final now = DateTime.now();
-    final firstDate = DateTime(now.year, now.month, now.day + 1);
-    final pickedDate = await showDatePicker(
-      context: context,
-      initialDate: _appointmentDate ?? firstDate,
-      firstDate: firstDate,
-      lastDate: DateTime(now.year + 2),
-    );
-
-    if (pickedDate != null) {
-      setState(() {
-        _appointmentDate = pickedDate;
-      });
+    try {
+      final pickedDate = await pickAvailableAppointmentDate(
+        context,
+        _appointmentDate,
+      );
+      if (!mounted) return;
+      if (pickedDate != null) {
+        setState(() => _appointmentDate = pickedDate);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Appointment dates are unavailable right now. Please try again.',
+          ),
+        ),
+      );
     }
   }
 
   Future<void> _pickAppointmentTime() async {
-    final pickedTime = await showTimePicker(
+    final pickedTime = await showServiceTimePicker(
       context: context,
       initialTime: _appointmentTime ?? const TimeOfDay(hour: 9, minute: 0),
     );
@@ -1379,9 +1377,7 @@ class _MarriageCertificateAppointmentPageState
 
     final response = await Supabase.instance.client
         .from('marriage_certificate_appointments')
-        .select(
-          'id, husband_name, wife_name, contact_number, email, relationship_to_owner, purpose, appointment_date, appointment_time, notes, status, created_at, updated_at',
-        )
+        .select('*')
         .eq('user_id', user.uid)
         .order('created_at', ascending: false);
 
@@ -1420,26 +1416,52 @@ class _MarriageCertificateAppointmentPageState
     });
 
     try {
-      await Supabase.instance.client.from('marriage_certificate_appointments').insert({
-        'user_id': user.uid,
-        'service_name': widget.item.title,
-        'husband_name': _husbandNameController.text.trim(),
-        'wife_name': _wifeNameController.text.trim(),
-        'contact_number': _contactNumberController.text.trim(),
-        'email': _emailController.text.trim(),
-        'relationship_to_owner': _requestorRelationshipController.text.trim(),
-        'purpose': _purposeController.text.trim(),
-        'appointment_date': _appointmentDate!.toIso8601String().split('T').first,
-        'appointment_time': _formatTime(_appointmentTime!),
-        'notes': _notesController.text.trim(),
-        'status': 'pending',
-      });
+      if (!await confirmAppointmentDateAvailable(_appointmentDate!)) {
+        if (mounted) {
+          setState(() => _appointmentDate = null);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'That appointment date is no longer available. Please choose another date.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      final authorizationFields = await _authorizationDetails
+          .submissionFields();
+      await Supabase.instance.client
+          .from('marriage_certificate_appointments')
+          .insert({
+            ...authorizationFields,
+            'user_id': user.uid,
+            'service_name': widget.item.title,
+            'husband_name': _husbandNameController.text.trim(),
+            'wife_name': _wifeNameController.text.trim(),
+            'marriage_date': _marriageDate!.toIso8601String().split('T').first,
+            'place_of_marriage': _placeOfMarriageController.text.trim(),
+            'contact_number': _contactNumberController.text.trim(),
+            'email': _emailController.text.trim(),
+
+            'purpose': _purposeController.text.trim(),
+            'appointment_date': _appointmentDate!
+                .toIso8601String()
+                .split('T')
+                .first,
+            'appointment_time': _formatTime(_appointmentTime!),
+            'notes': _notesController.text.trim(),
+            'status': 'pending',
+          });
 
       _husbandNameController.clear();
       _wifeNameController.clear();
+      _marriageDateController.clear();
+      _placeOfMarriageController.clear();
+      _marriageDate = null;
       _contactNumberController.clear();
       _emailController.clear();
-      _requestorRelationshipController.clear();
+      _authorizationDetails.reset();
       _purposeController.clear();
       _notesController.clear();
 
@@ -1461,9 +1483,7 @@ class _MarriageCertificateAppointmentPageState
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Unable to submit appointment: $e'),
-        ),
+        SnackBar(content: Text('Unable to submit appointment: $e')),
       );
     } finally {
       if (mounted) {
@@ -1505,7 +1525,9 @@ class _MarriageCertificateAppointmentPageState
     }
 
     final month = _monthName(date.month);
-    final hour = date.hour == 0 ? 12 : (date.hour > 12 ? date.hour - 12 : date.hour);
+    final hour = date.hour == 0
+        ? 12
+        : (date.hour > 12 ? date.hour - 12 : date.hour);
     final minute = date.minute.toString().padLeft(2, '0');
     final period = date.hour >= 12 ? 'PM' : 'AM';
     return '$month ${date.day}, ${date.year} • $hour:$minute $period';
@@ -1537,45 +1559,16 @@ class _MarriageCertificateAppointmentPageState
     return months[month];
   }
 
-  String _statusLabel(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'approved':
-        return 'Approved';
-      case 'rejected':
-        return 'Rejected';
-      default:
-        return 'Pending';
-    }
-  }
-
-  Color _statusColor(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'approved':
-        return const Color(0xFF16A34A);
-      case 'rejected':
-        return const Color(0xFFDC2626);
-      default:
-        return const Color(0xFFE91E63);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final backgroundColor =
-        isDark ? theme.scaffoldBackgroundColor : const Color(0xFFEAEAEA);
+    final backgroundColor = isDark
+        ? theme.scaffoldBackgroundColor
+        : const Color(0xFFEAEAEA);
     final topGradient = isDark
-        ? const [
-            Color(0xFF0F172A),
-            Color(0xFF172554),
-            Color(0xFF111827),
-          ]
-        : const [
-            Color(0xFFE91E63),
-            Color(0xFFF48FB1),
-            Color(0xFFEAEAEA),
-          ];
+        ? const [Color(0xFF0F172A), Color(0xFF172554), Color(0xFF111827)]
+        : const [Color(0xFFE91E63), Color(0xFFF48FB1), Color(0xFFEAEAEA)];
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -1602,10 +1595,7 @@ class _MarriageCertificateAppointmentPageState
                     children: [
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: Colors.white,
-                        ),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
                       ),
                       const SizedBox(width: 4),
                       Expanded(
@@ -1689,22 +1679,16 @@ class _MarriageCertificateAppointmentPageState
                                   text: 'Valid ID of the requester',
                                 ),
                                 _RequirementItem(
-                                  text: 'Complete name of husband',
+                                  text:
+                                      'Valid ID of either spouse if the requester is not one of them',
                                 ),
                                 _RequirementItem(
-                                  text: 'Complete maiden name of wife',
+                                  text:
+                                      'Issuance of transcript of Marriage: ₱75',
                                 ),
                                 _RequirementItem(
-                                  text: 'Date of marriage',
-                                ),
-                                _RequirementItem(
-                                  text: 'Place of marriage',
-                                ),
-                                _RequirementItem(
-                                  text: 'Authorization letter and valid ID of either spouse if the requester is not one of them',
-                                ),
-                                _RequirementItem(
-                                  text: 'Extra cash for applicable processing and copy fees',
+                                  text:
+                                      'Authentication of registered document (if applicable): ₱50',
                                 ),
                               ],
                             ),
@@ -1713,6 +1697,16 @@ class _MarriageCertificateAppointmentPageState
                           _BorrowInfoCard(
                             child: Column(
                               children: [
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'Enter the details of the couple named on the marriage certificate, even when requesting for someone else.',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
                                 _BorrowTextField(
                                   controller: _husbandNameController,
                                   label: 'Husband Name',
@@ -1723,6 +1717,46 @@ class _MarriageCertificateAppointmentPageState
                                   controller: _wifeNameController,
                                   label: 'Wife Name',
                                   hint: 'Enter complete maiden name of wife',
+                                ),
+                                const SizedBox(height: 14),
+                                TextFormField(
+                                  controller: _marriageDateController,
+                                  readOnly: true,
+                                  enabled: !_isSubmitting,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Date of Marriage',
+                                    hintText:
+                                        'Select the date the marriage occurred',
+                                    suffixIcon: Icon(Icons.calendar_month),
+                                  ),
+                                  validator: (_) => _marriageDate == null
+                                      ? 'Please select the date of marriage.'
+                                      : null,
+                                  onTap: () async {
+                                    final now = DateTime.now();
+                                    final pickedDate =
+                                        await showServiceDatePicker(
+                                          context: context,
+                                          initialDate: _marriageDate ?? now,
+                                          firstDate: DateTime(1850),
+                                          lastDate: now,
+                                          helpText: 'Select date of marriage',
+                                        );
+                                    if (!mounted || pickedDate == null) return;
+                                    setState(() {
+                                      _marriageDate = pickedDate;
+                                      _marriageDateController.text = pickedDate
+                                          .toIso8601String()
+                                          .split('T')
+                                          .first;
+                                    });
+                                  },
+                                ),
+                                const SizedBox(height: 14),
+                                _BorrowTextField(
+                                  controller: _placeOfMarriageController,
+                                  label: 'Place of Marriage',
+                                  hint: 'Enter where the marriage took place',
                                 ),
                                 const SizedBox(height: 14),
                                 _BorrowTextField(
@@ -1739,16 +1773,16 @@ class _MarriageCertificateAppointmentPageState
                                   keyboardType: TextInputType.emailAddress,
                                 ),
                                 const SizedBox(height: 14),
-                                _BorrowTextField(
-                                  controller: _requestorRelationshipController,
-                                  label: 'Relationship to Certificate Owner',
-                                  hint: 'Example: Self, Son, Daughter, Representative',
+                                BirthCertificateDetailsFields(
+                                  details: _authorizationDetails,
+                                  enabled: !_isSubmitting,
                                 ),
                                 const SizedBox(height: 14),
                                 _BorrowTextField(
                                   controller: _purposeController,
                                   label: 'Purpose of Request',
-                                  hint: 'Enter the purpose of the marriage certificate request',
+                                  hint:
+                                      'Enter the purpose of the marriage certificate request',
                                   maxLines: 3,
                                 ),
                                 const SizedBox(height: 14),
@@ -1777,6 +1811,7 @@ class _MarriageCertificateAppointmentPageState
                                     ),
                                   ],
                                 ),
+                                const _AppointmentAvailabilityNote(),
                                 const SizedBox(height: 14),
                                 _BorrowTextField(
                                   controller: _notesController,
@@ -1792,18 +1827,23 @@ class _MarriageCertificateAppointmentPageState
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton(
-                              onPressed: _isSubmitting ? null : _submitAppointment,
+                              onPressed: _isSubmitting
+                                  ? null
+                                  : _submitAppointment,
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFFE91E63),
                                 foregroundColor: Colors.white,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(18),
                                 ),
                               ),
                               child: Text(
-                                _isSubmitting ? 'Submitting...' : 'Book Appointment',
+                                _isSubmitting
+                                    ? 'Submitting...'
+                                    : 'Book Appointment',
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
@@ -1844,8 +1884,9 @@ class _MarriageCertificateAppointmentPageState
                                     if (snapshot.connectionState ==
                                         ConnectionState.waiting) {
                                       return const Padding(
-                                        padding:
-                                            EdgeInsets.symmetric(vertical: 12),
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 12,
+                                        ),
                                         child: Center(
                                           child: CircularProgressIndicator(),
                                         ),
@@ -1896,9 +1937,10 @@ class _MarriageCertificateAppointmentPageState
                                       children: appointments.map((appointment) {
                                         final status =
                                             appointment['status']?.toString() ??
-                                                'pending';
-                                        final statusColor =
-                                            _statusColor(status);
+                                            'pending';
+                                        final statusColor = onlineServiceStatus(
+                                          status,
+                                        ).color;
 
                                         final husbandName =
                                             appointment['husband_name']
@@ -1910,22 +1952,25 @@ class _MarriageCertificateAppointmentPageState
                                                 ?.toString()
                                                 .trim() ??
                                             '';
-                                        final title = husbandName.isNotEmpty ||
+                                        final title =
+                                            husbandName.isNotEmpty ||
                                                 wifeName.isNotEmpty
                                             ? '$husbandName & $wifeName'
                                             : 'Marriage Certificate Appointment';
 
                                         return Container(
                                           width: double.infinity,
-                                          margin:
-                                              const EdgeInsets.only(bottom: 12),
+                                          margin: const EdgeInsets.only(
+                                            bottom: 12,
+                                          ),
                                           padding: const EdgeInsets.all(16),
                                           decoration: BoxDecoration(
                                             color: isDark
                                                 ? const Color(0xFF1F1F28)
                                                 : const Color(0xFFF7F8FA),
-                                            borderRadius:
-                                                BorderRadius.circular(18),
+                                            borderRadius: BorderRadius.circular(
+                                              18,
+                                            ),
                                             border: Border.all(
                                               color: isDark
                                                   ? Colors.white10
@@ -1945,7 +1990,8 @@ class _MarriageCertificateAppointmentPageState
                                                         color: isDark
                                                             ? Colors.white
                                                             : const Color(
-                                                                0xFF20242C),
+                                                                0xFF20242C,
+                                                              ),
                                                         fontSize: 15,
                                                         fontWeight:
                                                             FontWeight.w700,
@@ -1953,11 +1999,11 @@ class _MarriageCertificateAppointmentPageState
                                                     ),
                                                   ),
                                                   Container(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                      horizontal: 12,
-                                                      vertical: 6,
-                                                    ),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 12,
+                                                          vertical: 6,
+                                                        ),
                                                     decoration: BoxDecoration(
                                                       color: statusColor
                                                           .withValues(
@@ -1969,7 +2015,9 @@ class _MarriageCertificateAppointmentPageState
                                                           ),
                                                     ),
                                                     child: Text(
-                                                      _statusLabel(status),
+                                                      onlineServiceStatus(
+                                                        status,
+                                                      ).label,
                                                       style: TextStyle(
                                                         color: statusColor,
                                                         fontWeight:
@@ -1980,6 +2028,8 @@ class _MarriageCertificateAppointmentPageState
                                                   ),
                                                 ],
                                               ),
+                                              if (status.trim().toLowerCase() == 'processing')
+                                                const _ReadyForReleaseNote(),
                                               const SizedBox(height: 10),
                                               Text(
                                                 'Schedule: ${_formatDate(appointment['appointment_date']?.toString())} • ${appointment['appointment_time'] ?? 'N/A'}',
@@ -2009,33 +2059,33 @@ class _MarriageCertificateAppointmentPageState
                                                   true) ...[
                                                 const SizedBox(height: 10),
                                                 Container(
-                                                  padding:
-                                                      const EdgeInsets.all(12),
+                                                  padding: const EdgeInsets.all(
+                                                    12,
+                                                  ),
                                                   decoration: BoxDecoration(
                                                     color: status == 'rejected'
-                                                        ? Colors.red
-                                                            .withValues(
-                                                              alpha: 0.1,
-                                                            )
+                                                        ? Colors.red.withValues(
+                                                            alpha: 0.1,
+                                                          )
                                                         : Colors.green
-                                                            .withValues(
-                                                              alpha: 0.1,
-                                                            ),
+                                                              .withValues(
+                                                                alpha: 0.1,
+                                                              ),
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                           12,
                                                         ),
                                                     border: Border.all(
-                                                      color: status ==
-                                                              'rejected'
+                                                      color:
+                                                          status == 'rejected'
                                                           ? Colors.red
-                                                              .withValues(
-                                                                alpha: 0.3,
-                                                              )
+                                                                .withValues(
+                                                                  alpha: 0.3,
+                                                                )
                                                           : Colors.green
-                                                              .withValues(
-                                                                alpha: 0.3,
-                                                              ),
+                                                                .withValues(
+                                                                  alpha: 0.3,
+                                                                ),
                                                     ),
                                                   ),
                                                   child: Column(
@@ -2045,10 +2095,11 @@ class _MarriageCertificateAppointmentPageState
                                                     children: [
                                                       Text(
                                                         status == 'rejected'
-                                                            ? 'Rejection Reason'
+                                                            ? 'Return Reason'
                                                             : 'Approval Notes',
                                                         style: TextStyle(
-                                                          color: status ==
+                                                          color:
+                                                              status ==
                                                                   'rejected'
                                                               ? Colors.red
                                                               : Colors.green,
@@ -2057,12 +2108,18 @@ class _MarriageCertificateAppointmentPageState
                                                               FontWeight.w700,
                                                         ),
                                                       ),
-                                                      const SizedBox(
-                                                        height: 6,
-                                                      ),
+                                                      const SizedBox(height: 6),
                                                       Text(
-                                                        appointment['remarks']
-                                                            .toString(),
+                                                        status == 'rejected' &&
+                                                                appointment['rejection_reason']
+                                                                        ?.toString()
+                                                                        .trim()
+                                                                        .isNotEmpty ==
+                                                                    true
+                                                            ? appointment['rejection_reason']
+                                                                  .toString()
+                                                            : appointment['remarks']
+                                                                  .toString(),
                                                         style: TextStyle(
                                                           color: isDark
                                                               ? Colors.white
@@ -2077,6 +2134,18 @@ class _MarriageCertificateAppointmentPageState
                                                   ),
                                                 ),
                                               ],
+                                              if (status == 'rejected')
+                                                ReturnAttachments(
+                                                  files:
+                                                      appointment['return_files'],
+                                                ),
+                                              const SizedBox(height: 10),
+                                              AppointmentSubmissionTime(
+                                                submittedAt:
+                                                    appointment['created_at']
+                                                        ?.toString(),
+                                                isDark: isDark,
+                                              ),
                                               const SizedBox(height: 6),
                                               Text(
                                                 'Updated: ${_formatDateTimeUpdated(appointment['updated_at']?.toString())}',
@@ -2131,7 +2200,19 @@ class _DeathCertificateAppointmentPageState
   final _requestorFullNameController = TextEditingController();
   final _contactNumberController = TextEditingController();
   final _emailController = TextEditingController();
-  final _requestorRelationshipController = TextEditingController();
+  final _authorizationDetails = BirthCertificateDetails(
+    includeBirthday: false,
+    requireOwnerId: false,
+    relationshipLabel: 'Relationship to Deceased',
+    relationshipOptions: const [
+      'Spouse',
+      'Parent',
+      'Child',
+      'Sibling',
+      'Legal Guardian',
+      'Other',
+    ],
+  );
   final _purposeController = TextEditingController();
   final _notesController = TextEditingController();
 
@@ -2150,31 +2231,36 @@ class _DeathCertificateAppointmentPageState
     _requestorFullNameController.dispose();
     _contactNumberController.dispose();
     _emailController.dispose();
-    _requestorRelationshipController.dispose();
+    _authorizationDetails.dispose();
     _purposeController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
   Future<void> _pickAppointmentDate() async {
-    final now = DateTime.now();
-    final firstDate = DateTime(now.year, now.month, now.day + 1);
-    final pickedDate = await showDatePicker(
-      context: context,
-      initialDate: _appointmentDate ?? firstDate,
-      firstDate: firstDate,
-      lastDate: DateTime(now.year + 2),
-    );
-
-    if (pickedDate != null) {
-      setState(() {
-        _appointmentDate = pickedDate;
-      });
+    try {
+      final pickedDate = await pickAvailableAppointmentDate(
+        context,
+        _appointmentDate,
+      );
+      if (!mounted) return;
+      if (pickedDate != null) {
+        setState(() => _appointmentDate = pickedDate);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Appointment dates are unavailable right now. Please try again.',
+          ),
+        ),
+      );
     }
   }
 
   Future<void> _pickAppointmentTime() async {
-    final pickedTime = await showTimePicker(
+    final pickedTime = await showServiceTimePicker(
       context: context,
       initialTime: _appointmentTime ?? const TimeOfDay(hour: 9, minute: 0),
     );
@@ -2194,9 +2280,7 @@ class _DeathCertificateAppointmentPageState
 
     final response = await Supabase.instance.client
         .from('death_certificate_appointments')
-        .select(
-          'id, deceased_full_name, date_of_death, place_of_death, requestor_full_name, contact_number, email, relationship_to_owner, purpose, appointment_date, appointment_time, notes, status, created_at, updated_at',
-        )
+        .select('*')
         .eq('user_id', user.uid)
         .order('created_at', ascending: false);
 
@@ -2235,22 +2319,43 @@ class _DeathCertificateAppointmentPageState
     });
 
     try {
-      await Supabase.instance.client.from('death_certificate_appointments').insert({
-        'user_id': user.uid,
-        'service_name': widget.item.title,
-        'deceased_full_name': _deceasedFullNameController.text.trim(),
-        'date_of_death': _dateOfDeathController.text.trim(),
-        'place_of_death': _placeOfDeathController.text.trim(),
-        'requestor_full_name': _requestorFullNameController.text.trim(),
-        'contact_number': _contactNumberController.text.trim(),
-        'email': _emailController.text.trim(),
-        'relationship_to_owner': _requestorRelationshipController.text.trim(),
-        'purpose': _purposeController.text.trim(),
-        'appointment_date': _appointmentDate!.toIso8601String().split('T').first,
-        'appointment_time': _formatTime(_appointmentTime!),
-        'notes': _notesController.text.trim(),
-        'status': 'pending',
-      });
+      if (!await confirmAppointmentDateAvailable(_appointmentDate!)) {
+        if (mounted) {
+          setState(() => _appointmentDate = null);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'That appointment date is no longer available. Please choose another date.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      final authorizationFields = await _authorizationDetails
+          .submissionFields();
+      await Supabase.instance.client
+          .from('death_certificate_appointments')
+          .insert({
+            ...authorizationFields,
+            'user_id': user.uid,
+            'service_name': widget.item.title,
+            'deceased_full_name': _deceasedFullNameController.text.trim(),
+            'date_of_death': _dateOfDeathController.text.trim(),
+            'place_of_death': _placeOfDeathController.text.trim(),
+            'requestor_full_name': _requestorFullNameController.text.trim(),
+            'contact_number': _contactNumberController.text.trim(),
+            'email': _emailController.text.trim(),
+
+            'purpose': _purposeController.text.trim(),
+            'appointment_date': _appointmentDate!
+                .toIso8601String()
+                .split('T')
+                .first,
+            'appointment_time': _formatTime(_appointmentTime!),
+            'notes': _notesController.text.trim(),
+            'status': 'pending',
+          });
 
       _deceasedFullNameController.clear();
       _dateOfDeathController.clear();
@@ -2258,7 +2363,7 @@ class _DeathCertificateAppointmentPageState
       _requestorFullNameController.clear();
       _contactNumberController.clear();
       _emailController.clear();
-      _requestorRelationshipController.clear();
+      _authorizationDetails.reset();
       _purposeController.clear();
       _notesController.clear();
 
@@ -2280,9 +2385,7 @@ class _DeathCertificateAppointmentPageState
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Unable to submit appointment: $e'),
-        ),
+        SnackBar(content: Text('Unable to submit appointment: $e')),
       );
     } finally {
       if (mounted) {
@@ -2324,7 +2427,9 @@ class _DeathCertificateAppointmentPageState
     }
 
     final month = _monthName(date.month);
-    final hour = date.hour == 0 ? 12 : (date.hour > 12 ? date.hour - 12 : date.hour);
+    final hour = date.hour == 0
+        ? 12
+        : (date.hour > 12 ? date.hour - 12 : date.hour);
     final minute = date.minute.toString().padLeft(2, '0');
     final period = date.hour >= 12 ? 'PM' : 'AM';
     return '$month ${date.day}, ${date.year} • $hour:$minute $period';
@@ -2356,45 +2461,16 @@ class _DeathCertificateAppointmentPageState
     return months[month];
   }
 
-  String _statusLabel(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'approved':
-        return 'Approved';
-      case 'rejected':
-        return 'Rejected';
-      default:
-        return 'Pending';
-    }
-  }
-
-  Color _statusColor(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'approved':
-        return const Color(0xFF16A34A);
-      case 'rejected':
-        return const Color(0xFFDC2626);
-      default:
-        return const Color(0xFF7E57C2);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final backgroundColor =
-        isDark ? theme.scaffoldBackgroundColor : const Color(0xFFEAEAEA);
+    final backgroundColor = isDark
+        ? theme.scaffoldBackgroundColor
+        : const Color(0xFFEAEAEA);
     final topGradient = isDark
-        ? const [
-            Color(0xFF0F172A),
-            Color(0xFF172554),
-            Color(0xFF111827),
-          ]
-        : const [
-            Color(0xFF7E57C2),
-            Color(0xFFB39DDB),
-            Color(0xFFEAEAEA),
-          ];
+        ? const [Color(0xFF0F172A), Color(0xFF172554), Color(0xFF111827)]
+        : const [Color(0xFF7E57C2), Color(0xFFB39DDB), Color(0xFFEAEAEA)];
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -2421,10 +2497,7 @@ class _DeathCertificateAppointmentPageState
                     children: [
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: Colors.white,
-                        ),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
                       ),
                       const SizedBox(width: 4),
                       Expanded(
@@ -2508,22 +2581,16 @@ class _DeathCertificateAppointmentPageState
                                   text: 'Valid ID of the requester',
                                 ),
                                 _RequirementItem(
-                                  text: 'Complete name of the deceased person',
+                                  text:
+                                      'Valid ID if the requester is not an immediate family member',
                                 ),
                                 _RequirementItem(
-                                  text: 'Date of death',
+                                  text:
+                                      'Issuance of Death Certificate: ₱100 per copy',
                                 ),
                                 _RequirementItem(
-                                  text: 'Place of death',
-                                ),
-                                _RequirementItem(
-                                  text: 'Relationship to the deceased person',
-                                ),
-                                _RequirementItem(
-                                  text: 'Authorization letter and valid ID if the requester is not an immediate family member',
-                                ),
-                                _RequirementItem(
-                                  text: 'Extra cash for applicable processing and copy fees',
+                                  text:
+                                      'Authentication of registered document (if applicable): ₱50',
                                 ),
                               ],
                             ),
@@ -2538,10 +2605,41 @@ class _DeathCertificateAppointmentPageState
                                   hint: 'Enter complete name of the deceased',
                                 ),
                                 const SizedBox(height: 14),
-                                _BorrowTextField(
+                                TextFormField(
                                   controller: _dateOfDeathController,
-                                  label: 'Date of Death',
-                                  hint: 'Enter date of death',
+                                  readOnly: true,
+                                  enabled: !_isSubmitting,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Date of Death',
+                                    hintText: 'Select the date of death',
+                                    suffixIcon: Icon(Icons.calendar_month),
+                                  ),
+                                  validator: (value) =>
+                                      value == null || value.isEmpty
+                                      ? 'Please select the date of death.'
+                                      : null,
+                                  onTap: () async {
+                                    final now = DateTime.now();
+                                    final pickedDate =
+                                        await showServiceDatePicker(
+                                          context: context,
+                                          initialDate:
+                                              DateTime.tryParse(
+                                                _dateOfDeathController.text,
+                                              ) ??
+                                              now,
+                                          firstDate: DateTime(1850),
+                                          lastDate: now,
+                                          helpText: 'Select date of death',
+                                        );
+                                    if (!mounted || pickedDate == null) return;
+                                    setState(() {
+                                      _dateOfDeathController.text = pickedDate
+                                          .toIso8601String()
+                                          .split('T')
+                                          .first;
+                                    });
+                                  },
                                 ),
                                 const SizedBox(height: 14),
                                 _BorrowTextField(
@@ -2570,16 +2668,16 @@ class _DeathCertificateAppointmentPageState
                                   keyboardType: TextInputType.emailAddress,
                                 ),
                                 const SizedBox(height: 14),
-                                _BorrowTextField(
-                                  controller: _requestorRelationshipController,
-                                  label: 'Relationship to Deceased',
-                                  hint: 'Example: Spouse, Son, Daughter, Sibling',
+                                BirthCertificateDetailsFields(
+                                  details: _authorizationDetails,
+                                  enabled: !_isSubmitting,
                                 ),
                                 const SizedBox(height: 14),
                                 _BorrowTextField(
                                   controller: _purposeController,
                                   label: 'Purpose of Request',
-                                  hint: 'Enter the purpose of the death certificate request',
+                                  hint:
+                                      'Enter the purpose of the death certificate request',
                                   maxLines: 3,
                                 ),
                                 const SizedBox(height: 14),
@@ -2608,6 +2706,7 @@ class _DeathCertificateAppointmentPageState
                                     ),
                                   ],
                                 ),
+                                const _AppointmentAvailabilityNote(),
                                 const SizedBox(height: 14),
                                 _BorrowTextField(
                                   controller: _notesController,
@@ -2623,18 +2722,23 @@ class _DeathCertificateAppointmentPageState
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton(
-                              onPressed: _isSubmitting ? null : _submitAppointment,
+                              onPressed: _isSubmitting
+                                  ? null
+                                  : _submitAppointment,
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF7E57C2),
                                 foregroundColor: Colors.white,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(18),
                                 ),
                               ),
                               child: Text(
-                                _isSubmitting ? 'Submitting...' : 'Book Appointment',
+                                _isSubmitting
+                                    ? 'Submitting...'
+                                    : 'Book Appointment',
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
@@ -2675,8 +2779,9 @@ class _DeathCertificateAppointmentPageState
                                     if (snapshot.connectionState ==
                                         ConnectionState.waiting) {
                                       return const Padding(
-                                        padding:
-                                            EdgeInsets.symmetric(vertical: 12),
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 12,
+                                        ),
                                         child: Center(
                                           child: CircularProgressIndicator(),
                                         ),
@@ -2727,21 +2832,24 @@ class _DeathCertificateAppointmentPageState
                                       children: appointments.map((appointment) {
                                         final status =
                                             appointment['status']?.toString() ??
-                                                'pending';
-                                        final statusColor =
-                                            _statusColor(status);
+                                            'pending';
+                                        final statusColor = onlineServiceStatus(
+                                          status,
+                                        ).color;
 
                                         return Container(
                                           width: double.infinity,
-                                          margin:
-                                              const EdgeInsets.only(bottom: 12),
+                                          margin: const EdgeInsets.only(
+                                            bottom: 12,
+                                          ),
                                           padding: const EdgeInsets.all(16),
                                           decoration: BoxDecoration(
                                             color: isDark
                                                 ? const Color(0xFF1F1F28)
                                                 : const Color(0xFFF7F8FA),
-                                            borderRadius:
-                                                BorderRadius.circular(18),
+                                            borderRadius: BorderRadius.circular(
+                                              18,
+                                            ),
                                             border: Border.all(
                                               color: isDark
                                                   ? Colors.white10
@@ -2762,13 +2870,14 @@ class _DeathCertificateAppointmentPageState
                                                                   .isNotEmpty ==
                                                               true
                                                           ? appointment['deceased_full_name']
-                                                              .toString()
+                                                                .toString()
                                                           : 'Death Certificate Appointment',
                                                       style: TextStyle(
                                                         color: isDark
                                                             ? Colors.white
                                                             : const Color(
-                                                                0xFF20242C),
+                                                                0xFF20242C,
+                                                              ),
                                                         fontSize: 15,
                                                         fontWeight:
                                                             FontWeight.w700,
@@ -2776,11 +2885,11 @@ class _DeathCertificateAppointmentPageState
                                                     ),
                                                   ),
                                                   Container(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                      horizontal: 12,
-                                                      vertical: 6,
-                                                    ),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 12,
+                                                          vertical: 6,
+                                                        ),
                                                     decoration: BoxDecoration(
                                                       color: statusColor
                                                           .withValues(
@@ -2792,7 +2901,9 @@ class _DeathCertificateAppointmentPageState
                                                           ),
                                                     ),
                                                     child: Text(
-                                                      _statusLabel(status),
+                                                      onlineServiceStatus(
+                                                        status,
+                                                      ).label,
                                                       style: TextStyle(
                                                         color: statusColor,
                                                         fontWeight:
@@ -2803,6 +2914,8 @@ class _DeathCertificateAppointmentPageState
                                                   ),
                                                 ],
                                               ),
+                                              if (status.trim().toLowerCase() == 'processing')
+                                                const _ReadyForReleaseNote(),
                                               const SizedBox(height: 10),
                                               Text(
                                                 'Schedule: ${_formatDate(appointment['appointment_date']?.toString())} • ${appointment['appointment_time'] ?? 'N/A'}',
@@ -2832,33 +2945,33 @@ class _DeathCertificateAppointmentPageState
                                                   true) ...[
                                                 const SizedBox(height: 10),
                                                 Container(
-                                                  padding:
-                                                      const EdgeInsets.all(12),
+                                                  padding: const EdgeInsets.all(
+                                                    12,
+                                                  ),
                                                   decoration: BoxDecoration(
                                                     color: status == 'rejected'
-                                                        ? Colors.red
-                                                            .withValues(
-                                                              alpha: 0.1,
-                                                            )
+                                                        ? Colors.red.withValues(
+                                                            alpha: 0.1,
+                                                          )
                                                         : Colors.green
-                                                            .withValues(
-                                                              alpha: 0.1,
-                                                            ),
+                                                              .withValues(
+                                                                alpha: 0.1,
+                                                              ),
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                           12,
                                                         ),
                                                     border: Border.all(
-                                                      color: status ==
-                                                              'rejected'
+                                                      color:
+                                                          status == 'rejected'
                                                           ? Colors.red
-                                                              .withValues(
-                                                                alpha: 0.3,
-                                                              )
+                                                                .withValues(
+                                                                  alpha: 0.3,
+                                                                )
                                                           : Colors.green
-                                                              .withValues(
-                                                                alpha: 0.3,
-                                                              ),
+                                                                .withValues(
+                                                                  alpha: 0.3,
+                                                                ),
                                                     ),
                                                   ),
                                                   child: Column(
@@ -2868,10 +2981,11 @@ class _DeathCertificateAppointmentPageState
                                                     children: [
                                                       Text(
                                                         status == 'rejected'
-                                                            ? 'Rejection Reason'
+                                                            ? 'Return Reason'
                                                             : 'Approval Notes',
                                                         style: TextStyle(
-                                                          color: status ==
+                                                          color:
+                                                              status ==
                                                                   'rejected'
                                                               ? Colors.red
                                                               : Colors.green,
@@ -2880,12 +2994,18 @@ class _DeathCertificateAppointmentPageState
                                                               FontWeight.w700,
                                                         ),
                                                       ),
-                                                      const SizedBox(
-                                                        height: 6,
-                                                      ),
+                                                      const SizedBox(height: 6),
                                                       Text(
-                                                        appointment['remarks']
-                                                            .toString(),
+                                                        status == 'rejected' &&
+                                                                appointment['rejection_reason']
+                                                                        ?.toString()
+                                                                        .trim()
+                                                                        .isNotEmpty ==
+                                                                    true
+                                                            ? appointment['rejection_reason']
+                                                                  .toString()
+                                                            : appointment['remarks']
+                                                                  .toString(),
                                                         style: TextStyle(
                                                           color: isDark
                                                               ? Colors.white
@@ -2900,6 +3020,18 @@ class _DeathCertificateAppointmentPageState
                                                   ),
                                                 ),
                                               ],
+                                              if (status == 'rejected')
+                                                ReturnAttachments(
+                                                  files:
+                                                      appointment['return_files'],
+                                                ),
+                                              const SizedBox(height: 10),
+                                              AppointmentSubmissionTime(
+                                                submittedAt:
+                                                    appointment['created_at']
+                                                        ?.toString(),
+                                                isDark: isDark,
+                                              ),
                                               const SizedBox(height: 6),
                                               Text(
                                                 'Updated: ${_formatDateTimeUpdated(appointment['updated_at']?.toString())}',
@@ -2950,7 +3082,10 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
   final _fullNameController = TextEditingController();
   final _contactNumberController = TextEditingController();
   final _emailController = TextEditingController();
-  final _requestorRelationshipController = TextEditingController();
+  final _authorizationDetails = BirthCertificateDetails(
+    includeBirthday: false,
+    requireOwnerId: false,
+  );
   final _purposeController = TextEditingController();
   final _notesController = TextEditingController();
 
@@ -2966,31 +3101,36 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
     _fullNameController.dispose();
     _contactNumberController.dispose();
     _emailController.dispose();
-    _requestorRelationshipController.dispose();
+    _authorizationDetails.dispose();
     _purposeController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
   Future<void> _pickAppointmentDate() async {
-    final now = DateTime.now();
-    final firstDate = DateTime(now.year, now.month, now.day + 1);
-    final pickedDate = await showDatePicker(
-      context: context,
-      initialDate: _appointmentDate ?? firstDate,
-      firstDate: firstDate,
-      lastDate: DateTime(now.year + 2),
-    );
-
-    if (pickedDate != null) {
-      setState(() {
-        _appointmentDate = pickedDate;
-      });
+    try {
+      final pickedDate = await pickAvailableAppointmentDate(
+        context,
+        _appointmentDate,
+      );
+      if (!mounted) return;
+      if (pickedDate != null) {
+        setState(() => _appointmentDate = pickedDate);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Appointment dates are unavailable right now. Please try again.',
+          ),
+        ),
+      );
     }
   }
 
   Future<void> _pickAppointmentTime() async {
-    final pickedTime = await showTimePicker(
+    final pickedTime = await showServiceTimePicker(
       context: context,
       initialTime: _appointmentTime ?? const TimeOfDay(hour: 9, minute: 0),
     );
@@ -3010,9 +3150,7 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
 
     final response = await Supabase.instance.client
         .from('cenomar_appointments')
-        .select(
-          'id, full_name, contact_number, email, relationship_to_owner, purpose, appointment_date, appointment_time, notes, status, created_at, updated_at',
-        )
+        .select('*')
         .eq('user_id', user.uid)
         .order('created_at', ascending: false);
 
@@ -3051,15 +3189,34 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
     });
 
     try {
+      if (!await confirmAppointmentDateAvailable(_appointmentDate!)) {
+        if (mounted) {
+          setState(() => _appointmentDate = null);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'That appointment date is no longer available. Please choose another date.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      final authorizationFields = await _authorizationDetails
+          .submissionFields();
       await Supabase.instance.client.from('cenomar_appointments').insert({
+        ...authorizationFields,
         'user_id': user.uid,
         'service_name': widget.item.title,
         'full_name': _fullNameController.text.trim(),
         'contact_number': _contactNumberController.text.trim(),
         'email': _emailController.text.trim(),
-        'relationship_to_owner': _requestorRelationshipController.text.trim(),
+
         'purpose': _purposeController.text.trim(),
-        'appointment_date': _appointmentDate!.toIso8601String().split('T').first,
+        'appointment_date': _appointmentDate!
+            .toIso8601String()
+            .split('T')
+            .first,
         'appointment_time': _formatTime(_appointmentTime!),
         'notes': _notesController.text.trim(),
         'status': 'pending',
@@ -3068,7 +3225,7 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
       _fullNameController.clear();
       _contactNumberController.clear();
       _emailController.clear();
-      _requestorRelationshipController.clear();
+      _authorizationDetails.reset();
       _purposeController.clear();
       _notesController.clear();
 
@@ -3081,18 +3238,14 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'CENOMAR appointment submitted successfully.',
-          ),
+          content: Text('CENOMAR appointment submitted successfully.'),
         ),
       );
     } catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Unable to submit appointment: $e'),
-        ),
+        SnackBar(content: Text('Unable to submit appointment: $e')),
       );
     } finally {
       if (mounted) {
@@ -3134,7 +3287,9 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
     }
 
     final month = _monthName(date.month);
-    final hour = date.hour == 0 ? 12 : (date.hour > 12 ? date.hour - 12 : date.hour);
+    final hour = date.hour == 0
+        ? 12
+        : (date.hour > 12 ? date.hour - 12 : date.hour);
     final minute = date.minute.toString().padLeft(2, '0');
     final period = date.hour >= 12 ? 'PM' : 'AM';
     return '$month ${date.day}, ${date.year} • $hour:$minute $period';
@@ -3166,45 +3321,16 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
     return months[month];
   }
 
-  String _statusLabel(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'approved':
-        return 'Approved';
-      case 'rejected':
-        return 'Rejected';
-      default:
-        return 'Pending';
-    }
-  }
-
-  Color _statusColor(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'approved':
-        return const Color(0xFF16A34A);
-      case 'rejected':
-        return const Color(0xFFDC2626);
-      default:
-        return const Color(0xFFFFB300);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final backgroundColor =
-        isDark ? theme.scaffoldBackgroundColor : const Color(0xFFEAEAEA);
+    final backgroundColor = isDark
+        ? theme.scaffoldBackgroundColor
+        : const Color(0xFFEAEAEA);
     final topGradient = isDark
-        ? const [
-            Color(0xFF0F172A),
-            Color(0xFF172554),
-            Color(0xFF111827),
-          ]
-        : const [
-            Color(0xFFFFB300),
-            Color(0xFFFFE082),
-            Color(0xFFEAEAEA),
-          ];
+        ? const [Color(0xFF0F172A), Color(0xFF172554), Color(0xFF111827)]
+        : const [Color(0xFFFFB300), Color(0xFFFFE082), Color(0xFFEAEAEA)];
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -3231,10 +3357,7 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
                     children: [
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: Colors.white,
-                        ),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
                       ),
                       const SizedBox(width: 4),
                       Expanded(
@@ -3318,22 +3441,23 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
                                   text: 'Valid ID of the requester',
                                 ),
                                 _RequirementItem(
-                                  text: 'Complete full name of the certificate owner',
-                                ),
-                                _RequirementItem(
                                   text: 'Birth date of the certificate owner',
                                 ),
                                 _RequirementItem(
-                                  text: 'Place of birth of the certificate owner',
+                                  text:
+                                      'Place of birth of the certificate owner',
                                 ),
                                 _RequirementItem(
-                                  text: 'Name of the requester if different from the certificate owner',
+                                  text:
+                                      'Name of the requester if different from the certificate owner',
                                 ),
                                 _RequirementItem(
-                                  text: 'Authorization letter and valid ID of the certificate owner if the requester is not the owner',
+                                  text:
+                                      'Valid ID of the certificate owner if the requester is not the owner',
                                 ),
                                 _RequirementItem(
-                                  text: 'Extra cash for applicable processing and copy fees',
+                                  text:
+                                      'Extra cash for applicable processing and copy fees',
                                 ),
                               ],
                             ),
@@ -3362,16 +3486,16 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
                                   keyboardType: TextInputType.emailAddress,
                                 ),
                                 const SizedBox(height: 14),
-                                _BorrowTextField(
-                                  controller: _requestorRelationshipController,
-                                  label: 'Relationship to Certificate Owner',
-                                  hint: 'Example: Self, Parent, Sibling, Representative',
+                                BirthCertificateDetailsFields(
+                                  details: _authorizationDetails,
+                                  enabled: !_isSubmitting,
                                 ),
                                 const SizedBox(height: 14),
                                 _BorrowTextField(
                                   controller: _purposeController,
                                   label: 'Purpose of Request',
-                                  hint: 'Enter the purpose of the CENOMAR request',
+                                  hint:
+                                      'Enter the purpose of the CENOMAR request',
                                   maxLines: 3,
                                 ),
                                 const SizedBox(height: 14),
@@ -3400,6 +3524,7 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
                                     ),
                                   ],
                                 ),
+                                const _AppointmentAvailabilityNote(),
                                 const SizedBox(height: 14),
                                 _BorrowTextField(
                                   controller: _notesController,
@@ -3415,18 +3540,23 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton(
-                              onPressed: _isSubmitting ? null : _submitAppointment,
+                              onPressed: _isSubmitting
+                                  ? null
+                                  : _submitAppointment,
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFFFFB300),
                                 foregroundColor: Colors.white,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(18),
                                 ),
                               ),
                               child: Text(
-                                _isSubmitting ? 'Submitting...' : 'Book Appointment',
+                                _isSubmitting
+                                    ? 'Submitting...'
+                                    : 'Book Appointment',
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
@@ -3467,8 +3597,9 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
                                     if (snapshot.connectionState ==
                                         ConnectionState.waiting) {
                                       return const Padding(
-                                        padding:
-                                            EdgeInsets.symmetric(vertical: 12),
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 12,
+                                        ),
                                         child: Center(
                                           child: CircularProgressIndicator(),
                                         ),
@@ -3519,21 +3650,24 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
                                       children: appointments.map((appointment) {
                                         final status =
                                             appointment['status']?.toString() ??
-                                                'pending';
-                                        final statusColor =
-                                            _statusColor(status);
+                                            'pending';
+                                        final statusColor = onlineServiceStatus(
+                                          status,
+                                        ).color;
 
                                         return Container(
                                           width: double.infinity,
-                                          margin:
-                                              const EdgeInsets.only(bottom: 12),
+                                          margin: const EdgeInsets.only(
+                                            bottom: 12,
+                                          ),
                                           padding: const EdgeInsets.all(16),
                                           decoration: BoxDecoration(
                                             color: isDark
                                                 ? const Color(0xFF1F1F28)
                                                 : const Color(0xFFF7F8FA),
-                                            borderRadius:
-                                                BorderRadius.circular(18),
+                                            borderRadius: BorderRadius.circular(
+                                              18,
+                                            ),
                                             border: Border.all(
                                               color: isDark
                                                   ? Colors.white10
@@ -3554,13 +3688,14 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
                                                                   .isNotEmpty ==
                                                               true
                                                           ? appointment['full_name']
-                                                              .toString()
+                                                                .toString()
                                                           : 'CENOMAR Appointment',
                                                       style: TextStyle(
                                                         color: isDark
                                                             ? Colors.white
                                                             : const Color(
-                                                                0xFF20242C),
+                                                                0xFF20242C,
+                                                              ),
                                                         fontSize: 15,
                                                         fontWeight:
                                                             FontWeight.w700,
@@ -3568,11 +3703,11 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
                                                     ),
                                                   ),
                                                   Container(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                      horizontal: 12,
-                                                      vertical: 6,
-                                                    ),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 12,
+                                                          vertical: 6,
+                                                        ),
                                                     decoration: BoxDecoration(
                                                       color: statusColor
                                                           .withValues(
@@ -3584,7 +3719,9 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
                                                           ),
                                                     ),
                                                     child: Text(
-                                                      _statusLabel(status),
+                                                      onlineServiceStatus(
+                                                        status,
+                                                      ).label,
                                                       style: TextStyle(
                                                         color: statusColor,
                                                         fontWeight:
@@ -3595,6 +3732,8 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
                                                   ),
                                                 ],
                                               ),
+                                              if (status.trim().toLowerCase() == 'processing')
+                                                const _ReadyForReleaseNote(),
                                               const SizedBox(height: 10),
                                               Text(
                                                 'Schedule: ${_formatDate(appointment['appointment_date']?.toString())} • ${appointment['appointment_time'] ?? 'N/A'}',
@@ -3624,33 +3763,33 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
                                                   true) ...[
                                                 const SizedBox(height: 10),
                                                 Container(
-                                                  padding:
-                                                      const EdgeInsets.all(12),
+                                                  padding: const EdgeInsets.all(
+                                                    12,
+                                                  ),
                                                   decoration: BoxDecoration(
                                                     color: status == 'rejected'
-                                                        ? Colors.red
-                                                            .withValues(
-                                                              alpha: 0.1,
-                                                            )
+                                                        ? Colors.red.withValues(
+                                                            alpha: 0.1,
+                                                          )
                                                         : Colors.green
-                                                            .withValues(
-                                                              alpha: 0.1,
-                                                            ),
+                                                              .withValues(
+                                                                alpha: 0.1,
+                                                              ),
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                           12,
                                                         ),
                                                     border: Border.all(
-                                                      color: status ==
-                                                              'rejected'
+                                                      color:
+                                                          status == 'rejected'
                                                           ? Colors.red
-                                                              .withValues(
-                                                                alpha: 0.3,
-                                                              )
+                                                                .withValues(
+                                                                  alpha: 0.3,
+                                                                )
                                                           : Colors.green
-                                                              .withValues(
-                                                                alpha: 0.3,
-                                                              ),
+                                                                .withValues(
+                                                                  alpha: 0.3,
+                                                                ),
                                                     ),
                                                   ),
                                                   child: Column(
@@ -3660,10 +3799,11 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
                                                     children: [
                                                       Text(
                                                         status == 'rejected'
-                                                            ? 'Rejection Reason'
+                                                            ? 'Return Reason'
                                                             : 'Approval Notes',
                                                         style: TextStyle(
-                                                          color: status ==
+                                                          color:
+                                                              status ==
                                                                   'rejected'
                                                               ? Colors.red
                                                               : Colors.green,
@@ -3672,12 +3812,18 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
                                                               FontWeight.w700,
                                                         ),
                                                       ),
-                                                      const SizedBox(
-                                                        height: 6,
-                                                      ),
+                                                      const SizedBox(height: 6),
                                                       Text(
-                                                        appointment['remarks']
-                                                            .toString(),
+                                                        status == 'rejected' &&
+                                                                appointment['rejection_reason']
+                                                                        ?.toString()
+                                                                        .trim()
+                                                                        .isNotEmpty ==
+                                                                    true
+                                                            ? appointment['rejection_reason']
+                                                                  .toString()
+                                                            : appointment['remarks']
+                                                                  .toString(),
                                                         style: TextStyle(
                                                           color: isDark
                                                               ? Colors.white
@@ -3692,6 +3838,18 @@ class _CenomarAppointmentPageState extends State<_CenomarAppointmentPage> {
                                                   ),
                                                 ),
                                               ],
+                                              if (status == 'rejected')
+                                                ReturnAttachments(
+                                                  files:
+                                                      appointment['return_files'],
+                                                ),
+                                              const SizedBox(height: 10),
+                                              AppointmentSubmissionTime(
+                                                submittedAt:
+                                                    appointment['created_at']
+                                                        ?.toString(),
+                                                isDark: isDark,
+                                              ),
                                               const SizedBox(height: 6),
                                               Text(
                                                 'Updated: ${_formatDateTimeUpdated(appointment['updated_at']?.toString())}',
@@ -3742,7 +3900,10 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
   final _fullNameController = TextEditingController();
   final _contactNumberController = TextEditingController();
   final _emailController = TextEditingController();
-  final _requestorRelationshipController = TextEditingController();
+  final _authorizationDetails = BirthCertificateDetails(
+    includeBirthday: false,
+    requireOwnerId: false,
+  );
   final _purposeController = TextEditingController();
   final _notesController = TextEditingController();
 
@@ -3758,31 +3919,36 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
     _fullNameController.dispose();
     _contactNumberController.dispose();
     _emailController.dispose();
-    _requestorRelationshipController.dispose();
+    _authorizationDetails.dispose();
     _purposeController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
   Future<void> _pickAppointmentDate() async {
-    final now = DateTime.now();
-    final firstDate = DateTime(now.year, now.month, now.day + 1);
-    final pickedDate = await showDatePicker(
-      context: context,
-      initialDate: _appointmentDate ?? firstDate,
-      firstDate: firstDate,
-      lastDate: DateTime(now.year + 2),
-    );
-
-    if (pickedDate != null) {
-      setState(() {
-        _appointmentDate = pickedDate;
-      });
+    try {
+      final pickedDate = await pickAvailableAppointmentDate(
+        context,
+        _appointmentDate,
+      );
+      if (!mounted) return;
+      if (pickedDate != null) {
+        setState(() => _appointmentDate = pickedDate);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Appointment dates are unavailable right now. Please try again.',
+          ),
+        ),
+      );
     }
   }
 
   Future<void> _pickAppointmentTime() async {
-    final pickedTime = await showTimePicker(
+    final pickedTime = await showServiceTimePicker(
       context: context,
       initialTime: _appointmentTime ?? const TimeOfDay(hour: 9, minute: 0),
     );
@@ -3802,9 +3968,7 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
 
     final response = await Supabase.instance.client
         .from('cenodeath_appointments')
-        .select(
-          'id, full_name, contact_number, email, relationship_to_owner, purpose, appointment_date, appointment_time, notes, status, created_at, updated_at',
-        )
+        .select('*')
         .eq('user_id', user.uid)
         .order('created_at', ascending: false);
 
@@ -3843,15 +4007,34 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
     });
 
     try {
+      if (!await confirmAppointmentDateAvailable(_appointmentDate!)) {
+        if (mounted) {
+          setState(() => _appointmentDate = null);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'That appointment date is no longer available. Please choose another date.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      final authorizationFields = await _authorizationDetails
+          .submissionFields();
       await Supabase.instance.client.from('cenodeath_appointments').insert({
+        ...authorizationFields,
         'user_id': user.uid,
         'service_name': widget.item.title,
         'full_name': _fullNameController.text.trim(),
         'contact_number': _contactNumberController.text.trim(),
         'email': _emailController.text.trim(),
-        'relationship_to_owner': _requestorRelationshipController.text.trim(),
+
         'purpose': _purposeController.text.trim(),
-        'appointment_date': _appointmentDate!.toIso8601String().split('T').first,
+        'appointment_date': _appointmentDate!
+            .toIso8601String()
+            .split('T')
+            .first,
         'appointment_time': _formatTime(_appointmentTime!),
         'notes': _notesController.text.trim(),
         'status': 'pending',
@@ -3860,7 +4043,7 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
       _fullNameController.clear();
       _contactNumberController.clear();
       _emailController.clear();
-      _requestorRelationshipController.clear();
+      _authorizationDetails.reset();
       _purposeController.clear();
       _notesController.clear();
 
@@ -3873,18 +4056,14 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'CENODEATH appointment submitted successfully.',
-          ),
+          content: Text('CENODEATH appointment submitted successfully.'),
         ),
       );
     } catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Unable to submit appointment: $e'),
-        ),
+        SnackBar(content: Text('Unable to submit appointment: $e')),
       );
     } finally {
       if (mounted) {
@@ -3926,7 +4105,9 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
     }
 
     final month = _monthName(date.month);
-    final hour = date.hour == 0 ? 12 : (date.hour > 12 ? date.hour - 12 : date.hour);
+    final hour = date.hour == 0
+        ? 12
+        : (date.hour > 12 ? date.hour - 12 : date.hour);
     final minute = date.minute.toString().padLeft(2, '0');
     final period = date.hour >= 12 ? 'PM' : 'AM';
     return '$month ${date.day}, ${date.year} • $hour:$minute $period';
@@ -3958,45 +4139,16 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
     return months[month];
   }
 
-  String _statusLabel(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'approved':
-        return 'Approved';
-      case 'rejected':
-        return 'Rejected';
-      default:
-        return 'Pending';
-    }
-  }
-
-  Color _statusColor(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'approved':
-        return const Color(0xFF16A34A);
-      case 'rejected':
-        return const Color(0xFFDC2626);
-      default:
-        return const Color(0xFF26A69A);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final backgroundColor =
-        isDark ? theme.scaffoldBackgroundColor : const Color(0xFFEAEAEA);
+    final backgroundColor = isDark
+        ? theme.scaffoldBackgroundColor
+        : const Color(0xFFEAEAEA);
     final topGradient = isDark
-        ? const [
-            Color(0xFF0F172A),
-            Color(0xFF172554),
-            Color(0xFF111827),
-          ]
-        : const [
-            Color(0xFF26A69A),
-            Color(0xFF80CBC4),
-            Color(0xFFEAEAEA),
-          ];
+        ? const [Color(0xFF0F172A), Color(0xFF172554), Color(0xFF111827)]
+        : const [Color(0xFF26A69A), Color(0xFF80CBC4), Color(0xFFEAEAEA)];
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -4023,10 +4175,7 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
                     children: [
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: Colors.white,
-                        ),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
                       ),
                       const SizedBox(width: 4),
                       Expanded(
@@ -4110,22 +4259,16 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
                                   text: 'Valid ID of the requester',
                                 ),
                                 _RequirementItem(
-                                  text: 'Complete full name of the certificate owner',
+                                  text:
+                                      'Valid ID of the certificate owner if the requester is not the owner',
                                 ),
                                 _RequirementItem(
-                                  text: 'Purpose for requesting the certificate',
+                                  text:
+                                      'Supporting documents as may be required by the office',
                                 ),
                                 _RequirementItem(
-                                  text: 'Relationship to the certificate owner',
-                                ),
-                                _RequirementItem(
-                                  text: 'Authorization letter and valid ID of the certificate owner if the requester is not the owner',
-                                ),
-                                _RequirementItem(
-                                  text: 'Supporting documents as may be required by the office',
-                                ),
-                                _RequirementItem(
-                                  text: 'Extra cash for applicable processing and copy fees',
+                                  text:
+                                      'Extra cash for applicable processing and copy fees',
                                 ),
                               ],
                             ),
@@ -4154,16 +4297,16 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
                                   keyboardType: TextInputType.emailAddress,
                                 ),
                                 const SizedBox(height: 14),
-                                _BorrowTextField(
-                                  controller: _requestorRelationshipController,
-                                  label: 'Relationship to Certificate Owner',
-                                  hint: 'Example: Self, Parent, Sibling, Representative',
+                                BirthCertificateDetailsFields(
+                                  details: _authorizationDetails,
+                                  enabled: !_isSubmitting,
                                 ),
                                 const SizedBox(height: 14),
                                 _BorrowTextField(
                                   controller: _purposeController,
                                   label: 'Purpose of Request',
-                                  hint: 'Enter the purpose of the CENODEATH request',
+                                  hint:
+                                      'Enter the purpose of the CENODEATH request',
                                   maxLines: 3,
                                 ),
                                 const SizedBox(height: 14),
@@ -4192,6 +4335,7 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
                                     ),
                                   ],
                                 ),
+                                const _AppointmentAvailabilityNote(),
                                 const SizedBox(height: 14),
                                 _BorrowTextField(
                                   controller: _notesController,
@@ -4207,18 +4351,23 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton(
-                              onPressed: _isSubmitting ? null : _submitAppointment,
+                              onPressed: _isSubmitting
+                                  ? null
+                                  : _submitAppointment,
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF26A69A),
                                 foregroundColor: Colors.white,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(18),
                                 ),
                               ),
                               child: Text(
-                                _isSubmitting ? 'Submitting...' : 'Book Appointment',
+                                _isSubmitting
+                                    ? 'Submitting...'
+                                    : 'Book Appointment',
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
@@ -4259,8 +4408,9 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
                                     if (snapshot.connectionState ==
                                         ConnectionState.waiting) {
                                       return const Padding(
-                                        padding:
-                                            EdgeInsets.symmetric(vertical: 12),
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 12,
+                                        ),
                                         child: Center(
                                           child: CircularProgressIndicator(),
                                         ),
@@ -4311,21 +4461,24 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
                                       children: appointments.map((appointment) {
                                         final status =
                                             appointment['status']?.toString() ??
-                                                'pending';
-                                        final statusColor =
-                                            _statusColor(status);
+                                            'pending';
+                                        final statusColor = onlineServiceStatus(
+                                          status,
+                                        ).color;
 
                                         return Container(
                                           width: double.infinity,
-                                          margin:
-                                              const EdgeInsets.only(bottom: 12),
+                                          margin: const EdgeInsets.only(
+                                            bottom: 12,
+                                          ),
                                           padding: const EdgeInsets.all(16),
                                           decoration: BoxDecoration(
                                             color: isDark
                                                 ? const Color(0xFF1F1F28)
                                                 : const Color(0xFFF7F8FA),
-                                            borderRadius:
-                                                BorderRadius.circular(18),
+                                            borderRadius: BorderRadius.circular(
+                                              18,
+                                            ),
                                             border: Border.all(
                                               color: isDark
                                                   ? Colors.white10
@@ -4346,13 +4499,14 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
                                                                   .isNotEmpty ==
                                                               true
                                                           ? appointment['full_name']
-                                                              .toString()
+                                                                .toString()
                                                           : 'CENODEATH Appointment',
                                                       style: TextStyle(
                                                         color: isDark
                                                             ? Colors.white
                                                             : const Color(
-                                                                0xFF20242C),
+                                                                0xFF20242C,
+                                                              ),
                                                         fontSize: 15,
                                                         fontWeight:
                                                             FontWeight.w700,
@@ -4360,11 +4514,11 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
                                                     ),
                                                   ),
                                                   Container(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                      horizontal: 12,
-                                                      vertical: 6,
-                                                    ),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 12,
+                                                          vertical: 6,
+                                                        ),
                                                     decoration: BoxDecoration(
                                                       color: statusColor
                                                           .withValues(
@@ -4376,7 +4530,9 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
                                                           ),
                                                     ),
                                                     child: Text(
-                                                      _statusLabel(status),
+                                                      onlineServiceStatus(
+                                                        status,
+                                                      ).label,
                                                       style: TextStyle(
                                                         color: statusColor,
                                                         fontWeight:
@@ -4387,6 +4543,8 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
                                                   ),
                                                 ],
                                               ),
+                                              if (status.trim().toLowerCase() == 'processing')
+                                                const _ReadyForReleaseNote(),
                                               const SizedBox(height: 10),
                                               Text(
                                                 'Schedule: ${_formatDate(appointment['appointment_date']?.toString())} • ${appointment['appointment_time'] ?? 'N/A'}',
@@ -4416,33 +4574,33 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
                                                   true) ...[
                                                 const SizedBox(height: 10),
                                                 Container(
-                                                  padding:
-                                                      const EdgeInsets.all(12),
+                                                  padding: const EdgeInsets.all(
+                                                    12,
+                                                  ),
                                                   decoration: BoxDecoration(
                                                     color: status == 'rejected'
-                                                        ? Colors.red
-                                                            .withValues(
-                                                              alpha: 0.1,
-                                                            )
+                                                        ? Colors.red.withValues(
+                                                            alpha: 0.1,
+                                                          )
                                                         : Colors.green
-                                                            .withValues(
-                                                              alpha: 0.1,
-                                                            ),
+                                                              .withValues(
+                                                                alpha: 0.1,
+                                                              ),
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                           12,
                                                         ),
                                                     border: Border.all(
-                                                      color: status ==
-                                                              'rejected'
+                                                      color:
+                                                          status == 'rejected'
                                                           ? Colors.red
-                                                              .withValues(
-                                                                alpha: 0.3,
-                                                              )
+                                                                .withValues(
+                                                                  alpha: 0.3,
+                                                                )
                                                           : Colors.green
-                                                              .withValues(
-                                                                alpha: 0.3,
-                                                              ),
+                                                                .withValues(
+                                                                  alpha: 0.3,
+                                                                ),
                                                     ),
                                                   ),
                                                   child: Column(
@@ -4452,10 +4610,11 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
                                                     children: [
                                                       Text(
                                                         status == 'rejected'
-                                                            ? 'Rejection Reason'
+                                                            ? 'Return Reason'
                                                             : 'Approval Notes',
                                                         style: TextStyle(
-                                                          color: status ==
+                                                          color:
+                                                              status ==
                                                                   'rejected'
                                                               ? Colors.red
                                                               : Colors.green,
@@ -4464,12 +4623,18 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
                                                               FontWeight.w700,
                                                         ),
                                                       ),
-                                                      const SizedBox(
-                                                        height: 6,
-                                                      ),
+                                                      const SizedBox(height: 6),
                                                       Text(
-                                                        appointment['remarks']
-                                                            .toString(),
+                                                        status == 'rejected' &&
+                                                                appointment['rejection_reason']
+                                                                        ?.toString()
+                                                                        .trim()
+                                                                        .isNotEmpty ==
+                                                                    true
+                                                            ? appointment['rejection_reason']
+                                                                  .toString()
+                                                            : appointment['remarks']
+                                                                  .toString(),
                                                         style: TextStyle(
                                                           color: isDark
                                                               ? Colors.white
@@ -4484,6 +4649,18 @@ class _CenodeathAppointmentPageState extends State<_CenodeathAppointmentPage> {
                                                   ),
                                                 ),
                                               ],
+                                              if (status == 'rejected')
+                                                ReturnAttachments(
+                                                  files:
+                                                      appointment['return_files'],
+                                                ),
+                                              const SizedBox(height: 10),
+                                              AppointmentSubmissionTime(
+                                                submittedAt:
+                                                    appointment['created_at']
+                                                        ?.toString(),
+                                                isDark: isDark,
+                                              ),
                                               const SizedBox(height: 6),
                                               Text(
                                                 'Updated: ${_formatDateTimeUpdated(appointment['updated_at']?.toString())}',
@@ -4529,8 +4706,16 @@ class _FacilityBorrowRequestPage extends StatefulWidget {
       _FacilityBorrowRequestPageState();
 }
 
-class _FacilityBorrowRequestPageState extends State<_FacilityBorrowRequestPage> {
+class _FacilityBorrowRequestPageState
+    extends State<_FacilityBorrowRequestPage> {
   final _formKey = GlobalKey<FormState>();
+  final _authorizationDetails = BirthCertificateDetails(
+    includeBirthday: false,
+    requireOwnerId: false,
+    relationshipLabel: 'Requesting for',
+    relationshipOptions: const ['Self', 'Authorized Representative'],
+  );
+  bool _isSubmitting = false;
   final _fullNameController = TextEditingController();
   final _contactNumberController = TextEditingController();
   final _purposeController = TextEditingController();
@@ -4546,6 +4731,7 @@ class _FacilityBorrowRequestPageState extends State<_FacilityBorrowRequestPage> 
 
   @override
   void dispose() {
+    _authorizationDetails.dispose();
     _fullNameController.dispose();
     _contactNumberController.dispose();
     _purposeController.dispose();
@@ -4556,7 +4742,7 @@ class _FacilityBorrowRequestPageState extends State<_FacilityBorrowRequestPage> 
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
-    final pickedDate = await showDatePicker(
+    final pickedDate = await showServiceDatePicker(
       context: context,
       initialDate: _selectedDate ?? now,
       firstDate: now,
@@ -4571,7 +4757,7 @@ class _FacilityBorrowRequestPageState extends State<_FacilityBorrowRequestPage> 
   }
 
   Future<void> _pickStartTime() async {
-    final pickedTime = await showTimePicker(
+    final pickedTime = await showServiceTimePicker(
       context: context,
       initialTime: _startTime ?? TimeOfDay.now(),
     );
@@ -4584,7 +4770,7 @@ class _FacilityBorrowRequestPageState extends State<_FacilityBorrowRequestPage> 
   }
 
   Future<void> _pickEndTime() async {
-    final pickedTime = await showTimePicker(
+    final pickedTime = await showServiceTimePicker(
       context: context,
       initialTime: _endTime ?? TimeOfDay.now(),
     );
@@ -4616,6 +4802,7 @@ class _FacilityBorrowRequestPageState extends State<_FacilityBorrowRequestPage> 
   }
 
   Future<void> _submitRequest() async {
+    if (_isSubmitting) return;
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -4640,16 +4827,21 @@ class _FacilityBorrowRequestPageState extends State<_FacilityBorrowRequestPage> 
     }
 
     FocusScope.of(context).unfocus();
+    setState(() => _isSubmitting = true);
 
     try {
+      final authorizationFields = await _authorizationDetails
+          .submissionFields();
       await Supabase.instance.client.from('facility_borrow_requests').insert({
+        ...authorizationFields,
         'user_id': user.uid,
         'facility_name': widget.item.title,
         'full_name': _fullNameController.text.trim(),
         'contact_number': _contactNumberController.text.trim(),
         'purpose': _purposeController.text.trim(),
-        'expected_participants':
-            int.tryParse(_participantsController.text.trim()),
+        'expected_participants': int.tryParse(
+          _participantsController.text.trim(),
+        ),
         'event_date': _selectedDate!.toIso8601String().split('T').first,
         'start_time': _formatTime(_startTime!),
         'end_time': _formatTime(_endTime!),
@@ -4657,6 +4849,7 @@ class _FacilityBorrowRequestPageState extends State<_FacilityBorrowRequestPage> 
         'status': 'pending',
       });
 
+      _authorizationDetails.reset();
       _fullNameController.clear();
       _contactNumberController.clear();
       _purposeController.clear();
@@ -4682,10 +4875,10 @@ class _FacilityBorrowRequestPageState extends State<_FacilityBorrowRequestPage> 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Unable to submit borrow request: $e'),
-        ),
+        SnackBar(content: Text('Unable to submit borrow request: $e')),
       );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -4745,45 +4938,16 @@ class _FacilityBorrowRequestPageState extends State<_FacilityBorrowRequestPage> 
     return value.trim();
   }
 
-  String _statusLabel(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'approved':
-        return 'Approved';
-      case 'rejected':
-        return 'Rejected';
-      default:
-        return 'Pending';
-    }
-  }
-
-  Color _statusColor(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'approved':
-        return const Color(0xFF16A34A);
-      case 'rejected':
-        return const Color(0xFFDC2626);
-      default:
-        return const Color(0xFF1E88E5);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final backgroundColor =
-        isDark ? theme.scaffoldBackgroundColor : const Color(0xFFEAEAEA);
+    final backgroundColor = isDark
+        ? theme.scaffoldBackgroundColor
+        : const Color(0xFFEAEAEA);
     final topGradient = isDark
-        ? const [
-            Color(0xFF0F172A),
-            Color(0xFF172554),
-            Color(0xFF111827),
-          ]
-        : const [
-            Color(0xFF1E88E5),
-            Color(0xFF90CAF9),
-            Color(0xFFEAEAEA),
-          ];
+        ? const [Color(0xFF0F172A), Color(0xFF172554), Color(0xFF111827)]
+        : const [Color(0xFF1E88E5), Color(0xFF90CAF9), Color(0xFFEAEAEA)];
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -4810,10 +4974,7 @@ class _FacilityBorrowRequestPageState extends State<_FacilityBorrowRequestPage> 
                     children: [
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: Colors.white,
-                        ),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
                       ),
                       const SizedBox(width: 4),
                       Expanded(
@@ -4883,10 +5044,16 @@ class _FacilityBorrowRequestPageState extends State<_FacilityBorrowRequestPage> 
                                   keyboardType: TextInputType.phone,
                                 ),
                                 const SizedBox(height: 14),
+                                BirthCertificateDetailsFields(
+                                  details: _authorizationDetails,
+                                  enabled: !_isSubmitting,
+                                ),
+                                const SizedBox(height: 14),
                                 _BorrowTextField(
                                   controller: _purposeController,
                                   label: 'Purpose of Borrowing',
-                                  hint: 'Enter the purpose of using the facility',
+                                  hint:
+                                      'Enter the purpose of using the facility',
                                   maxLines: 3,
                                 ),
                                 const SizedBox(height: 14),
@@ -4952,8 +5119,9 @@ class _FacilityBorrowRequestPageState extends State<_FacilityBorrowRequestPage> 
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF1E88E5),
                                 foregroundColor: Colors.white,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(18),
                                 ),
@@ -5000,8 +5168,9 @@ class _FacilityBorrowRequestPageState extends State<_FacilityBorrowRequestPage> 
                                     if (snapshot.connectionState ==
                                         ConnectionState.waiting) {
                                       return const Padding(
-                                        padding:
-                                            EdgeInsets.symmetric(vertical: 12),
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 12,
+                                        ),
                                         child: Center(
                                           child: CircularProgressIndicator(),
                                         ),
@@ -5052,21 +5221,24 @@ class _FacilityBorrowRequestPageState extends State<_FacilityBorrowRequestPage> 
                                       children: requests.map((request) {
                                         final status =
                                             request['status']?.toString() ??
-                                                'pending';
-                                        final statusColor =
-                                            _statusColor(status);
+                                            'pending';
+                                        final statusColor = onlineServiceStatus(
+                                          status,
+                                        ).color;
 
                                         return Container(
                                           width: double.infinity,
-                                          margin:
-                                              const EdgeInsets.only(bottom: 12),
+                                          margin: const EdgeInsets.only(
+                                            bottom: 12,
+                                          ),
                                           padding: const EdgeInsets.all(16),
                                           decoration: BoxDecoration(
                                             color: isDark
                                                 ? const Color(0xFF1F1F28)
                                                 : const Color(0xFFF7F8FA),
-                                            borderRadius:
-                                                BorderRadius.circular(18),
+                                            borderRadius: BorderRadius.circular(
+                                              18,
+                                            ),
                                             border: Border.all(
                                               color: isDark
                                                   ? Colors.white10
@@ -5089,7 +5261,8 @@ class _FacilityBorrowRequestPageState extends State<_FacilityBorrowRequestPage> 
                                                         color: isDark
                                                             ? Colors.white
                                                             : const Color(
-                                                                0xFF20242C),
+                                                                0xFF20242C,
+                                                              ),
                                                         fontSize: 15,
                                                         fontWeight:
                                                             FontWeight.w700,
@@ -5097,11 +5270,11 @@ class _FacilityBorrowRequestPageState extends State<_FacilityBorrowRequestPage> 
                                                     ),
                                                   ),
                                                   Container(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                      horizontal: 12,
-                                                      vertical: 6,
-                                                    ),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 12,
+                                                          vertical: 6,
+                                                        ),
                                                     decoration: BoxDecoration(
                                                       color: statusColor
                                                           .withValues(
@@ -5113,7 +5286,9 @@ class _FacilityBorrowRequestPageState extends State<_FacilityBorrowRequestPage> 
                                                           ),
                                                     ),
                                                     child: Text(
-                                                      _statusLabel(status),
+                                                      onlineServiceStatus(
+                                                        status,
+                                                      ).label,
                                                       style: TextStyle(
                                                         color: statusColor,
                                                         fontWeight:
@@ -5127,12 +5302,12 @@ class _FacilityBorrowRequestPageState extends State<_FacilityBorrowRequestPage> 
                                               const SizedBox(height: 10),
                                               Text(
                                                 request['purpose']
-                                                        ?.toString()
-                                                        .trim()
-                                                        .isNotEmpty ==
-                                                    true
+                                                            ?.toString()
+                                                            .trim()
+                                                            .isNotEmpty ==
+                                                        true
                                                     ? request['purpose']
-                                                        .toString()
+                                                          .toString()
                                                     : 'No purpose provided',
                                                 style: TextStyle(
                                                   color: isDark
@@ -5188,6 +5363,44 @@ class _FacilityBorrowRequestPageState extends State<_FacilityBorrowRequestPage> 
   }
 }
 
+class _ReadyForReleaseNote extends StatelessWidget {
+  const _ReadyForReleaseNote();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    const accent = Color(0xFFB45309);
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: isDark ? 0.18 : 0.09),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accent.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, color: accent, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'You may now go to the MCRO office to claim your document. Please bring the requirements listed in the Requirements section above.',
+              style: TextStyle(
+                color: isDark ? Colors.white : const Color(0xFF5C3B0A),
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _BorrowInfoCard extends StatelessWidget {
   const _BorrowInfoCard({required this.child});
 
@@ -5213,10 +5426,7 @@ class _BorrowInfoCard extends StatelessWidget {
           color: isDark ? Colors.white10 : const Color(0xFFE3E6EB),
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: child,
-      ),
+      child: Padding(padding: const EdgeInsets.all(18), child: child),
     );
   }
 }
@@ -5246,9 +5456,7 @@ class _BorrowTextField extends StatelessWidget {
       controller: controller,
       keyboardType: keyboardType,
       maxLines: maxLines,
-      style: TextStyle(
-        color: isDark ? Colors.white : const Color(0xFF20242C),
-      ),
+      style: TextStyle(color: isDark ? Colors.white : const Color(0xFF20242C)),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
@@ -5274,10 +5482,7 @@ class _BorrowTextField extends StatelessWidget {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: Color(0xFF1E88E5),
-            width: 1.4,
-          ),
+          borderSide: const BorderSide(color: Color(0xFF1E88E5), width: 1.4),
         ),
       ),
       validator: (value) {
@@ -5297,6 +5502,24 @@ class _BorrowTextField extends StatelessWidget {
 
         return null;
       },
+    );
+  }
+}
+
+class _AppointmentAvailabilityNote extends StatelessWidget {
+  const _AppointmentAvailabilityNote();
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(
+      context,
+    ).colorScheme.onSurface.withValues(alpha: 0.65);
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Text(
+        'Appointments are available Monday to Thursday, except Philippine holidays and office closures.',
+        style: TextStyle(fontSize: 12, color: color),
+      ),
     );
   }
 }
@@ -5332,11 +5555,7 @@ class _BorrowDateTimeField extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(
-              icon,
-              color: const Color(0xFF1E88E5),
-              size: 20,
-            ),
+            Icon(icon, color: const Color(0xFF1E88E5), size: 20),
             const SizedBox(width: 10),
             Expanded(
               child: Column(

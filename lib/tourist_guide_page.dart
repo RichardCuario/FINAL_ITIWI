@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'place_models.dart';
 import 'place_service.dart';
+import 'auto_image_carousel.dart';
 import 'content_cache_service.dart';
 import 'shared_widgets.dart';
 
@@ -107,7 +109,7 @@ class _TouristGuidePageState extends State<TouristGuidePage> {
               children: [
                 _TouristGuideHeader(
                   places: places,
-                  onSearchTap: () => _openSearchSheet(context, places),
+                  onPlaceTap: _openSearchedPlace,
                 ),
                 if (_isShowingCachedData && places.isNotEmpty)
                   const Padding(
@@ -210,27 +212,14 @@ class _TouristGuidePageState extends State<TouristGuidePage> {
     );
   }
 
-  void _openSearchSheet(BuildContext context, List<Place> places) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) => _PlaceSearchSheet(
-        places: places,
-        onPlaceTap: (place) async {
-          Navigator.of(context).pop();
-          await Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) =>
-                  PlaceDetailPage(place: place, placeService: _placeService),
-            ),
-          );
-          if (mounted) {
-            await _refreshPlaces();
-          }
-        },
+  Future<void> _openSearchedPlace(Place place) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) =>
+            PlaceDetailPage(place: place, placeService: _placeService),
       ),
     );
+    if (mounted) await _refreshPlaces();
   }
 
   void _openCategorySheet({
@@ -357,20 +346,58 @@ class _TouristGuidePageState extends State<TouristGuidePage> {
   }
 }
 
-class _TouristGuideHeader extends StatelessWidget {
-  const _TouristGuideHeader({required this.places, required this.onSearchTap});
+class _TouristGuideHeader extends StatefulWidget {
+  const _TouristGuideHeader({required this.places, required this.onPlaceTap});
 
   final List<Place> places;
-  final VoidCallback onSearchTap;
+  final ValueChanged<Place> onPlaceTap;
+
+  @override
+  State<_TouristGuideHeader> createState() => _TouristGuideHeaderState();
+}
+
+class _TouristGuideHeaderState extends State<_TouristGuideHeader> {
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<Place> get _results {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return const [];
+    final words = query.split(RegExp(r'\s+'));
+    return widget.places.where((place) {
+      final haystack = [
+        place.name,
+        place.category,
+        place.location,
+        place.shortLocation,
+        place.fullAddress,
+      ].join(' ').toLowerCase();
+      return words.every(haystack.contains);
+    }).toList()..sort((a, b) {
+      final aStarts = a.name.toLowerCase().startsWith(query);
+      final bStarts = b.name.toLowerCase().startsWith(query);
+      if (aStarts != bStarts) return aStarts ? -1 : 1;
+      return a.name.compareTo(b.name);
+    });
+  }
+
+  void _selectPlace(Place place) {
+    FocusScope.of(context).unfocus();
+    _searchController.clear();
+    setState(() => _query = '');
+    widget.onPlaceTap(place);
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final featuredPlace = places.where((place) => place.isFeatured).isNotEmpty
-        ? places.firstWhere((place) => place.isFeatured)
-        : (places.isNotEmpty ? places.first : null);
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
@@ -395,10 +422,7 @@ class _TouristGuideHeader extends StatelessWidget {
                   onPressed: () => Navigator.of(context).pop(),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
-                  icon: const Icon(
-                    Icons.arrow_back_rounded,
-                    color: Colors.white,
-                  ),
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
                 ),
                 const SizedBox(width: 10),
                 Text(
@@ -436,46 +460,90 @@ class _TouristGuideHeader extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 22),
-                  InkWell(
-                    borderRadius: BorderRadius.circular(999),
-                    onTap: onSearchTap,
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 15,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1F2937) : Colors.white,
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: isDark
-                              ? Colors.white12
-                              : const Color(0xFFD1D5DB),
-                        ),
-                      ),
-                      child: Row(
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 300),
+                      child: Column(
                         children: [
-                          Icon(
-                            Icons.search_rounded,
-                            color: isDark
-                                ? Colors.white60
-                                : const Color(0xFF9CA3AF),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              featuredPlace == null
-                                  ? 'Search tourist spots'
-                                  : 'Search "${featuredPlace.name}"',
-                              style: TextStyle(
-                                fontSize: 15,
+                          Container(
+                            height: 48,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? const Color(0xFF1F2937)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
                                 color: isDark
-                                    ? Colors.white60
-                                    : const Color(0xFF9CA3AF),
+                                    ? Colors.white12
+                                    : const Color(0xFFD1D5DB),
                               ),
                             ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.search_rounded,
+                                  size: 22,
+                                  color: isDark
+                                      ? Colors.white60
+                                      : const Color(0xFF9CA3AF),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _searchController,
+                                    onChanged: (value) =>
+                                        setState(() => _query = value),
+                                    textInputAction: TextInputAction.search,
+                                    cursorColor: isDark
+                                        ? Colors.white70
+                                        : const Color(0xFF4F6F8F),
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: isDark
+                                          ? Colors.white
+                                          : Colors.black87,
+                                    ),
+                                    decoration: InputDecoration(
+                                      isCollapsed: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      hintText: 'Search places',
+                                      hintStyle: TextStyle(
+                                        fontSize: 14,
+                                        color: isDark
+                                            ? Colors.white60
+                                            : const Color(0xFF9CA3AF),
+                                      ),
+                                      filled: false,
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                    ),
+                                  ),
+                                ),
+                                if (_query.isNotEmpty)
+                                  IconButton(
+                                    tooltip: 'Clear search',
+                                    icon: const Icon(
+                                      Icons.close_rounded,
+                                      size: 18,
+                                    ),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() => _query = '');
+                                    },
+                                  ),
+                              ],
+                            ),
                           ),
+                          if (_query.trim().isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            _TouristSearchResults(
+                              results: _results,
+                              query: _query.trim(),
+                              onSelected: _selectPlace,
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -727,77 +795,109 @@ class _CategoryPlacesSheet extends StatelessWidget {
   }
 }
 
-class _PlaceSearchSheet extends StatefulWidget {
-  const _PlaceSearchSheet({required this.places, required this.onPlaceTap});
+class _TouristSearchResults extends StatelessWidget {
+  const _TouristSearchResults({
+    required this.results,
+    required this.query,
+    required this.onSelected,
+  });
 
-  final List<Place> places;
-  final ValueChanged<Place> onPlaceTap;
-
-  @override
-  State<_PlaceSearchSheet> createState() => _PlaceSearchSheetState();
-}
-
-class _PlaceSearchSheetState extends State<_PlaceSearchSheet> {
-  String _query = '';
+  final List<Place> results;
+  final String query;
+  final ValueChanged<Place> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    final results = widget.places.where((place) {
-      final haystack = [
-        place.name,
-        place.category,
-        place.location,
-        place.shortLocation,
-        place.fullAddress,
-      ].join(' ').toLowerCase();
-      return haystack.contains(_query.toLowerCase());
-    }).toList();
-
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          0,
-          16,
-          16 + MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: 'Search places',
-                prefixIcon: const Icon(Icons.search_rounded),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dividerColor = isDark ? Colors.white12 : const Color(0xFFE3E3E3);
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 300),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF111827) : const Color(0xFFF8F8F8),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: dividerColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.24 : 0.12),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: results.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+              child: Text('No places found for "$query"'),
+            )
+          : ListView.separated(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: results.length,
+              separatorBuilder: (_, _) => Divider(
+                height: 1,
+                color: dividerColor,
+                indent: 16,
+                endIndent: 16,
               ),
-              onChanged: (value) {
-                setState(() {
-                  _query = value;
-                });
+              itemBuilder: (context, index) {
+                final place = results[index];
+                final subtitle = [
+                  if (place.category.trim().isNotEmpty) place.category.trim(),
+                  if (place._headerLocation.isNotEmpty) place._headerLocation,
+                ].join(' • ');
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => onSelected(place),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.place_outlined,
+                            size: 22,
+                            color: isDark
+                                ? Colors.white70
+                                : const Color(0xFF64748B),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  place.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                if (subtitle.isNotEmpty)
+                                  Text(
+                                    subtitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isDark
+                                          ? Colors.white60
+                                          : const Color(0xFF64748B),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
               },
             ),
-            const SizedBox(height: 16),
-            Flexible(
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: results.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final place = results[index];
-                  return _PlaceListTileCard(
-                    place: place,
-                    onTap: () => widget.onPlaceTap(place),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -880,18 +980,6 @@ class PlaceDetailPage extends StatefulWidget {
 class _PlaceDetailPageState extends State<PlaceDetailPage> {
   late Future<List<PlaceReview>> _reviewsFuture;
 
-  static const List<Color> _lightHeaderGradient = [
-    Color(0xFF1E88E5),
-    Color(0xFF90CAF9),
-    Color(0xFFEAEAEA),
-  ];
-
-  static const List<Color> _darkHeaderGradient = [
-    Color(0xFF0F172A),
-    Color(0xFF172554),
-    Color(0xFF1E293B),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -936,598 +1024,84 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
     final backgroundColor = isDark
         ? theme.scaffoldBackgroundColor
         : const Color(0xFFF3F6FB);
-    final headerGradient = isDark ? _darkHeaderGradient : _lightHeaderGradient;
     final softTextColor = isDark ? Colors.white70 : const Color(0xFF5F6F85);
-    final detailLocation = _buildLocationText(place);
-    final coordinatesText = _buildCoordinatesText(place);
-
     return Scaffold(
       backgroundColor: backgroundColor,
-      body: Stack(
-        children: [
-          Container(
-            height: 198,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: headerGradient,
-              ),
-            ),
-          ),
-          SafeArea(
-            bottom: false,
-            child: RefreshIndicator(
-              onRefresh: _refreshReviews,
-              child: FutureBuilder<List<PlaceReview>>(
-                future: _reviewsFuture,
-                builder: (context, snapshot) {
-                  final reviews = snapshot.data ?? const <PlaceReview>[];
-                  final average = reviews.isEmpty
-                      ? place.averageRating
-                      : reviews.fold<int>(0, (sum, item) => sum + item.rating) /
-                            reviews.length;
-                  final reviewCount = reviews.isEmpty
-                      ? place.reviewCount
-                      : reviews.length;
-                  final ratingCounts = <int, int>{
-                    for (var rating = 1; rating <= 5; rating++)
-                      rating: reviews
-                          .where((review) => review.rating == rating)
-                          .length,
-                  };
-
-                  return ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(0, 4, 0, 16),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.18),
-                                shape: BoxShape.circle,
-                              ),
-                              child: IconButton(
-                                onPressed: () => Navigator.of(context).pop(),
-                                tooltip: 'Back',
-                                icon: const Icon(
-                                  Icons.arrow_back_rounded,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    place.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.titleLarge?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'Discover Tiwi',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.82,
-                                      ),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (reviews.isNotEmpty) ...[
-                              const SizedBox(width: 10),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isDark
-                                      ? Colors.white.withValues(alpha: 0.08)
-                                      : Colors.white.withValues(alpha: 0.72),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.star_rounded,
-                                      size: 16,
-                                      color: Color(0xFFF4B400),
-                                    ),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      average.toStringAsFixed(1),
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      AppSectionCard(
-                        padding: EdgeInsets.zero,
-                        borderRadius: const BorderRadius.all(
-                          Radius.circular(28),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Stack(
-                              children: [
-                                if (place.imageUrl.isNotEmpty)
-                                  ClipRRect(
-                                    borderRadius: const BorderRadius.vertical(
-                                      top: Radius.circular(28),
-                                    ),
-                                    child: Image.network(
-                                      place.imageUrl,
-                                      height: 272,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
-                                      errorBuilder:
-                                          (context, error, stackTrace) =>
-                                              const _ImagePlaceholder(),
-                                    ),
-                                  )
-                                else
-                                  const _ImagePlaceholder(),
-                                Positioned.fill(
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                        colors: [
-                                          Colors.transparent,
-                                          Colors.black.withValues(alpha: 0.18),
-                                          Colors.black.withValues(alpha: 0.46),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                Positioned(
-                                  left: 16,
-                                  right: 16,
-                                  bottom: 18,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.42,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          place.category.isNotEmpty
-                                              ? place.category
-                                              : 'Tourist spot',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Text(
-                                        place.name,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.titleLarge
-                                            ?.copyWith(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w800,
-                                              height: 1.1,
-                                            ),
-                                      ),
-                                      if (detailLocation.isNotEmpty) ...[
-                                        const SizedBox(height: 5),
-                                        Text(
-                                          detailLocation,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: theme.textTheme.bodySmall
-                                              ?.copyWith(
-                                                color: Colors.white.withValues(
-                                                  alpha: 0.86,
-                                                ),
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                        ),
-                                      ],
-                                      const SizedBox(height: 10),
-                                      Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.star_rounded,
-                                            size: 20,
-                                            color: Color(0xFFFBBF24),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            average.toStringAsFixed(1),
-                                            style: theme.textTheme.titleSmall
-                                                ?.copyWith(
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.w800,
-                                                ),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            '($reviewCount review${reviewCount == 1 ? '' : 's'})',
-                                            style: theme.textTheme.bodySmall
-                                                ?.copyWith(
-                                                  color: Colors.white
-                                                      .withValues(alpha: 0.88),
-                                                ),
-                                          ),
-                                          if (place.isFeatured) ...[
-                                            const Spacer(),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 10,
-                                                    vertical: 6,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: Colors.white.withValues(
-                                                  alpha: 0.94,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(999),
-                                              ),
-                                              child: const Text(
-                                                'Featured',
-                                                style: TextStyle(
-                                                  color: Color(0xFF163B63),
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w800,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (place.distanceLabel.isNotEmpty)
-                                  Positioned(
-                                    top: 16,
-                                    right: 16,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 8,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.95,
-                                        ),
-                                        borderRadius: BorderRadius.circular(
-                                          999,
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withValues(
-                                              alpha: 0.15,
-                                            ),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.route_rounded,
-                                            size: 16,
-                                            color: colorScheme.primary,
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            place.distanceLabel,
-                                            style: theme.textTheme.bodySmall
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.w700,
-                                                  color: colorScheme.primary,
-                                                ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                20,
-                                20,
-                                20,
-                                22,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Overview',
-                                    style: theme.textTheme.titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w800),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  if (place.category.isNotEmpty ||
-                                      detailLocation.isNotEmpty)
-                                    Text(
-                                      [
-                                        if (place.category.isNotEmpty)
-                                          place.category,
-                                        if (detailLocation.isNotEmpty)
-                                          detailLocation,
-                                      ].join(' • '),
-                                      style: theme.textTheme.bodyMedium
-                                          ?.copyWith(
-                                            color: softTextColor,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                    ),
-                                  if (place.description.isNotEmpty) ...[
-                                    const SizedBox(height: 24),
-                                    Text(
-                                      'About this place',
-                                      style: theme.textTheme.titleMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Text(
-                                      place.description,
-                                      style: theme.textTheme.bodyLarge
-                                          ?.copyWith(
-                                            height: 1.7,
-                                            color: isDark
-                                                ? Colors.white70
-                                                : const Color(0xFF3E4C59),
-                                          ),
-                                    ),
-                                  ],
-                                  if (_hasPlaceMapData(place)) ...[
-                                    const SizedBox(height: 24),
-                                    _PlaceMapSection(place: place),
-                                  ],
-                                  if (place.fullAddress.isNotEmpty ||
-                                      place.phone.isNotEmpty ||
-                                      place.websiteUrl.isNotEmpty ||
-                                      coordinatesText.isNotEmpty ||
-                                      place.isFeatured) ...[
-                                    const SizedBox(height: 24),
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.all(18),
-                                      decoration: BoxDecoration(
-                                        color: isDark
-                                            ? Colors.white.withValues(
-                                                alpha: 0.04,
-                                              )
-                                            : const Color(0xFFF8FAFC),
-                                        borderRadius: BorderRadius.circular(18),
-                                        border: Border.all(
-                                          color: isDark
-                                              ? Colors.white12
-                                              : const Color(0xFFE2E8F0),
-                                        ),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Contact & details',
-                                            style: theme.textTheme.titleMedium
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.w800,
-                                                ),
-                                          ),
-                                          const SizedBox(height: 14),
-                                          if (place.fullAddress.isNotEmpty)
-                                            _InfoRow(
-                                              icon: Icons.location_on_outlined,
-                                              label: 'Address',
-                                              value: place.fullAddress,
-                                            ),
-                                          if (place.phone.isNotEmpty)
-                                            _InfoRow(
-                                              icon: Icons.phone_outlined,
-                                              label: 'Phone',
-                                              value: place.phone,
-                                            ),
-                                          if (place.websiteUrl.isNotEmpty)
-                                            _InfoRow(
-                                              icon: Icons.language_outlined,
-                                              label: 'Website',
-                                              value: place.websiteUrl,
-                                              compact: false,
-                                            ),
-                                          if (coordinatesText.isNotEmpty)
-                                            _InfoRow(
-                                              icon: Icons.map_outlined,
-                                              label: 'Coordinates',
-                                              value: coordinatesText,
-                                            ),
-                                          if (place.isFeatured)
-                                            const Padding(
-                                              padding: EdgeInsets.only(top: 4),
-                                              child: _FeatureBadge(),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      if (reviews.isNotEmpty) ...[
-                        _RatingSummary(
-                          average: average,
-                          reviewCount: reviewCount,
-                          ratingCounts: ratingCounts,
-                          theme: theme,
-                          isDark: isDark,
-                          softTextColor: softTextColor,
-                          margin: EdgeInsets.zero,
-                        ),
-                        const SizedBox(height: 14),
-                      ],
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          gradient: isDark
-                              ? const LinearGradient(
-                                  colors: [
-                                    Color(0xFF172033),
-                                    Color(0xFF111827),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                )
-                              : const LinearGradient(
-                                  colors: [
-                                    Color(0xFFFFFFFF),
-                                    Color(0xFFF3F8FF),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: isDark
-                                ? Colors.white10
-                                : const Color(0xFFD8E7F8),
+      body: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.light,
+        child: RefreshIndicator(
+          edgeOffset: MediaQuery.paddingOf(context).top,
+          onRefresh: _refreshReviews,
+          child: FutureBuilder<List<PlaceReview>>(
+            future: _reviewsFuture,
+            builder: (context, snapshot) {
+              final reviews = snapshot.data ?? const <PlaceReview>[];
+              final average = reviews.isEmpty
+                  ? place.averageRating
+                  : reviews.fold<int>(0, (sum, item) => sum + item.rating) /
+                        reviews.length;
+              final reviewCount = reviews.isEmpty
+                  ? place.reviewCount
+                  : reviews.length;
+              final ratingCounts = <int, int>{
+                for (var rating = 1; rating <= 5; rating++)
+                  rating: reviews
+                      .where((review) => review.rating == rating)
+                      .length,
+              };
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.zero,
+                children: [
+                  _buildPhotoHeader(average, reviewCount),
+                  _buildPlaceInformation(),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      20,
+                      16,
+                      32 + MediaQuery.paddingOf(context).bottom,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (reviews.isNotEmpty) ...[
+                          _RatingSummary(
+                            average: average,
+                            reviewCount: reviewCount,
+                            ratingCounts: ratingCounts,
+                            theme: theme,
+                            isDark: isDark,
+                            softTextColor: softTextColor,
+                            margin: EdgeInsets.zero,
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 14,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 46,
-                              height: 46,
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.08)
-                                    : const Color(0xFFDDEBFF),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Icon(
-                                Icons.forum_rounded,
-                                color: isDark
-                                    ? Colors.white
-                                    : const Color(0xFF1E88E5),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Reviews from visitors',
-                                    style: theme.textTheme.titleMedium
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w800,
-                                          color: colorScheme.onSurface,
-                                        ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '$reviewCount review${reviewCount == 1 ? '' : 's'} from guests and visitors',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: softTextColor,
-                                      height: 1.35,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: _openReviewSheet,
-                          icon: const Icon(Icons.rate_review_rounded, size: 18),
-                          label: const Text('Write a review'),
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size.fromHeight(46),
-                            backgroundColor: const Color(0xFF0B4C8C),
-                            foregroundColor: Colors.white,
-                            textStyle: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                            ),
-                            shape: const StadiumBorder(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      if (snapshot.connectionState != ConnectionState.done)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
-                          child: Center(child: CircularProgressIndicator()),
-                        )
-                      else if (reviews.isEmpty)
+                          const SizedBox(height: 14),
+                        ],
                         Container(
-                          padding: const EdgeInsets.all(24),
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: isDark
-                                ? const Color(0xFF111827)
-                                : Colors.white,
-                            borderRadius: BorderRadius.circular(24),
+                            gradient: isDark
+                                ? const LinearGradient(
+                                    colors: [
+                                      Color(0xFF172033),
+                                      Color(0xFF111827),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  )
+                                : const LinearGradient(
+                                    colors: [
+                                      Color(0xFFFFFFFF),
+                                      Color(0xFFF3F8FF),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                            borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: isDark
                                   ? Colors.white10
-                                  : const Color(0xFFE2E8F0),
+                                  : const Color(0xFFD8E7F8),
                             ),
                             boxShadow: [
                               BoxShadow(
@@ -1537,93 +1111,559 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> {
                               ),
                             ],
                           ),
-                          child: Column(
+                          child: Row(
                             children: [
                               Container(
-                                width: 62,
-                                height: 62,
+                                width: 46,
+                                height: 46,
                                 decoration: BoxDecoration(
                                   color: isDark
-                                      ? Colors.white.withValues(alpha: 0.06)
+                                      ? Colors.white.withValues(alpha: 0.08)
                                       : const Color(0xFFDDEBFF),
-                                  borderRadius: BorderRadius.circular(20),
+                                  borderRadius: BorderRadius.circular(14),
                                 ),
                                 child: Icon(
-                                  Icons.rate_review_rounded,
-                                  size: 28,
+                                  Icons.forum_rounded,
                                   color: isDark
                                       ? Colors.white
                                       : const Color(0xFF1E88E5),
                                 ),
                               ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No reviews yet',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Be the first to share your experience about this place.',
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: softTextColor,
-                                  height: 1.5,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Reviews from visitors',
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w800,
+                                            color: colorScheme.onSurface,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '$reviewCount review${reviewCount == 1 ? '' : 's'} from guests and visitors',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: softTextColor,
+                                            height: 1.35,
+                                          ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
-                        )
-                      else ...[
-                        if (reviews.length > 2)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 14),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: FilledButton.tonalIcon(
-                                onPressed: () => _showAllReviewsModal(
-                                  context: context,
-                                  reviews: reviews,
-                                  theme: theme,
-                                  isDark: isDark,
-                                  softTextColor: softTextColor,
-                                ),
-                                icon: const Icon(Icons.reviews_rounded),
-                                label: Text(
-                                  'View all ${reviews.length} reviews',
-                                ),
+                        ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: _openReviewSheet,
+                            icon: const Icon(
+                              Icons.rate_review_rounded,
+                              size: 18,
+                            ),
+                            label: const Text('Write a review'),
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size.fromHeight(46),
+                              backgroundColor: const Color(0xFF0B4C8C),
+                              foregroundColor: Colors.white,
+                              textStyle: const TextStyle(
+                                fontWeight: FontWeight.w800,
                               ),
+                              shape: const StadiumBorder(),
                             ),
                           ),
-                        ...reviews
-                            .take(2)
-                            .map(
-                              (review) => Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: _ReviewCard(
-                                  review: review,
-                                  theme: theme,
-                                  isDark: isDark,
-                                  softTextColor: softTextColor,
-                                  onTap: () => _showReviewDetailModal(
+                        ),
+                        const SizedBox(height: 14),
+                        if (snapshot.connectionState != ConnectionState.done)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(child: CircularProgressIndicator()),
+                          )
+                        else if (reviews.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? const Color(0xFF111827)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white10
+                                    : const Color(0xFFE2E8F0),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 14,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              children: [
+                                Container(
+                                  width: 62,
+                                  height: 62,
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.06)
+                                        : const Color(0xFFDDEBFF),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Icon(
+                                    Icons.rate_review_rounded,
+                                    size: 28,
+                                    color: isDark
+                                        ? Colors.white
+                                        : const Color(0xFF1E88E5),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No reviews yet',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Be the first to share your experience about this place.',
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: softTextColor,
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else ...[
+                          if (reviews.length > 2)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 14),
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: FilledButton.tonalIcon(
+                                  onPressed: () => _showAllReviewsModal(
                                     context: context,
-                                    review: review,
-                                    placeName: place.name,
+                                    reviews: reviews,
                                     theme: theme,
                                     isDark: isDark,
                                     softTextColor: softTextColor,
                                   ),
+                                  icon: const Icon(Icons.reviews_rounded),
+                                  label: Text(
+                                    'View all ${reviews.length} reviews',
+                                  ),
                                 ),
                               ),
                             ),
+                          ...reviews
+                              .take(2)
+                              .map(
+                                (review) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: _ReviewCard(
+                                    review: review,
+                                    theme: theme,
+                                    isDark: isDark,
+                                    softTextColor: softTextColor,
+                                    onTap: () => _showReviewDetailModal(
+                                      context: context,
+                                      review: review,
+                                      placeName: place.name,
+                                      theme: theme,
+                                      isDark: isDark,
+                                      softTextColor: softTextColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                        ],
                       ],
-                    ],
-                  );
-                },
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhotoHeader(double average, int reviewCount) {
+    final place = widget.place;
+    final address = _buildLocationText(place);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final sheet = dark ? const Color(0xFF15202E) : Colors.white;
+    final category = place.category.isEmpty ? 'Tourist spot' : place.category;
+    final ratingText = reviewCount > 0 ? average.toStringAsFixed(1) : 'New';
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: AutoImageCarousel(
+            urls: place.imageUrls,
+            placeholder: const _ImagePlaceholder(),
+            indicatorBottom: 32,
+          ),
+        ),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.18),
+                    Colors.black.withValues(alpha: 0.04),
+                    Colors.black.withValues(alpha: 0.74),
+                  ],
+                  stops: const [0.0, 0.38, 1.0],
+                ),
               ),
             ),
           ),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            18,
+            MediaQuery.paddingOf(context).top + 12,
+            18,
+            44,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF234B53).withValues(alpha: 0.75),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        width: 1,
+                      ),
+                    ),
+                    child: IconButton(
+                      tooltip: 'Back',
+                      onPressed: () => Navigator.maybePop(context),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 44,
+                        minHeight: 44,
+                      ),
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                ],
+              ),
+              const SizedBox(height: 42),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.52),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _placeCategoryIcon(category),
+                          color: Colors.white,
+                          size: 17,
+                        ),
+                        const SizedBox(width: 7),
+                        Text(
+                          category,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                place.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  height: 1.08,
+                  letterSpacing: -0.4,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (address.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.location_on_rounded,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        address,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(999),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.12),
+                          blurRadius: 12,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.star_rounded,
+                          color: Color(0xFFFFC400),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          ratingText,
+                          style: const TextStyle(
+                            color: Color(0xFF101727),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (place.distanceLabel.isNotEmpty)
+                    _photoBadge(Icons.route_rounded, place.distanceLabel),
+                  if (place.isFeatured)
+                    _photoBadge(Icons.workspace_premium_rounded, 'Featured'),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 24,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: sheet,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _photoBadge(
+    IconData icon,
+    String label, {
+    Color iconColor = const Color(0xFF0077BD),
+  }) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.1),
+          blurRadius: 12,
+          offset: const Offset(0, 3),
+        ),
+      ],
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: iconColor, size: 19),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF101727),
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  IconData _placeCategoryIcon(String category) {
+    final value = category.toLowerCase();
+    if (value.contains('resort') || value.contains('beach')) {
+      return Icons.beach_access_rounded;
+    }
+    if (value.contains('food') || value.contains('restaurant')) {
+      return Icons.restaurant_rounded;
+    }
+    if (value.contains('church') || value.contains('heritage')) {
+      return Icons.account_balance_rounded;
+    }
+    if (value.contains('mountain') || value.contains('nature')) {
+      return Icons.landscape_rounded;
+    }
+    return Icons.explore_rounded;
+  }
+
+  Widget _buildPlaceInformation() {
+    final place = widget.place;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final address = _buildLocationText(place);
+    final coordinates = _buildCoordinatesText(place);
+    final bodyStyle = TextStyle(
+      color: dark ? const Color(0xFFB5C0D1) : const Color(0xFF647087),
+      fontSize: 14,
+      height: 1.55,
+    );
+    return Container(
+      color: dark ? const Color(0xFF15202E) : Colors.white,
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _PlaceDetailSection(
+            icon: Icons.article_rounded,
+            title: 'Overview',
+            child: Text(
+              [
+                if (place.category.isNotEmpty) place.category,
+                if (address.isNotEmpty) address,
+              ].join(' · '),
+              style: bodyStyle,
+            ),
+          ),
+          if (place.description.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            _PlaceDetailSection(
+              icon: Icons.eco_rounded,
+              title: 'About this place',
+              teal: true,
+              child: Text(place.description, style: bodyStyle),
+            ),
+          ],
+          if (_hasPlaceMapData(place)) ...[
+            const SizedBox(height: 22),
+            _PlaceMapSection(place: place),
+          ],
+          if (address.isNotEmpty ||
+              place.phone.isNotEmpty ||
+              place.websiteUrl.isNotEmpty ||
+              coordinates.isNotEmpty ||
+              place.isFeatured) ...[
+            const SizedBox(height: 22),
+            const _PlaceDetailSection(
+              icon: Icons.call_rounded,
+              title: 'Contact & details',
+              teal: true,
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: dark ? const Color(0xFF1C2B3D) : const Color(0xFFF5F8FC),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                  color: dark ? Colors.white10 : const Color(0xFFECF2F8),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (address.isNotEmpty)
+                    _InfoRow(
+                      icon: Icons.location_on_rounded,
+                      label: 'Address',
+                      value: address,
+                    ),
+                  if (place.phone.isNotEmpty)
+                    _InfoRow(
+                      icon: Icons.call_rounded,
+                      label: 'Phone',
+                      value: place.phone,
+                    ),
+                  if (place.websiteUrl.isNotEmpty)
+                    _InfoRow(
+                      icon: Icons.language_rounded,
+                      label: 'Website',
+                      value: place.websiteUrl,
+                      compact: false,
+                    ),
+                  if (coordinates.isNotEmpty)
+                    _InfoRow(
+                      icon: Icons.map_outlined,
+                      label: 'Coordinates',
+                      value: coordinates,
+                    ),
+                  if (place.isFeatured) const _FeatureBadge(),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -2174,6 +2214,65 @@ class _ImagePlaceholder extends StatelessWidget {
   }
 }
 
+class _PlaceDetailSection extends StatelessWidget {
+  const _PlaceDetailSection({
+    required this.icon,
+    required this.title,
+    this.teal = false,
+    this.child,
+  });
+  final IconData icon;
+  final String title;
+  final bool teal;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(11),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: teal
+                  ? const [Color(0xFF10BEAE), Color(0xFF009D8C)]
+                  : const [Color(0xFF00A9DF), Color(0xFF007DBD)],
+            ),
+          ),
+          child: Icon(icon, color: Colors.white, size: 22),
+        ),
+        const SizedBox(width: 13),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: dark ? Colors.white : const Color(0xFF101727),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    height: 1.25,
+                  ),
+                ),
+              ),
+              if (child != null) ...[const SizedBox(height: 6), child!],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _PlaceMapSection extends StatefulWidget {
   const _PlaceMapSection({required this.place});
 
@@ -2224,269 +2323,229 @@ class _PlaceMapSectionState extends State<_PlaceMapSection> {
   bool get _hasCoordinates =>
       widget.place.latitude != null && widget.place.longitude != null;
 
-  Future<void> _openInMaps() async {
-    final query = _hasCoordinates
-        ? '${widget.place.latitude},${widget.place.longitude}'
-        : _mapAddress;
+  String get _destination => _hasCoordinates
+      ? '${widget.place.latitude},${widget.place.longitude}'
+      : _mapAddress;
 
+  Future<void> _launchMaps({bool directions = false}) async {
+    final web = Uri.https(
+      'www.google.com',
+      directions ? '/maps/dir/' : '/maps/search/',
+      {
+        'api': '1',
+        if (directions) 'destination': _destination else 'query': _destination,
+      },
+    );
     final candidates = <Uri>[
-      Uri.parse('geo:0,0?q=${Uri.encodeComponent(query)}'),
-      Uri.parse(
-        'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(query)}',
-      ),
-      Uri.parse('https://maps.google.com/?q=${Uri.encodeComponent(query)}'),
+      if (!directions)
+        Uri.parse('geo:0,0?q=${Uri.encodeComponent(_destination)}'),
+      web,
     ];
-
     for (final uri in candidates) {
-      if (await canLaunchUrl(uri)) {
-        final launched = await launchUrl(
-          uri,
-          mode: LaunchMode.externalApplication,
-        );
-        if (launched) {
-          return;
-        }
+      try {
+        if (await launchUrl(uri, mode: LaunchMode.externalApplication)) return;
+      } catch (_) {
+        // Try the web URL if the device has no native maps handler.
       }
     }
-
-    if (!mounted) {
-      return;
-    }
-
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Unable to open map for $_mapAddress')),
     );
   }
 
+  static const _previewStyle = '''[
+    {"featureType":"water","elementType":"geometry","stylers":[{"color":"#82d9f5"}]},
+    {"featureType":"landscape","elementType":"geometry","stylers":[{"color":"#cdf7e5"}]},
+    {"featureType":"road","elementType":"geometry","stylers":[{"color":"#f4fafc"}]},
+    {"featureType":"poi","elementType":"geometry","stylers":[{"color":"#b7efcf"}]}
+  ]''';
+
   @override
   Widget build(BuildContext context) {
-    final latitude = widget.place.latitude ?? 13.4631300;
-    final longitude = widget.place.longitude ?? 123.6519000;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     final cameraPosition = CameraPosition(
-      target: LatLng(latitude, longitude),
+      target: LatLng(
+        widget.place.latitude ?? 13.4631300,
+        widget.place.longitude ?? 123.6519000,
+      ),
       zoom: _hasCoordinates ? 16 : 13,
     );
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
+    final directions = FilledButton.icon(
+      onPressed: () => _launchMaps(directions: true),
+      icon: const Icon(Icons.directions_rounded, size: 20),
+      label: const Text('Directions'),
+      style: FilledButton.styleFrom(
+        backgroundColor: const Color(0xFF0478C6),
+        foregroundColor: Colors.white,
+        minimumSize: const Size(0, 50),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+    final openMaps = FilledButton.icon(
+      onPressed: _launchMaps,
+      icon: const Icon(Icons.map_outlined, size: 20),
+      label: const Text('Open Maps'),
+      style: FilledButton.styleFrom(
+        backgroundColor: dark
+            ? const Color(0xFF213D57)
+            : const Color(0xFFE4F2FF),
+        foregroundColor: dark
+            ? const Color(0xFF9DD5FF)
+            : const Color(0xFF0071C5),
+        minimumSize: const Size(0, 50),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Location & directions',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
+        const _PlaceDetailSection(
+          icon: Icons.location_on_rounded,
+          title: 'Location & directions',
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         Container(
+          height: 210,
           width: double.infinity,
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF111827) : Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isDark ? Colors.white12 : const Color(0xFFD7E3F2),
-            ),
+            color: const Color(0xFFCDF7E5),
+            borderRadius: BorderRadius.circular(22),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 10,
+                blurRadius: 14,
                 offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Stack(
+            fit: StackFit.expand,
             children: [
-              Container(
-                height: 232,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(20),
-                  ),
-                  color: const Color(0xFFEAF4FF),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Stack(
-                  fit: StackFit.expand,
+              GoogleMap(
+                initialCameraPosition: cameraPosition,
+                markers: _hasCoordinates ? _markers : const <Marker>{},
+                style: _previewStyle,
+                myLocationButtonEnabled: false,
+                mapToolbarEnabled: false,
+                zoomControlsEnabled: !kIsWeb,
+                compassEnabled: false,
+              ),
+              Positioned(
+                top: 10,
+                left: 10,
+                right: 10,
+                child: Row(
                   children: [
-                    GoogleMap(
-                      initialCameraPosition: cameraPosition,
-                      markers: _markers,
-                      myLocationButtonEnabled: false,
-                      mapToolbarEnabled: false,
-                      zoomControlsEnabled: !kIsWeb,
-                      compassEnabled: true,
-                    ),
-                    Positioned(
-                      top: 14,
-                      left: 14,
-                      right: 14,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.95),
-                                borderRadius: BorderRadius.circular(28),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.10),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.search,
-                                    size: 18,
-                                    color: Color(0xFF5F6368),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      _mapAddress,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        color: Color(0xFF202124),
-                                      ),
+                    Expanded(
+                      child: Material(
+                        color: Colors.white,
+                        elevation: 3,
+                        shadowColor: Colors.black26,
+                        borderRadius: BorderRadius.circular(28),
+                        child: InkWell(
+                          onTap: _launchMaps,
+                          borderRadius: BorderRadius.circular(28),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 13,
+                              vertical: 14,
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.search_rounded,
+                                  size: 19,
+                                  color: Color(0xFF24364C),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _mapAddress,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Color(0xFF101727),
+                                      fontSize: 12,
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.95),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.10),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
                                 ),
                               ],
                             ),
-                            child: IconButton(
-                              onPressed: _openInMaps,
-                              icon: const Icon(
-                                Icons.open_in_new,
-                                size: 18,
-                                color: Color(0xFF202124),
-                              ),
-                            ),
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                    Positioned(
-                      right: 14,
-                      bottom: 14,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.95),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          _hasCoordinates
-                              ? 'Google Maps preview'
-                              : 'Google Maps preview (approx.)',
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF1F2937),
-                          ),
-                        ),
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      tooltip: 'Open map in another app',
+                      onPressed: _launchMaps,
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF20334B),
+                        minimumSize: const Size(48, 48),
                       ),
+                      icon: const Icon(Icons.open_in_new_rounded, size: 20),
                     ),
                   ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Find this place',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+              Positioned(
+                right: 10,
+                bottom: 10,
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 210),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    _hasCoordinates
+                        ? 'Google Maps preview'
+                        : 'Approximate area · Tiwi',
+                    style: const TextStyle(
+                      color: Color(0xFF17243B),
+                      fontSize: 11,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _mapAddress,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: isDark
-                            ? Colors.white70
-                            : const Color(0xFF4B5C70),
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Lat ${latitude.toStringAsFixed(6)}, Lng ${longitude.toStringAsFixed(6)}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: isDark
-                            ? Colors.white60
-                            : const Color(0xFF6B7280),
-                      ),
-                    ),
-                    if (!_hasCoordinates) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        'Using the default Tiwi, Albay coordinates because this place has no saved latitude/longitude yet.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: isDark
-                              ? Colors.white60
-                              : const Color(0xFF6B7280),
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _openInMaps,
-                            icon: const Icon(Icons.directions_outlined),
-                            label: const Text('Directions'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _openInMaps,
-                            icon: const Icon(Icons.map_outlined),
-                            label: const Text('Open Maps'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ],
           ),
+        ),
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 300 ||
+                MediaQuery.textScalerOf(context).scale(14) > 20) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [directions, const SizedBox(height: 8), openMaps],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: directions),
+                const SizedBox(width: 8),
+                Expanded(child: openMaps),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -2521,10 +2580,16 @@ class _InfoRow extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.10),
+              color: const Color(0xFF0780CB).withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, size: 18, color: theme.colorScheme.primary),
+            child: Icon(
+              icon,
+              size: 18,
+              color: theme.brightness == Brightness.dark
+                  ? const Color(0xFF92D0FF)
+                  : const Color(0xFF0075BD),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -2533,16 +2598,16 @@ class _InfoRow extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: theme.textTheme.labelLarge?.copyWith(
+                  style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
                     height: 1.35,
                   ),
                 ),
@@ -2565,19 +2630,31 @@ class _FeatureBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primary.withValues(alpha: 0.10),
+        color: theme.brightness == Brightness.dark
+            ? const Color(0xFF213D57)
+            : const Color(0xFF0075BD).withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.star_rounded, size: 18, color: theme.colorScheme.primary),
+          Icon(
+            Icons.star_rounded,
+            size: 18,
+            color: theme.brightness == Brightness.dark
+                ? const Color(0xFF92D0FF)
+                : const Color(0xFF0075BD),
+          ),
           const SizedBox(width: 8),
-          Text(
-            'Featured place',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: theme.colorScheme.primary,
+          Flexible(
+            child: Text(
+              'Featured place',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: theme.brightness == Brightness.dark
+                    ? const Color(0xFF92D0FF)
+                    : const Color(0xFF0075BD),
+              ),
             ),
           ),
         ],

@@ -1,19 +1,25 @@
+import 'user_profile_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide User;
+import 'package:flutter/services.dart';
 
+import 'account_form_page.dart';
+import 'about_us_page.dart';
 import 'data_compliance_page.dart';
 import 'faq_page.dart';
 import 'privacy_policy_page.dart';
+import 'premium_bottom_navigation.dart';
 import 'terms_of_use_page.dart';
 
 class ProfilePage extends StatefulWidget {
+  final bool embedded;
   final bool isDarkMode;
   final ValueChanged<bool> onToggleDarkMode;
   final ValueChanged<int> onNavigate;
 
   const ProfilePage({
     super.key,
+    this.embedded = false,
     required this.isDarkMode,
     required this.onToggleDarkMode,
     required this.onNavigate,
@@ -42,11 +48,7 @@ class _ProfilePageState extends State<ProfilePage> {
       final user = _user;
       if (user == null) return;
 
-      final response = await Supabase.instance.client
-          .from('users')
-          .select('phone, address, photo_url')
-          .eq('id', user.uid)
-          .maybeSingle();
+      final response = await UserProfileService.read();
 
       if (response != null && mounted) {
         setState(() {
@@ -70,6 +72,10 @@ class _ProfilePageState extends State<ProfilePage> {
 
   void _handleBottomNavigation(int index) {
     if (index == 2) return;
+    if (widget.embedded) {
+      widget.onNavigate(index);
+      return;
+    }
 
     if (index == 0) {
       Navigator.of(context).popUntil((route) => route.isFirst);
@@ -81,12 +87,6 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   User? get _user => _auth.currentUser;
-
-  String get _email {
-    return _user?.email?.trim().isNotEmpty == true
-        ? _user!.email!.trim()
-        : 'No email available';
-  }
 
   String get _username {
     final displayName = _user?.displayName?.trim();
@@ -103,7 +103,8 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   String? get _photoUrl {
-    final value = _user?.photoURL?.trim() ??
+    final value =
+        _user?.photoURL?.trim() ??
         _user?.providerData
             .map((provider) => provider.photoURL?.trim())
             .firstWhere(
@@ -124,154 +125,42 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _showEditProfileDialog() async {
     final result = await showDialog<String>(
       context: context,
-      builder: (dialogContext) {
-        final usernameController = TextEditingController(text: _username);
-        final emailController = TextEditingController(
-          text: _user?.email?.trim() ?? '',
-        );
-        final phoneController = TextEditingController(text: _phone);
-        final addressController = TextEditingController(text: _address);
-        var isSavingProfile = false;
-
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            Future<void> submit() async {
-              final username = usernameController.text.trim();
-              final email = emailController.text.trim();
-              final phone = phoneController.text.trim();
-              final address = addressController.text.trim();
-
-              if (username.isEmpty) {
-                Navigator.of(dialogContext).pop('Username is required.');
-                return;
-              }
-
-              if (email.isEmpty) {
-                Navigator.of(dialogContext).pop('Email is required.');
-                return;
-              }
-
-              setDialogState(() {
-                isSavingProfile = true;
-              });
-
-              try {
-                final currentUser = _user;
-                if (currentUser == null) {
-                  Navigator.of(dialogContext).pop(
-                    'Unable to update profile right now.',
-                  );
-                  return;
-                }
-
-                final currentUsername = currentUser.displayName?.trim() ?? '';
-                final currentEmail = currentUser.email?.trim() ?? '';
-
-                if (email != currentEmail) {
-                  await currentUser.verifyBeforeUpdateEmail(email);
-                }
-
-                if (username != currentUsername) {
-                  await currentUser.updateDisplayName(username);
-                }
-
-                // Save phone and address to Supabase (non-blocking)
-                try {
-                  await Supabase.instance.client.from('users').upsert({
-                    'id': currentUser.uid,
-                    'email': currentUser.email ?? '',
-                    'phone': phone,
-                    'address': address,
-                  }, onConflict: 'id');
-                } catch (supabaseError) {
-                  debugPrint('Supabase profile save failed: $supabaseError');
-                }
-
-                await currentUser.reload();
-
-                if (!mounted || !dialogContext.mounted) return;
-                setState(() {
-                  _phone = phone;
-                  _address = address;
-                });
-                Navigator.of(dialogContext).pop(
-                  'Profile updated. If you changed the email, confirm it from your inbox.',
-                );
-              } on FirebaseAuthException catch (error) {
-                if (dialogContext.mounted) {
-                  Navigator.of(dialogContext).pop(
-                    error.message ??
-                        'Failed to update profile. Please try again.',
-                  );
-                }
-              } catch (error) {
-                debugPrint('Profile update failed: $error');
-                if (dialogContext.mounted) {
-                  Navigator.of(dialogContext).pop(
-                    'Unable to update profile right now.',
-                  );
-                }
-              }
+      barrierDismissible: false,
+      barrierColor: Colors.black54,
+      builder: (_) => AccountFormPage(
+        username: _username,
+        phone: _phone,
+        address: _address,
+        onSave: (values) async {
+          final user = _user;
+          if (user == null) {
+            throw 'Please sign in again to update your profile.';
+          }
+          try {
+            if (values.username != user.displayName?.trim()) {
+              await user.updateDisplayName(values.username);
             }
-
-            return AlertDialog(
-              title: const Text('Edit Profile'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildDialogTextField(
-                      controller: usernameController,
-                      label: 'Username',
-                      icon: Icons.person_outline,
-                    ),
-                    const SizedBox(height: 14),
-                    _buildDialogTextField(
-                      controller: emailController,
-                      label: 'Email',
-                      icon: Icons.mail_outline,
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    const SizedBox(height: 14),
-                    _buildDialogTextField(
-                      controller: phoneController,
-                      label: 'Phone Number',
-                      icon: Icons.phone_outlined,
-                      keyboardType: TextInputType.phone,
-                    ),
-                    const SizedBox(height: 14),
-                    _buildDialogTextField(
-                      controller: addressController,
-                      label: 'Address',
-                      icon: Icons.location_on_outlined,
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: isSavingProfile
-                      ? null
-                      : () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: isSavingProfile ? null : submit,
-                  child: isSavingProfile
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Save'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+            await UserProfileService.save({
+              'display_name': values.username,
+              'phone': values.phone,
+              'address': values.address,
+            });
+            await user.reload();
+            if (mounted) {
+              setState(() {
+                _phone = values.phone;
+                _address = values.address;
+              });
+            }
+            return 'Profile updated.';
+          } on FirebaseAuthException catch (error) {
+            throw _accountError(error);
+          } catch (_) {
+            throw 'Some changes may have saved, but we couldn’t finish updating your profile. Please try again.';
+          }
+        },
+      ),
     );
-
     if (!mounted || result == null) return;
     _showMessage(result);
   }
@@ -279,517 +168,322 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _showChangePasswordDialog() async {
     final result = await showDialog<String>(
       context: context,
-      builder: (dialogContext) {
-        final passwordController = TextEditingController();
-        final confirmController = TextEditingController();
-        bool obscurePassword = true;
-        bool obscureConfirm = true;
-        var isChangingPassword = false;
-
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            Future<void> submit() async {
-              final password = passwordController.text.trim();
-              final confirmPassword = confirmController.text.trim();
-
-              if (password.length < 6) {
-                Navigator.of(dialogContext).pop(
-                  'Password must be at least 6 characters.',
-                );
-                return;
-              }
-
-              if (password != confirmPassword) {
-                Navigator.of(dialogContext).pop('Passwords do not match.');
-                return;
-              }
-
-              setDialogState(() {
-                isChangingPassword = true;
-              });
-
-              try {
-                final currentUser = _user;
-                if (currentUser == null) {
-                  Navigator.of(dialogContext).pop(
-                    'Unable to change password right now.',
-                  );
-                  return;
-                }
-
-                await currentUser.updatePassword(password);
-
-                if (dialogContext.mounted) {
-                  Navigator.of(dialogContext).pop(
-                    'Password updated successfully.',
-                  );
-                }
-              } on FirebaseAuthException catch (error) {
-                if (dialogContext.mounted) {
-                  Navigator.of(dialogContext).pop(
-                    error.message ??
-                        'Failed to change password. Please try again.',
-                  );
-                }
-              } catch (_) {
-                if (dialogContext.mounted) {
-                  Navigator.of(dialogContext).pop(
-                    'Unable to change password right now.',
-                  );
-                }
-              }
-            }
-
-            return AlertDialog(
-              title: const Text('Change Password'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildDialogTextField(
-                      controller: passwordController,
-                      label: 'New Password',
-                      icon: Icons.lock_outline,
-                      obscureText: obscurePassword,
-                      suffixIcon: IconButton(
-                        onPressed: () {
-                          setDialogState(() {
-                            obscurePassword = !obscurePassword;
-                          });
-                        },
-                        icon: Icon(
-                          obscurePassword
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _buildDialogTextField(
-                      controller: confirmController,
-                      label: 'Confirm Password',
-                      icon: Icons.lock_reset_outlined,
-                      obscureText: obscureConfirm,
-                      suffixIcon: IconButton(
-                        onPressed: () {
-                          setDialogState(() {
-                            obscureConfirm = !obscureConfirm;
-                          });
-                        },
-                        icon: Icon(
-                          obscureConfirm
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: isChangingPassword
-                      ? null
-                      : () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: isChangingPassword ? null : submit,
-                  child: isChangingPassword
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Update'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      barrierDismissible: false,
+      barrierColor: Colors.black54,
+      builder: (_) => AccountFormPage(
+        isPassword: true,
+        onSave: (values) async {
+          final user = _user;
+          if (user == null) {
+            throw 'Please sign in again to change your password.';
+          }
+          try {
+            await user.updatePassword(values.password);
+            return 'Password updated successfully.';
+          } on FirebaseAuthException catch (error) {
+            throw _accountError(error);
+          }
+        },
+      ),
     );
-
     if (!mounted || result == null) return;
     _showMessage(result);
+  }
+
+  String _accountError(FirebaseAuthException error) {
+    if (error.code == 'requires-recent-login') {
+      return 'Please sign out and sign in again, then retry this change.';
+    }
+    return error.message ?? 'Could not save your changes. Please try again.';
   }
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(message)),
-      );
-  }
-
-  Widget _buildDialogTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    bool obscureText = false,
-    TextInputType? keyboardType,
-    Widget? suffixIcon,
-  }) {
-    return TextField(
-      controller: controller,
-      obscureText: obscureText,
-      keyboardType: keyboardType,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-        suffixIcon: suffixIcon,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
-      ),
-    );
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final backgroundColor =
-        isDark ? theme.scaffoldBackgroundColor : const Color(0xFFEAEAEA);
-    final titleColor = isDark ? Colors.white : Colors.black;
-    final topGradient = isDark
-        ? const [
-            Color(0xFF0F172A),
-            Color(0xFF172554),
-            Color(0xFF111827),
-          ]
-        : const [
-            Color(0xFF1E88E5),
-            Color(0xFF90CAF9),
-            Color(0xFFEAEAEA),
-          ];
+    final colors = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: backgroundColor,
-      body: Stack(
-        children: [
-          Container(
-            height: 230,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: topGradient,
-                stops: const [0.0, 0.58, 1.0],
-              ),
-            ),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                const SizedBox(height: 18),
-                Text(
-                  'Profile',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: titleColor,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                    child: Column(
-                      children: [
-                        _buildProfileHeader(context),
-                        const SizedBox(height: 16),
-                        _buildGeneralSection(context),
-                        const SizedBox(height: 16),
-                        _buildSettingsSection(context),
-                        const SizedBox(height: 32),
-                      ],
+      extendBody: true,
+      backgroundColor: isDark
+          ? const Color(0xFF101827)
+          : const Color(0xFFF5F8FC),
+      body: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.light.copyWith(
+          statusBarColor: Colors.transparent,
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 320 + MediaQuery.paddingOf(context).top,
+              child: CustomPaint(
+                foregroundPainter: _ProfileWavesPainter(isDark: isDark),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: isDark
+                          ? const [
+                              Color(0xFF153454),
+                              Color(0xFF11243A),
+                              Color(0xFF101827),
+                            ]
+                          : const [
+                              Color(0xFF087BFA),
+                              Color(0xFF91D2FF),
+                              Color(0xFFF5F8FC),
+                            ],
+                      stops: const [0, 0.42, 1],
                     ),
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        color: isDark ? const Color(0xFF111827) : Colors.white,
-        child: BottomNavigationBar(
-          currentIndex: 2,
-          onTap: _handleBottomNavigation,
-          backgroundColor: isDark ? const Color(0xFF111827) : Colors.white,
-          selectedItemColor: Theme.of(context).colorScheme.primary,
-          unselectedItemColor:
-              isDark ? Colors.white70 : Colors.grey.shade600,
-          type: BottomNavigationBarType.fixed,
-          elevation: 0,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.info), label: 'News'),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+            SafeArea(
+              bottom: false,
+              child: Builder(
+                builder: (context) => Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 600),
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        20,
+                        8,
+                        20,
+                        12 +
+                            MediaQuery.paddingOf(context).bottom +
+                            (widget.embedded ? 96 : 0),
+                      ),
+                      child: CustomScrollView(
+                        physics: const NeverScrollableScrollPhysics(),
+                        slivers: [
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _buildProfileHeader(context),
+                                const SizedBox(height: 8),
+                                Expanded(
+                                  flex: 2,
+                                  child: _buildSectionCard(
+                                    context: context,
+                                    title: 'Account & preferences',
+                                    children: [
+                                      _ProfileOptionTile(
+                                        icon: Icons.lock_outline_rounded,
+                                        title: 'Change password',
+                                        onTap: _showChangePasswordDialog,
+                                      ),
+                                      _ProfileOptionTile(
+                                        icon: Icons.dark_mode_outlined,
+                                        title: 'Dark mode',
+                                        trailing: Switch(
+                                          value: _isDarkMode,
+                                          activeThumbColor: colors.onPrimary,
+                                          activeTrackColor: colors.primary,
+                                          onChanged: (value) {
+                                            setState(() => _isDarkMode = value);
+                                            widget.onToggleDarkMode(value);
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Expanded(
+                                  flex: 5,
+                                  child: _buildSectionCard(
+                                    context: context,
+                                    title: 'Support & information',
+                                    children: [
+                                      _ProfileOptionTile(
+                                        icon: Icons.info_outline_rounded,
+                                        title: 'About us',
+                                        onTap: () =>
+                                            _openPage(const AboutUsPage()),
+                                      ),
+                                      _ProfileOptionTile(
+                                        icon: Icons.help_outline_rounded,
+                                        title: 'FAQs',
+                                        onTap: () => _openPage(const FaqPage()),
+                                      ),
+                                      _ProfileOptionTile(
+                                        icon: Icons.privacy_tip_outlined,
+                                        title: 'Privacy policy',
+                                        onTap: () => _openPage(
+                                          const PrivacyPolicyPage(),
+                                        ),
+                                      ),
+                                      _ProfileOptionTile(
+                                        icon: Icons.description_outlined,
+                                        title: 'Terms of use',
+                                        onTap: () =>
+                                            _openPage(const TermsOfUsePage()),
+                                      ),
+                                      _ProfileOptionTile(
+                                        icon: Icons.shield_outlined,
+                                        title: 'Data & compliance',
+                                        onTap: () => _openPage(
+                                          const DataCompliancePage(),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
+      bottomNavigationBar: widget.embedded
+          ? null
+          : PremiumBottomNavigation(
+              currentIndex: 2,
+              onTap: _handleBottomNavigation,
+            ),
     );
+  }
+
+  void _openPage(Widget page) {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
   Widget _buildProfileHeader(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final colors = theme.colorScheme;
+    final photoUrl = _photoUrl;
+    final avatarSize = MediaQuery.sizeOf(context).height < 700 ? 88.0 : 100.0;
+    final initial = Center(
+      child: Text(
+        _initial,
+        style: TextStyle(
+          fontSize: 34,
+          fontWeight: FontWeight.w600,
+          color: colors.primary,
+        ),
+      ),
+    );
+
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1F2937) : const Color(0xFFF7F7F7),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
         children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundColor:
-                isDark ? const Color(0xFF243145) : const Color(0xFFD9EAF8),
-            backgroundImage:
-                _photoUrl != null ? NetworkImage(_photoUrl!) : null,
-            child: _photoUrl == null
-                ? Text(
-                    _initial,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1565C0),
-                    ),
-                  )
-                : null,
+          Tooltip(
+            message: 'Edit profile',
+            child: Semantics(
+              label: 'Edit profile',
+              button: true,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _showEditProfileDialog,
+                  customBorder: const CircleBorder(),
+                  child: Stack(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.24),
+                          border: Border.all(color: Colors.white, width: 3),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(
+                                0xFF005CC7,
+                              ).withValues(alpha: 0.18),
+                              blurRadius: 22,
+                              spreadRadius: 3,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: Container(
+                            width: avatarSize,
+                            height: avatarSize,
+                            color: isDark
+                                ? const Color(0xFF293D58)
+                                : const Color(0xFFDCEAF9),
+                            child: photoUrl == null
+                                ? initial
+                                : Image.network(
+                                    photoUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, error, stackTrace) =>
+                                        initial,
+                                  ),
+                          ),
+                        ),
+                      ),
+                      const Positioned(
+                        right: 2,
+                        bottom: 2,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.fromBorderSide(
+                              BorderSide(color: Color(0xFF1976D2), width: 1.5),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Color(0x33000000),
+                                blurRadius: 6,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: SizedBox(
+                            width: 32,
+                            height: 32,
+                            child: Icon(
+                              Icons.edit_rounded,
+                              color: Color(0xFF1976D2),
+                              size: 19,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _username,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? Colors.white : Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _email,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark ? Colors.white70 : Colors.black54,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 2),
+          Text(
+            _username,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.5,
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildGeneralSection(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return _buildSectionCard(
-      context: context,
-      title: 'General',
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF243145) : const Color(0xFFE5E5E5),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.phone_outlined, color: Colors.blue),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Phone',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: isDark ? Colors.white60 : Colors.black54,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _phone.isNotEmpty ? _phone : 'Not set',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF243145) : const Color(0xFFE5E5E5),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.location_on_outlined, color: Colors.blue),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Address',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: isDark ? Colors.white60 : Colors.black54,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _address.isNotEmpty ? _address : 'Not set',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const Divider(),
-        const SizedBox(height: 12),
-        _ProfileOptionTile(
-          icon: Icons.person_outline,
-          title: 'Edit Profile',
-          subtitle: 'Change your username, email, phone, and address',
-          onTap: _showEditProfileDialog,
-        ),
-        const SizedBox(height: 14),
-        _ProfileOptionTile(
-          icon: Icons.lock_outline,
-          title: 'Change Password',
-          subtitle: 'Update and strengthen account security',
-          onTap: _showChangePasswordDialog,
-        ),
-        const SizedBox(height: 14),
-        _ProfileOptionTile(
-          icon: Icons.help_center_outlined,
-          title: 'FAQs',
-          subtitle: 'View frequently asked questions and quick help',
-          onTap: () {
-            Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => const FaqPage()));
-          },
-        ),
-        const SizedBox(height: 14),
-        _ProfileOptionTile(
-          icon: Icons.privacy_tip_outlined,
-          title: 'Privacy Policy',
-          subtitle: 'Read how your information is collected and used',
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()),
-            );
-          },
-        ),
-        const SizedBox(height: 14),
-        _ProfileOptionTile(
-          icon: Icons.gavel_outlined,
-          title: 'Terms of Use',
-          subtitle: 'Review the rules and conditions for using the app',
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const TermsOfUsePage()),
-            );
-          },
-        ),
-        const SizedBox(height: 14),
-        _ProfileOptionTile(
-          icon: Icons.security_outlined,
-          title: 'Data & Compliance',
-          subtitle: 'Learn how data handling and compliance are managed',
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const DataCompliancePage()),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSettingsSection(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return _buildSectionCard(
-      context: context,
-      title: 'Settings',
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF243145) : const Color(0xFFE5E5E5),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.dark_mode_outlined,
-                color: isDark ? Colors.white70 : Colors.black54,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                'Dark Mode',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
-              ),
-            ),
-            Switch(
-              value: _isDarkMode,
-              onChanged: (value) {
-                setState(() {
-                  _isDarkMode = value;
-                });
-                widget.onToggleDarkMode(value);
-              },
-            ),
-          ],
-        ),
-      ],
     );
   }
 
@@ -798,111 +492,177 @@ class _ProfilePageState extends State<ProfilePage> {
     required String title,
     required List<Widget> children,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1F2937) : const Color(0xFFF7F7F7),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 5),
+          child: Text(
             title,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: isDark ? Colors.white : Colors.black87,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: colors.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
             ),
           ),
-          const SizedBox(height: 18),
-          ...children,
-        ],
-      ),
+        ),
+        Expanded(
+          child: Material(
+            color: theme.brightness == Brightness.dark
+                ? const Color(0xFF172033)
+                : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(
+                color: colors.outlineVariant.withValues(alpha: 0.35),
+              ),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                for (var index = 0; index < children.length; index++) ...[
+                  if (index > 0)
+                    Divider(
+                      height: 1,
+                      indent: 66,
+                      endIndent: 18,
+                      color: colors.outlineVariant.withValues(alpha: 0.35),
+                    ),
+                  Expanded(child: children[index]),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
+}
+
+class _ProfileWavesPainter extends CustomPainter {
+  final bool isDark;
+
+  const _ProfileWavesPainter({required this.isDark});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final width = size.width;
+    final height = size.height;
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: isDark ? 0.04 : 0.18);
+    final upperWave = Path()
+      ..moveTo(width * 0.92, 0)
+      ..cubicTo(
+        width * 0.88,
+        height * 0.42,
+        width * 0.54,
+        height * 0.5,
+        width * 0.12,
+        height * 0.4,
+      )
+      ..cubicTo(
+        width * 0.2,
+        height * 0.14,
+        width * 0.04,
+        height * 0.07,
+        0,
+        height * 0.15,
+      )
+      ..lineTo(0, height * 0.57)
+      ..cubicTo(
+        width * 0.45,
+        height * 0.27,
+        width * 0.65,
+        height * 0.66,
+        width,
+        height * 0.25,
+      )
+      ..lineTo(width, 0)
+      ..close();
+    canvas.drawPath(upperWave, paint);
+    paint.color = Colors.white.withValues(alpha: isDark ? 0.04 : 0.32);
+    final lowerWave = Path()
+      ..moveTo(0, height * 0.3)
+      ..cubicTo(
+        width * 0.26,
+        height * 0.22,
+        width * 0.57,
+        height * 0.57,
+        width,
+        height * 0.38,
+      )
+      ..lineTo(width, height * 0.66)
+      ..cubicTo(
+        width * 0.55,
+        height * 0.44,
+        width * 0.28,
+        height * 0.28,
+        0,
+        height * 0.62,
+      )
+      ..close();
+    canvas.drawPath(lowerWave, paint);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _ProfileWavesPainter oldDelegate) =>
+      oldDelegate.isDark != isDark;
 }
 
 class _ProfileOptionTile extends StatelessWidget {
   final IconData icon;
   final String title;
-  final String subtitle;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final Widget? trailing;
 
   const _ProfileOptionTile({
     required this.icon,
     required this.title,
-    required this.subtitle,
-    required this.onTap,
+    this.onTap,
+    this.trailing,
   });
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         child: Row(
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 30,
+              height: 30,
               decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? const Color(0xFF243145)
-                    : const Color(0xFFE5E5E5),
-                shape: BoxShape.circle,
+                color: colors.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(11),
               ),
-              child: Icon(
-                icon,
-                color: Colors.blue,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white
-                          : Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white70
-                          : Colors.black54,
-                    ),
-                  ),
-                ],
-              ),
+              child: Icon(icon, color: colors.primary, size: 20),
             ),
             const SizedBox(width: 8),
-            Icon(
-              Icons.chevron_right,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white54
-                  : Colors.black45,
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: colors.onSurface,
+                ),
+              ),
             ),
+            const SizedBox(width: 12),
+            trailing ??
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: colors.onSurfaceVariant.withValues(alpha: 0.65),
+                  size: 20,
+                ),
           ],
         ),
       ),

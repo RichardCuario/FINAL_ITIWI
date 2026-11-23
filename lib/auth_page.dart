@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'data_compliance_page.dart';
-import 'home_page.dart';
+import 'app_session_gate.dart';
 import 'privacy_policy_page.dart';
 import 'terms_of_use_page.dart';
 import 'user_access_service.dart';
@@ -28,15 +28,23 @@ class AuthPage extends StatefulWidget {
 
 enum AuthMode { login, signUp }
 
-class _AuthPageState extends State<AuthPage> {
+class _AuthPageState extends State<AuthPage>
+    with SingleTickerProviderStateMixin {
   static const _googleServerClientId =
       '1042831270933-h3jm10jj46801ajcfa4q4e4c4iuuq7qu.apps.googleusercontent.com';
 
   final _emailController = TextEditingController();
-  final _usernameController = TextEditingController();
+  final _fullNameController = TextEditingController();
   final _passwordController = TextEditingController();
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  late final AnimationController _entranceController;
+  late final CurvedAnimation _logoCurve;
+  late final CurvedAnimation _formCurve;
+  late final Animation<double> _logoOpacity;
+  late final Animation<double> _logoScale;
+  late final Animation<double> _formOpacity;
+  late final Animation<Offset> _formOffset;
   late AuthMode _mode;
   bool _isLoading = false;
   bool _isResettingPassword = false;
@@ -49,19 +57,53 @@ class _AuthPageState extends State<AuthPage> {
   void initState() {
     super.initState();
     _mode = widget.initialMode;
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 680),
+    );
+    _logoCurve = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0, 0.7, curve: Curves.easeOutCubic),
+    );
+    _formCurve = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0.18, 1, curve: Curves.easeOutCubic),
+    );
+    _logoOpacity = _logoCurve;
+    _logoScale = Tween<double>(begin: 0.92, end: 1).animate(_logoCurve);
+    _formOpacity = _formCurve;
+    _formOffset = Tween<Offset>(
+      begin: const Offset(0, 0.035),
+      end: Offset.zero,
+    ).animate(_formCurve);
+    _entranceController.forward();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
 
   @override
   void dispose() {
+    _logoCurve.dispose();
+    _formCurve.dispose();
+    _entranceController.dispose();
     _emailController.dispose();
-    _usernameController.dispose();
+    _fullNameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
+  Widget _animateHeader(Widget child) => FadeTransition(
+    opacity: _logoOpacity,
+    child: ScaleTransition(scale: _logoScale, child: child),
+  );
+
+  Widget _animateForm(Widget child) => FadeTransition(
+    opacity: _formOpacity,
+    child: SlideTransition(position: _formOffset, child: child),
+  );
+
   Future<void> _submit() async {
     final email = _buildEmailValue();
-    final username = _usernameController.text.trim();
+    final fullName = _fullNameController.text.trim();
     final password = _passwordController.text.trim();
 
     if (email.isEmpty) {
@@ -69,8 +111,8 @@ class _AuthPageState extends State<AuthPage> {
       return;
     }
 
-    if (!_isLogin && username.isEmpty) {
-      _showMessage('Username is required.');
+    if (!_isLogin && fullName.isEmpty) {
+      _showMessage('Full name is required.');
       return;
     }
 
@@ -96,41 +138,43 @@ class _AuthPageState extends State<AuthPage> {
           email: email,
           password: password,
         );
+        try {
+          await credential.user?.reload();
+        } catch (error) {
+          // A temporary network failure must not discard a successful login.
+          debugPrint('Could not refresh account verification: $error');
+        }
+        final signedInUser = _auth.currentUser;
+        if (signedInUser == null || !signedInUser.emailVerified) {
+          await _auth.signOut();
+          _showMessage(
+            'Please verify your email before logging in. Check your inbox for the verification link.',
+          );
+          return;
+        }
 
-        if (credential.user != null &&
-            !await UserAccessService.isActive(credential.user!)) {
+        if (!await UserAccessService.isActive(signedInUser)) {
           await _auth.signOut();
           _showMessage('Your account has been blocked by an administrator.');
           return;
         }
 
         if (!mounted) return;
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => HomePage(
-              isDarkMode: widget.isDarkMode,
-              onToggleDarkMode: widget.onToggleDarkMode,
-            ),
-          ),
-        );
+        returnToSessionRoot(context);
       } else {
         final credential = await _auth.createUserWithEmailAndPassword(
           email: email,
           password: password,
         );
-
-        if (username.isNotEmpty) {
-          await credential.user?.updateDisplayName(username);
+        final user = credential.user;
+        if (user == null) {
+          throw StateError('Account creation did not return a user.');
         }
-        await credential.user?.sendEmailVerification();
-
-        if (!mounted) return;
-        _showMessage(
-          'Sign up successful. Please verify your email before logging in.',
-        );
-        setState(() {
-          _mode = AuthMode.login;
-        });
+        await user.updateDisplayName(fullName);
+        await user.sendEmailVerification();
+        // The session gate keeps unverified email accounts on its verification
+        // screen until they verify or choose to sign out.
+        if (mounted) returnToSessionRoot(context);
       }
     } on FirebaseAuthException catch (error) {
       _showMessage(_mapAuthError(error));
@@ -222,14 +266,7 @@ class _AuthPageState extends State<AuthPage> {
       }
 
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => HomePage(
-            isDarkMode: widget.isDarkMode,
-            onToggleDarkMode: widget.onToggleDarkMode,
-          ),
-        ),
-      );
+      returnToSessionRoot(context);
     } on FirebaseAuthException catch (error) {
       _showMessage(_mapAuthError(error));
     } on PlatformException catch (error) {
@@ -305,26 +342,16 @@ class _AuthPageState extends State<AuthPage> {
               }
               await currentUser.reload();
 
-              await Supabase.instance.client.from('users').upsert({
-                'id': currentUser.uid,
-                'email': currentUser.email ?? '',
-                'display_name': currentUser.displayName ?? facebookName ?? 'User',
+              await UserProfileService.save({                'display_name': currentUser.displayName ?? facebookName ?? 'User',
                 'photo_url': pictureUrl ?? currentUser.photoURL,
-              }, onConflict: 'id');
+              });
             }
           } catch (error) {
             debugPrint('Facebook profile photo sync failed: $error');
           }
 
           if (!mounted) return;
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (_) => HomePage(
-                isDarkMode: widget.isDarkMode,
-                onToggleDarkMode: widget.onToggleDarkMode,
-              ),
-            ),
-          );
+          returnToSessionRoot(context);
           break;
         case LoginStatus.cancelled:
           _showMessage('Facebook sign-in was cancelled.');
@@ -557,7 +584,9 @@ class _AuthPageState extends State<AuthPage> {
           Container(
             width: double.infinity,
             constraints: BoxConstraints(
-              minHeight: extraCompact ? 175 : (compact ? 200 : 220),
+              minHeight:
+                  (extraCompact ? 175 : (compact ? 200 : 220)) +
+                  MediaQuery.paddingOf(context).top,
             ),
             alignment: Alignment.center,
             decoration: BoxDecoration(
@@ -575,247 +604,253 @@ class _AuthPageState extends State<AuthPage> {
               left: horizontalPadding,
               right: horizontalPadding,
             ),
-            child: _AuthHeader(
-              compact: compact || extraCompact,
-              screenWidth: screenWidth,
+            child: _animateHeader(
+              _AuthHeader(
+                compact: compact || extraCompact,
+                screenWidth: screenWidth,
+              ),
             ),
           ),
-          Transform.translate(
-            offset: Offset(0, extraCompact ? -22 : -30),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: panelMaxWidth),
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    screenWidth <= 520 ? 0 : 18,
-                    0,
-                    screenWidth <= 520 ? 0 : 18,
-                    10 + bottomSafeArea,
-                  ),
-                  child: Container(
-                    width: double.infinity,
+          _animateForm(
+            Transform.translate(
+              offset: Offset(0, extraCompact ? -22 : -30),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: panelMaxWidth),
+                  child: Padding(
                     padding: EdgeInsets.fromLTRB(
-                      loginHorizontalPadding,
-                      topGap,
-                      loginHorizontalPadding,
-                      16,
+                      screenWidth <= 520 ? 0 : 18,
+                      0,
+                      screenWidth <= 520 ? 0 : 18,
+                      10 + bottomSafeArea,
                     ),
-                    decoration: BoxDecoration(
-                      color: panelBackground,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(28),
-                        topRight: Radius.circular(28),
+                    child: Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.fromLTRB(
+                        loginHorizontalPadding,
+                        topGap,
+                        loginHorizontalPadding,
+                        16,
                       ),
-                      border: Border.all(
-                        color: isDark ? const Color(0xFF334155) : Colors.white,
+                      decoration: BoxDecoration(
+                        color: panelBackground,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(28),
+                          topRight: Radius.circular(28),
+                        ),
+                        border: Border.all(
+                          color: isDark
+                              ? const Color(0xFF334155)
+                              : Colors.white,
+                        ),
+                        boxShadow: null,
                       ),
-                      boxShadow: null,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _AuthModeToggle(
-                          isLogin: true,
-                          onLoginTap: _isLoading || _isLogin
-                              ? null
-                              : () => _switchMode(AuthMode.login),
-                          onSignUpTap: _isLoading || !_isLogin
-                              ? null
-                              : () => _switchMode(AuthMode.signUp),
-                        ),
-                        SizedBox(height: extraCompact ? 16 : 20),
-                        Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: titleFontSize,
-                            fontWeight: FontWeight.w800,
-                            color: titleColor,
-                          ),
-                        ),
-                        SizedBox(height: titleGap),
-                        Text(
-                          subtitle,
-                          style: TextStyle(
-                            fontSize: subtitleFontSize,
-                            color: subtitleColor,
-                            height: 1.35,
-                          ),
-                        ),
-                        SizedBox(height: introGap),
-                        _AuthTextField(
-                          controller: _emailController,
-                          hintText: 'Email',
-                          icon: Icons.mail_outline_rounded,
-                          keyboardType: TextInputType.emailAddress,
-                          compact: compact || extraCompact,
-                        ),
-                        SizedBox(height: inputGap),
-                        _AuthTextField(
-                          controller: _passwordController,
-                          hintText: 'Password',
-                          icon: Icons.lock_outline_rounded,
-                          obscureText: !_isPasswordVisible,
-                          compact: compact || extraCompact,
-                          suffixIcon: IconButton(
-                            onPressed: () {
-                              setState(() {
-                                _isPasswordVisible = !_isPasswordVisible;
-                              });
-                            },
-                            icon: Icon(
-                              _isPasswordVisible
-                                  ? Icons.visibility_off_rounded
-                                  : Icons.visibility_rounded,
-                              color: (isDark ? Colors.white : Colors.black)
-                                  .withValues(alpha: 0.45),
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: extraCompact ? 4.0 : 6.0),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: _isResettingPassword || _isLoading
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _AuthModeToggle(
+                            isLogin: true,
+                            onLoginTap: _isLoading || _isLogin
                                 ? null
-                                : _forgotPassword,
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: const Size(0, 0),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: Text(
-                              _isResettingPassword
-                                  ? 'Sending reset link...'
-                                  : 'Forgot password?',
-                              style: TextStyle(
-                                color: const Color(0xFF0B4C8C),
-                                fontSize: extraCompact ? 13 : 14,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: betweenMainSections),
-                        SizedBox(
-                          width: double.infinity,
-                          height: extraCompact ? 46 : 50,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _submit,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0B4C8C),
-                              foregroundColor: Colors.white,
-                              elevation: 1,
-                              shadowColor: const Color(
-                                0xFF0B4C8C,
-                              ).withValues(alpha: 0.32),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.5,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : Text(
-                                    buttonLabel,
-                                    style: TextStyle(
-                                      fontSize: extraCompact ? 14 : 15,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                        SizedBox(height: legalGap),
-                        _buildLegalConsentSection(
-                          isDark: isDark,
-                          titleColor: titleColor,
-                          extraCompact: extraCompact,
-                          flatStyle: true,
-                        ),
-                        SizedBox(height: dividerGap + 2),
-                        Row(
-                          children: [
-                            Expanded(child: Divider(color: dividerColor)),
-                            Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: extraCompact ? 10 : 14,
-                              ),
-                              child: Text(
-                                'or login with',
-                                style: TextStyle(
-                                  fontSize: extraCompact ? 12 : 13,
-                                  color: subtitleColor,
-                                ),
-                              ),
-                            ),
-                            Expanded(child: Divider(color: dividerColor)),
-                          ],
-                        ),
-                        SizedBox(height: dividerGap),
-                        Column(
-                          children: [
-                            _SocialButton(
-                              icon: Icons.g_mobiledata,
-                              label: 'Continue with Google',
-                              iconColor: const Color(0xFFDB4437),
-                              compact: compact || extraCompact,
-                              onTap: _isLoading ? null : _signInWithGoogle,
-                              fullWidth: true,
-                            ),
-                            SizedBox(height: socialGap),
-                            // _SocialButton(
-                            //   icon: Icons.facebook,
-                            //   label: 'Continue with Facebook',
-                            //   iconColor: const Color(0xFF1877F2),
-                            //   compact: compact || extraCompact,
-                            //   onTap: _isLoading ? null : _signInWithFacebook,
-                            //   fullWidth: true,
-                            // ),
-                          ],
-                        ),
-                        SizedBox(height: extraCompact ? 14 : 18),
-                        Center(
-                          child: TextButton(
-                            onPressed: _isLoading
+                                : () => _switchMode(AuthMode.login),
+                            onSignUpTap: _isLoading || !_isLogin
                                 ? null
                                 : () => _switchMode(AuthMode.signUp),
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 6,
-                              ),
-                              minimumSize: const Size(0, 0),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              foregroundColor: titleColor,
+                          ),
+                          SizedBox(height: extraCompact ? 16 : 20),
+                          Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: titleFontSize,
+                              fontWeight: FontWeight.w800,
+                              color: titleColor,
                             ),
-                            child: RichText(
-                              textAlign: TextAlign.center,
-                              text: TextSpan(
-                                style: TextStyle(
-                                  fontSize: extraCompact ? 14 : 15,
-                                  color: subtitleColor,
-                                ),
-                                children: [
-                                  TextSpan(text: footerPrompt),
-                                  TextSpan(
-                                    text: 'Sign up',
-                                    style: TextStyle(
-                                      color: titleColor,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
+                          ),
+                          SizedBox(height: titleGap),
+                          Text(
+                            subtitle,
+                            style: TextStyle(
+                              fontSize: subtitleFontSize,
+                              color: subtitleColor,
+                              height: 1.35,
+                            ),
+                          ),
+                          SizedBox(height: introGap),
+                          _AuthTextField(
+                            controller: _emailController,
+                            hintText: 'Email',
+                            icon: Icons.mail_outline_rounded,
+                            keyboardType: TextInputType.emailAddress,
+                            compact: compact || extraCompact,
+                          ),
+                          SizedBox(height: inputGap),
+                          _AuthTextField(
+                            controller: _passwordController,
+                            hintText: 'Password',
+                            icon: Icons.lock_outline_rounded,
+                            obscureText: !_isPasswordVisible,
+                            compact: compact || extraCompact,
+                            suffixIcon: IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  _isPasswordVisible = !_isPasswordVisible;
+                                });
+                              },
+                              icon: Icon(
+                                _isPasswordVisible
+                                    ? Icons.visibility_off_rounded
+                                    : Icons.visibility_rounded,
+                                color: (isDark ? Colors.white : Colors.black)
+                                    .withValues(alpha: 0.45),
                               ),
                             ),
                           ),
-                        ),
-                        SizedBox(height: footerGap),
-                      ],
+                          SizedBox(height: extraCompact ? 4.0 : 6.0),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: _isResettingPassword || _isLoading
+                                  ? null
+                                  : _forgotPassword,
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size(0, 0),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: Text(
+                                _isResettingPassword
+                                    ? 'Sending reset link...'
+                                    : 'Forgot password?',
+                                style: TextStyle(
+                                  color: const Color(0xFF0B4C8C),
+                                  fontSize: extraCompact ? 13 : 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: betweenMainSections),
+                          SizedBox(
+                            width: double.infinity,
+                            height: extraCompact ? 46 : 50,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _submit,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0B4C8C),
+                                foregroundColor: Colors.white,
+                                elevation: 1,
+                                shadowColor: const Color(
+                                  0xFF0B4C8C,
+                                ).withValues(alpha: 0.32),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Text(
+                                      buttonLabel,
+                                      style: TextStyle(
+                                        fontSize: extraCompact ? 14 : 15,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          SizedBox(height: legalGap),
+                          _buildLegalConsentSection(
+                            isDark: isDark,
+                            titleColor: titleColor,
+                            extraCompact: extraCompact,
+                            flatStyle: true,
+                          ),
+                          SizedBox(height: dividerGap + 2),
+                          Row(
+                            children: [
+                              Expanded(child: Divider(color: dividerColor)),
+                              Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: extraCompact ? 10 : 14,
+                                ),
+                                child: Text(
+                                  'or login with',
+                                  style: TextStyle(
+                                    fontSize: extraCompact ? 12 : 13,
+                                    color: subtitleColor,
+                                  ),
+                                ),
+                              ),
+                              Expanded(child: Divider(color: dividerColor)),
+                            ],
+                          ),
+                          SizedBox(height: dividerGap),
+                          Column(
+                            children: [
+                              _SocialButton(
+                                icon: Icons.g_mobiledata,
+                                label: 'Continue with Google',
+                                iconColor: const Color(0xFFDB4437),
+                                compact: compact || extraCompact,
+                                onTap: _isLoading ? null : _signInWithGoogle,
+                                fullWidth: true,
+                              ),
+                              SizedBox(height: socialGap),
+                              // _SocialButton(
+                              //   icon: Icons.facebook,
+                              //   label: 'Continue with Facebook',
+                              //   iconColor: const Color(0xFF1877F2),
+                              //   compact: compact || extraCompact,
+                              //   onTap: _isLoading ? null : _signInWithFacebook,
+                              //   fullWidth: true,
+                              // ),
+                            ],
+                          ),
+                          SizedBox(height: extraCompact ? 14 : 18),
+                          Center(
+                            child: TextButton(
+                              onPressed: _isLoading
+                                  ? null
+                                  : () => _switchMode(AuthMode.signUp),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 6,
+                                ),
+                                minimumSize: const Size(0, 0),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                foregroundColor: titleColor,
+                              ),
+                              child: RichText(
+                                textAlign: TextAlign.center,
+                                text: TextSpan(
+                                  style: TextStyle(
+                                    fontSize: extraCompact ? 14 : 15,
+                                    color: subtitleColor,
+                                  ),
+                                  children: [
+                                    TextSpan(text: footerPrompt),
+                                    TextSpan(
+                                      text: 'Sign up',
+                                      style: TextStyle(
+                                        color: titleColor,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: footerGap),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -863,7 +898,9 @@ class _AuthPageState extends State<AuthPage> {
           Container(
             width: double.infinity,
             constraints: BoxConstraints(
-              minHeight: extraCompact ? 175 : (compact ? 200 : 220),
+              minHeight:
+                  (extraCompact ? 175 : (compact ? 200 : 220)) +
+                  MediaQuery.paddingOf(context).top,
             ),
             alignment: Alignment.center,
             decoration: BoxDecoration(
@@ -881,193 +918,199 @@ class _AuthPageState extends State<AuthPage> {
               left: horizontalPadding,
               right: horizontalPadding,
             ),
-            child: _AuthHeader(
-              compact: compact || extraCompact,
-              screenWidth: screenWidth,
+            child: _animateHeader(
+              _AuthHeader(
+                compact: compact || extraCompact,
+                screenWidth: screenWidth,
+              ),
             ),
           ),
-          Transform.translate(
-            offset: Offset(0, extraCompact ? -22 : -30),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: panelMaxWidth),
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    screenWidth <= 520 ? 0 : 18,
-                    0,
-                    screenWidth <= 520 ? 0 : 18,
-                    12 + bottomSafeArea,
-                  ),
-                  child: Container(
-                    width: double.infinity,
+          _animateForm(
+            Transform.translate(
+              offset: Offset(0, extraCompact ? -22 : -30),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: panelMaxWidth),
+                  child: Padding(
                     padding: EdgeInsets.fromLTRB(
-                      signupHorizontalPadding,
-                      extraCompact ? 16 : 20,
-                      signupHorizontalPadding,
-                      extraCompact ? 14 : 16,
+                      screenWidth <= 520 ? 0 : 18,
+                      0,
+                      screenWidth <= 520 ? 0 : 18,
+                      12 + bottomSafeArea,
                     ),
-                    decoration: BoxDecoration(
-                      color: panelBackground,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(28),
-                        topRight: Radius.circular(28),
+                    child: Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.fromLTRB(
+                        signupHorizontalPadding,
+                        extraCompact ? 16 : 20,
+                        signupHorizontalPadding,
+                        extraCompact ? 14 : 16,
                       ),
-                      border: Border.all(
-                        color: isDark ? const Color(0xFF334155) : Colors.white,
+                      decoration: BoxDecoration(
+                        color: panelBackground,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(28),
+                          topRight: Radius.circular(28),
+                        ),
+                        border: Border.all(
+                          color: isDark
+                              ? const Color(0xFF334155)
+                              : Colors.white,
+                        ),
+                        boxShadow: null,
                       ),
-                      boxShadow: null,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _AuthModeToggle(
-                          isLogin: false,
-                          onLoginTap: _isLoading || _isLogin
-                              ? null
-                              : () => _switchMode(AuthMode.login),
-                          onSignUpTap: _isLoading || !_isLogin
-                              ? null
-                              : () => _switchMode(AuthMode.signUp),
-                        ),
-                        SizedBox(height: extraCompact ? 14 : 18),
-                        Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: titleFontSize,
-                            fontWeight: FontWeight.w800,
-                            color: titleColor,
-                          ),
-                        ),
-                        SizedBox(height: extraCompact ? 4 : 6),
-                        Text(
-                          subtitle,
-                          style: TextStyle(
-                            fontSize: subtitleFontSize,
-                            color: subtitleColor,
-                            height: 1.35,
-                          ),
-                        ),
-                        SizedBox(height: extraCompact ? 14 : 18),
-                        _AuthTextField(
-                          controller: _emailController,
-                          hintText: 'Email',
-                          icon: Icons.mail_outline_rounded,
-                          keyboardType: TextInputType.emailAddress,
-                          compact: true,
-                        ),
-                        SizedBox(height: localFieldSpacing),
-                        _AuthTextField(
-                          controller: _usernameController,
-                          hintText: 'Username or full name',
-                          icon: Icons.person_outline_rounded,
-                          compact: true,
-                        ),
-                        SizedBox(height: localFieldSpacing),
-                        _AuthTextField(
-                          controller: _passwordController,
-                          hintText: 'Password',
-                          icon: Icons.lock_outline_rounded,
-                          obscureText: !_isPasswordVisible,
-                          compact: true,
-                          suffixIcon: IconButton(
-                            onPressed: () {
-                              setState(() {
-                                _isPasswordVisible = !_isPasswordVisible;
-                              });
-                            },
-                            icon: Icon(
-                              _isPasswordVisible
-                                  ? Icons.visibility_off_rounded
-                                  : Icons.visibility_rounded,
-                              color: (isDark ? Colors.white : Colors.black)
-                                  .withValues(alpha: 0.45),
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: localFieldSpacing),
-                        _buildLegalConsentSection(
-                          isDark: isDark,
-                          titleColor: titleColor,
-                          extraCompact: true,
-                          flatStyle: false,
-                        ),
-                        SizedBox(height: extraCompact ? 14 : 16),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 46,
-                          child: ElevatedButton(
-                            onPressed: _isLoading || !_hasAcceptedLegalConsent
-                                ? null
-                                : _submit,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0B4C8C),
-                              foregroundColor: Colors.white,
-                              elevation: 1,
-                              shadowColor: const Color(
-                                0xFF0B4C8C,
-                              ).withValues(alpha: 0.32),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.5,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : Text(
-                                    buttonLabel,
-                                    style: TextStyle(
-                                      fontSize: extraCompact ? 14 : 15,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                        SizedBox(height: extraCompact ? 12 : 14),
-                        Divider(color: dividerColor),
-                        SizedBox(height: extraCompact ? 10 : 12),
-                        Center(
-                          child: TextButton(
-                            onPressed: _isLoading
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _AuthModeToggle(
+                            isLogin: false,
+                            onLoginTap: _isLoading || _isLogin
                                 ? null
                                 : () => _switchMode(AuthMode.login),
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 6,
-                              ),
-                              minimumSize: const Size(0, 0),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              foregroundColor: titleColor,
+                            onSignUpTap: _isLoading || !_isLogin
+                                ? null
+                                : () => _switchMode(AuthMode.signUp),
+                          ),
+                          SizedBox(height: extraCompact ? 14 : 18),
+                          Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: titleFontSize,
+                              fontWeight: FontWeight.w800,
+                              color: titleColor,
                             ),
-                            child: RichText(
-                              textAlign: TextAlign.center,
-                              text: TextSpan(
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: subtitleColor,
-                                ),
-                                children: [
-                                  TextSpan(text: footerPrompt),
-                                  TextSpan(
-                                    text: 'Login',
-                                    style: TextStyle(
-                                      color: titleColor,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
+                          ),
+                          SizedBox(height: extraCompact ? 4 : 6),
+                          Text(
+                            subtitle,
+                            style: TextStyle(
+                              fontSize: subtitleFontSize,
+                              color: subtitleColor,
+                              height: 1.35,
+                            ),
+                          ),
+                          SizedBox(height: extraCompact ? 14 : 18),
+                          _AuthTextField(
+                            controller: _emailController,
+                            hintText: 'Email',
+                            icon: Icons.mail_outline_rounded,
+                            keyboardType: TextInputType.emailAddress,
+                            compact: true,
+                          ),
+                          SizedBox(height: localFieldSpacing),
+                          _AuthTextField(
+                            controller: _fullNameController,
+                            hintText: 'Full name',
+                            icon: Icons.person_outline_rounded,
+                            compact: true,
+                          ),
+                          SizedBox(height: localFieldSpacing),
+                          _AuthTextField(
+                            controller: _passwordController,
+                            hintText: 'Password',
+                            icon: Icons.lock_outline_rounded,
+                            obscureText: !_isPasswordVisible,
+                            compact: true,
+                            suffixIcon: IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  _isPasswordVisible = !_isPasswordVisible;
+                                });
+                              },
+                              icon: Icon(
+                                _isPasswordVisible
+                                    ? Icons.visibility_off_rounded
+                                    : Icons.visibility_rounded,
+                                color: (isDark ? Colors.white : Colors.black)
+                                    .withValues(alpha: 0.45),
                               ),
                             ),
                           ),
-                        ),
-                        SizedBox(height: extraCompact ? 8 : 12),
-                      ],
+                          SizedBox(height: localFieldSpacing),
+                          _buildLegalConsentSection(
+                            isDark: isDark,
+                            titleColor: titleColor,
+                            extraCompact: true,
+                            flatStyle: false,
+                          ),
+                          SizedBox(height: extraCompact ? 14 : 16),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 46,
+                            child: ElevatedButton(
+                              onPressed: _isLoading || !_hasAcceptedLegalConsent
+                                  ? null
+                                  : _submit,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0B4C8C),
+                                foregroundColor: Colors.white,
+                                elevation: 1,
+                                shadowColor: const Color(
+                                  0xFF0B4C8C,
+                                ).withValues(alpha: 0.32),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Text(
+                                      buttonLabel,
+                                      style: TextStyle(
+                                        fontSize: extraCompact ? 14 : 15,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          SizedBox(height: extraCompact ? 12 : 14),
+                          Divider(color: dividerColor),
+                          SizedBox(height: extraCompact ? 10 : 12),
+                          Center(
+                            child: TextButton(
+                              onPressed: _isLoading
+                                  ? null
+                                  : () => _switchMode(AuthMode.login),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 6,
+                                ),
+                                minimumSize: const Size(0, 0),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                foregroundColor: titleColor,
+                              ),
+                              child: RichText(
+                                textAlign: TextAlign.center,
+                                text: TextSpan(
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: subtitleColor,
+                                  ),
+                                  children: [
+                                    TextSpan(text: footerPrompt),
+                                    TextSpan(
+                                      text: 'Login',
+                                      style: TextStyle(
+                                        color: titleColor,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: extraCompact ? 8 : 12),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1097,120 +1140,133 @@ class _AuthPageState extends State<AuthPage> {
     final titleColor = isDark ? Colors.white : Colors.black;
     final subtitleColor = isDark ? Colors.white70 : const Color(0xFF8A8A8A);
     final dividerColor = isDark ? Colors.white24 : const Color(0xFFB7B7B7);
+    final topInset = MediaQuery.paddingOf(context).top;
 
     return Scaffold(
       backgroundColor: pageBackground,
       resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final screenHeight = constraints.maxHeight;
-            final screenWidth = constraints.maxWidth;
-            final compact = screenHeight < 760 || screenWidth < 380;
-            final extraCompact = screenHeight < 690 || screenWidth < 360;
-            final horizontalPadding = extraCompact
-                ? 20.0
-                : compact
-                ? 24.0
-                : 34.0;
-            final topPanelPadding = extraCompact
-                ? 16.0
-                : compact
-                ? 20.0
-                : 28.0;
-            final fieldSpacing = extraCompact
-                ? 12.0
-                : compact
-                ? 14.0
-                : 20.0;
-            final titleFontSize = extraCompact
-                ? 19.0
-                : compact
-                ? 21.0
-                : 24.0;
-            final subtitleFontSize = extraCompact
-                ? 13.0
-                : compact
-                ? 14.0
-                : 15.0;
-            final socialGap = extraCompact ? 8.0 : 12.0;
-            final headerTopSpace = extraCompact
-                ? 10.0
-                : compact
-                ? 12.0
-                : 20.0;
-            final headerBottomSpace = extraCompact
-                ? 10.0
-                : compact
-                ? 12.0
-                : 20.0;
-            final bottomSafeArea = MediaQuery.of(context).padding.bottom;
-            final useStackedSocialButtons = screenWidth < 370;
-            final panelMaxWidth = screenWidth > 520 ? 520.0 : screenWidth;
+        top: false,
+        child: AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle.light.copyWith(
+            statusBarColor: isDark
+                ? const Color(0xFF0B1F3A)
+                : const Color(0xFF0B4C8C),
+            statusBarIconBrightness: Brightness.light,
+            statusBarBrightness: Brightness.dark,
+            systemStatusBarContrastEnforced: false,
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // The keyboard changes the layout constraints, but not the
+              // device size. Keep the same form layout while a field has focus.
+              final screenHeight = MediaQuery.sizeOf(context).height - topInset;
+              final screenWidth = constraints.maxWidth;
+              // Medium-sized phones still need the stacked auth layout; a
+              // viewport around 390x844 can overflow without a vertical scroll.
+              final compact = screenHeight <= 820 || screenWidth <= 390;
+              final extraCompact = screenHeight <= 700 || screenWidth <= 360;
+              final horizontalPadding = extraCompact
+                  ? 20.0
+                  : compact
+                  ? 24.0
+                  : 34.0;
+              final topPanelPadding = extraCompact
+                  ? 16.0
+                  : compact
+                  ? 20.0
+                  : 28.0;
+              final fieldSpacing = extraCompact
+                  ? 12.0
+                  : compact
+                  ? 14.0
+                  : 20.0;
+              final titleFontSize = extraCompact
+                  ? 19.0
+                  : compact
+                  ? 21.0
+                  : 24.0;
+              final subtitleFontSize = extraCompact
+                  ? 13.0
+                  : compact
+                  ? 14.0
+                  : 15.0;
+              final socialGap = extraCompact ? 8.0 : 12.0;
+              final headerTopSpace = extraCompact
+                  ? 10.0
+                  : compact
+                  ? 12.0
+                  : 20.0;
+              final headerBottomSpace = extraCompact
+                  ? 10.0
+                  : compact
+                  ? 12.0
+                  : 20.0;
+              final bottomSafeArea = MediaQuery.of(context).padding.bottom;
+              final useStackedSocialButtons = screenWidth < 370;
+              final panelMaxWidth = screenWidth > 520 ? 520.0 : screenWidth;
 
-            final content = _isLogin
-                ? _buildLoginLayout(
-                    isDark: isDark,
-                    screenHeight: screenHeight,
-                    screenWidth: screenWidth,
-                    horizontalPadding: horizontalPadding,
-                    topPanelPadding: topPanelPadding,
-                    fieldSpacing: fieldSpacing,
-                    titleFontSize: titleFontSize,
-                    subtitleFontSize: subtitleFontSize,
-                    socialGap: socialGap,
-                    headerTopSpace: headerTopSpace,
-                    headerBottomSpace: headerBottomSpace,
-                    bottomSafeArea: bottomSafeArea,
-                    useStackedSocialButtons: useStackedSocialButtons,
-                    panelMaxWidth: panelMaxWidth,
-                    pageBackground: pageBackground,
-                    panelBackground: panelBackground,
-                    headerBackground: headerBackground,
-                    titleColor: titleColor,
-                    subtitleColor: subtitleColor,
-                    dividerColor: dividerColor,
-                    compact: compact,
-                    extraCompact: extraCompact,
-                    title: title,
-                    subtitle: subtitle,
-                    buttonLabel: buttonLabel,
-                    footerPrompt: footerPrompt,
-                  )
-                : _buildSignUpLayout(
-                    isDark: isDark,
-                    screenHeight: screenHeight,
-                    screenWidth: screenWidth,
-                    horizontalPadding: horizontalPadding,
-                    topPanelPadding: topPanelPadding,
-                    fieldSpacing: fieldSpacing,
-                    titleFontSize: titleFontSize,
-                    subtitleFontSize: subtitleFontSize,
-                    headerTopSpace: headerTopSpace,
-                    headerBottomSpace: headerBottomSpace,
-                    bottomSafeArea: bottomSafeArea,
-                    panelMaxWidth: panelMaxWidth,
-                    pageBackground: pageBackground,
-                    panelBackground: panelBackground,
-                    headerBackground: headerBackground,
-                    titleColor: titleColor,
-                    subtitleColor: subtitleColor,
-                    dividerColor: dividerColor,
-                    compact: compact,
-                    extraCompact: extraCompact,
-                    title: title,
-                    subtitle: subtitle,
-                    buttonLabel: buttonLabel,
-                    footerPrompt: footerPrompt,
-                  );
+              final content = _isLogin
+                  ? _buildLoginLayout(
+                      isDark: isDark,
+                      screenHeight: screenHeight,
+                      screenWidth: screenWidth,
+                      horizontalPadding: horizontalPadding,
+                      topPanelPadding: topPanelPadding,
+                      fieldSpacing: fieldSpacing,
+                      titleFontSize: titleFontSize,
+                      subtitleFontSize: subtitleFontSize,
+                      socialGap: socialGap,
+                      headerTopSpace: headerTopSpace + topInset,
+                      headerBottomSpace: headerBottomSpace,
+                      bottomSafeArea: bottomSafeArea,
+                      useStackedSocialButtons: useStackedSocialButtons,
+                      panelMaxWidth: panelMaxWidth,
+                      pageBackground: pageBackground,
+                      panelBackground: panelBackground,
+                      headerBackground: headerBackground,
+                      titleColor: titleColor,
+                      subtitleColor: subtitleColor,
+                      dividerColor: dividerColor,
+                      compact: compact,
+                      extraCompact: extraCompact,
+                      title: title,
+                      subtitle: subtitle,
+                      buttonLabel: buttonLabel,
+                      footerPrompt: footerPrompt,
+                    )
+                  : _buildSignUpLayout(
+                      isDark: isDark,
+                      screenHeight: screenHeight,
+                      screenWidth: screenWidth,
+                      horizontalPadding: horizontalPadding,
+                      topPanelPadding: topPanelPadding,
+                      fieldSpacing: fieldSpacing,
+                      titleFontSize: titleFontSize,
+                      subtitleFontSize: subtitleFontSize,
+                      headerTopSpace: headerTopSpace + topInset,
+                      headerBottomSpace: headerBottomSpace,
+                      bottomSafeArea: bottomSafeArea,
+                      panelMaxWidth: panelMaxWidth,
+                      pageBackground: pageBackground,
+                      panelBackground: panelBackground,
+                      headerBackground: headerBackground,
+                      titleColor: titleColor,
+                      subtitleColor: subtitleColor,
+                      dividerColor: dividerColor,
+                      compact: compact,
+                      extraCompact: extraCompact,
+                      title: title,
+                      subtitle: subtitle,
+                      buttonLabel: buttonLabel,
+                      footerPrompt: footerPrompt,
+                    );
 
-            if (!compact) return content;
-
-            // Preserve the device's actual width on compact phones. Scaling a
-            // wider source layout made form controls visibly narrower; scrolling
-            // vertically keeps every control accessible instead.
-            return SingleChildScrollView(child: content);
-          },
+              // Keep this scrollable in the tree on every screen size. Swapping
+              // it in when the keyboard opens disposes the focused TextField.
+              return SingleChildScrollView(child: content);
+            },
+          ),
         ),
       ),
     );
@@ -1233,7 +1289,7 @@ class _AuthHeader extends StatelessWidget {
 
     return Center(
       child: Image.asset(
-        'assets/Group 112.png',
+        'assets/optimized/Group 112.png',
         width: logoWidth,
         fit: BoxFit.contain,
       ),

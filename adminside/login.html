@@ -3,7 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>iTIWI — Admin Login | Municipality of Tiwi</title>
+  <title>Sign In | iTIWI Admin</title>
+  <meta name="description" content="Sign in to the iTIWI Admin portal for Tiwi, Albay." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Sign In | iTIWI Admin" />
+  <meta property="og:description" content="Access the iTIWI Admin portal for Tiwi, Albay." />
+  <meta property="og:url" content="https://admin.itiwi.com/login" />
+  <meta property="og:image" content="https://admin.itiwi.com/assets/tiwi_hall.png" />
+  <meta property="og:image:width" content="1919" />
+  <meta property="og:image:height" content="820" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://admin.itiwi.com/assets/tiwi_hall.png" />
   <link rel="icon" type="image/png" href="assets/itiwi_logo.png" />
   <link rel="shortcut icon" type="image/png" href="assets/itiwi_logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -26,7 +36,7 @@
       align-items: center;
       padding: 20px;
       background: #0f1a2e;
-      background-image: url('assets/municipal_hall.jpg');
+      background-image: url('assets/tiwi_hall.png');
       background-size: cover;
       background-position: center;
       background-attachment: fixed;
@@ -335,18 +345,6 @@
       user-select: none;
     }
 
-    .forgot-password {
-      font-size: 13px;
-      color: #64B5F6;
-      text-decoration: none;
-      font-weight: 600;
-      transition: color 0.3s ease;
-    }
-
-    .forgot-password:hover {
-      color: #90CAF9;
-    }
-
     /* Submit Button */
     .submit-btn {
       width: 100%;
@@ -607,9 +605,6 @@
             <input type="checkbox" id="rememberMe" />
             <label for="rememberMe">Remember me</label>
           </label>
-          <a href="#" class="forgot-password" id="forgotPasswordLink">
-            Forgot password?
-          </a>
         </div>
 
         <button type="submit" class="submit-btn" id="submitBtn">
@@ -663,7 +658,6 @@
     const rememberMe = document.getElementById('rememberMe');
     const errorMessage = document.getElementById('errorMessage');
     const successMessage = document.getElementById('successMessage');
-    const forgotPasswordLink = document.getElementById('forgotPasswordLink');
     const signupLink = document.getElementById('signupLink');
 
     // Initialize on page load
@@ -678,13 +672,26 @@
       if (!supabaseClient) return;
 
       try {
-        const { data, error } = await supabaseClient.auth.getSession();
-        if (data?.session) {
+        const { data } = await supabaseClient.auth.getUser();
+        if (data?.user && await hasAdminAccess(data.user)) {
           redirectToDashboard();
+        } else if (data?.user) {
+          await supabaseClient.auth.signOut();
         }
       } catch (error) {
         console.error('Session check error:', error);
       }
+    }
+
+    async function hasAdminAccess(user) {
+      if (user?.app_metadata?.is_super_admin === true) return true;
+      const { data, error } = await supabaseClient.from('admin_roles')
+        .select('assigned_email, auth_user_id');
+      if (error) return false;
+      const email = String(user?.email || '').toLowerCase();
+      return (data || []).some(role =>
+        role.auth_user_id === user.id || String(role.assigned_email || '').toLowerCase() === email
+      );
     }
 
     // Load remembered email
@@ -741,6 +748,13 @@
         }
 
         if (data?.user) {
+          if (!(await hasAdminAccess(data.user))) {
+            await supabaseClient.auth.signOut();
+            showError('This account does not have staff access. Please contact the Admin.');
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('loading');
+            return;
+          }
           // Save email if remember me is checked
           if (rememberMe.checked) {
             localStorage.setItem('rememberEmail', email);
@@ -755,48 +769,6 @@
         }
       } catch (error) {
         showError('An unexpected error occurred: ' + error.message);
-        submitBtn.disabled = false;
-        submitBtn.classList.remove('loading');
-      }
-    });
-
-    // Forgot password
-    forgotPasswordLink.addEventListener('click', async (e) => {
-      e.preventDefault();
-      const email = emailInput.value.trim();
-
-      if (!email) {
-        showError('Please enter your email address first.');
-        return;
-      }
-
-      if (!supabaseClient) {
-        showError('Supabase not initialized. Please refresh the page.');
-        return;
-      }
-
-      submitBtn.disabled = true;
-      submitBtn.classList.add('loading');
-      clearMessages();
-
-      try {
-        // Get the current page URL without the filename
-        const resetUrl = window.location.origin + window.location.pathname.replace('login.html', 'reset-password.html');
-
-        const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-          redirectTo: resetUrl,
-        });
-
-        if (error) {
-          console.error('Reset error:', error);
-          showError('Failed to send reset email: ' + (error.message || 'Please try again later or contact support.'));
-        } else {
-          showSuccess('Password reset link has been sent to your email. Check your inbox and spam folder.');
-        }
-      } catch (err) {
-        console.error('Unexpected error:', err);
-        showError('An unexpected error occurred. Please try again later.');
-      } finally {
         submitBtn.disabled = false;
         submitBtn.classList.remove('loading');
       }
@@ -828,17 +800,9 @@
     }
 
     function redirectToDashboard() {
-      window.location.href = './index.html';
+      window.location.href = '/dashboard';
     }
 
-    // Listen for auth state changes
-    if (supabaseClient) {
-      supabaseClient.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_IN') {
-          redirectToDashboard();
-        }
-      });
-    }
   </script>
 </body>
 </html>

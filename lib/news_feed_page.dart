@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'content_cache_service.dart';
+import 'news_link_text.dart';
+import 'news_category_filter.dart';
 import 'shared_widgets.dart';
+import 'premium_bottom_navigation.dart';
 
 class NewsFeedPage extends StatefulWidget {
   const NewsFeedPage({super.key});
@@ -11,12 +15,14 @@ class NewsFeedPage extends StatefulWidget {
 }
 
 class _NewsFeedPageState extends State<NewsFeedPage> {
+  bool _isDrawerOpen = false;
   final supabase = Supabase.instance.client;
   final _cacheService = const ContentCacheService();
 
   List<Map<String, dynamic>> news = [];
   bool isLoading = true;
   String searchQuery = '';
+  String? selectedCategory;
   List<Map<String, dynamic>> filteredNews = [];
   bool isShowingCachedData = false;
   DateTime? cacheUpdatedAt;
@@ -82,20 +88,28 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
   }
 
   void _applySearch(String query) {
-    final normalizedQuery = query.toLowerCase();
-
-    if (normalizedQuery.isEmpty) {
-      filteredNews = List<Map<String, dynamic>>.from(news);
-      return;
+    final normalizedQuery = query.trim().toLowerCase();
+    if (selectedCategory != null &&
+        !news.any((item) => _newsCategory(item) == selectedCategory)) {
+      selectedCategory = null;
     }
 
     filteredNews = news.where((item) {
       final title = item['title']?.toString().toLowerCase() ?? '';
       final description = item['description']?.toString().toLowerCase() ?? '';
+      final category = _newsCategory(item);
 
-      return title.contains(normalizedQuery) ||
-          description.contains(normalizedQuery);
+      return (selectedCategory == null || category == selectedCategory) &&
+          (normalizedQuery.isEmpty ||
+              title.contains(normalizedQuery) ||
+              description.contains(normalizedQuery) ||
+              category.toLowerCase().contains(normalizedQuery));
     }).toList();
+  }
+
+  String _newsCategory(Map<String, dynamic> item) {
+    final category = item['category']?.toString().trim() ?? '';
+    return category.isEmpty ? 'General' : category;
   }
 
   void searchNews(String query) {
@@ -105,11 +119,17 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
     });
   }
 
-  
+  void filterCategory(String? category) {
+    setState(() {
+      selectedCategory = category;
+      _applySearch(searchQuery);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      onDrawerChanged: (isOpen) => setState(() => _isDrawerOpen = isOpen),
       drawer: AdminSidebar(
         userName: 'Admin User',
         userEmail: 'admin@example.com',
@@ -161,12 +181,21 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
                               Icons.search,
                               color: Colors.grey[400],
                             ),
-                            contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 15,
+                            ),
                           ),
                         ),
                       ),
                     ),
 
+                    if (news.isNotEmpty)
+                      NewsCategoryFilter(
+                        items: news,
+                        selectedCategory: selectedCategory,
+                        resultCount: filteredNews.length,
+                        onChanged: filterCategory,
+                      ),
 
                     if (filteredNews.isEmpty)
                       Padding(
@@ -213,42 +242,58 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
                                     height: 180,
                                     child: ListView.builder(
                                       scrollDirection: Axis.horizontal,
-                                      itemCount: filteredNews.length.clamp(0, 5),
+                                      itemCount: filteredNews.length.clamp(
+                                        0,
+                                        5,
+                                      ),
                                       itemBuilder: (context, index) {
                                         final item = filteredNews[index];
 
                                         return Container(
                                           width: 140,
-                                          margin: const EdgeInsets.only(right: 12),
+                                          margin: const EdgeInsets.only(
+                                            right: 12,
+                                          ),
                                           decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
                                             color: Colors.grey[200],
                                             boxShadow: [
                                               BoxShadow(
-                                                color: Colors.black.withValues(alpha: 0.1),
+                                                color: Colors.black.withValues(
+                                                  alpha: 0.1,
+                                                ),
                                                 blurRadius: 6,
                                                 offset: const Offset(0, 2),
-                                              )
+                                              ),
                                             ],
                                           ),
                                           child: Stack(
                                             fit: StackFit.expand,
                                             children: [
                                               ClipRRect(
-                                                borderRadius: BorderRadius.circular(12),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
                                                 child: Image.network(
                                                   item['image_url'] ?? '',
                                                   fit: BoxFit.cover,
                                                   errorBuilder:
-                                                      (context, error, stackTrace) {
-                                                    return Container(
-                                                      color: Colors.grey[300],
-                                                      child: const Icon(
-                                                        Icons.image_not_supported,
-                                                        color: Colors.grey,
-                                                      ),
-                                                    );
-                                                  },
+                                                      (
+                                                        context,
+                                                        error,
+                                                        stackTrace,
+                                                      ) {
+                                                        return Container(
+                                                          color:
+                                                              Colors.grey[300],
+                                                          child: const Icon(
+                                                            Icons
+                                                                .image_not_supported,
+                                                            color: Colors.grey,
+                                                          ),
+                                                        );
+                                                      },
                                                 ),
                                               ),
                                               Container(
@@ -258,7 +303,9 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
                                                   gradient: LinearGradient(
                                                     colors: [
                                                       Colors.transparent,
-                                                      Colors.black.withValues(alpha: 0.7)
+                                                      Colors.black.withValues(
+                                                        alpha: 0.7,
+                                                      ),
                                                     ],
                                                     begin: Alignment.topCenter,
                                                     end: Alignment.bottomCenter,
@@ -266,8 +313,9 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
                                                 ),
                                               ),
                                               Padding(
-                                                padding:
-                                                    const EdgeInsets.all(12),
+                                                padding: const EdgeInsets.all(
+                                                  12,
+                                                ),
                                                 child: Column(
                                                   mainAxisAlignment:
                                                       MainAxisAlignment.end,
@@ -275,7 +323,8 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
                                                       CrossAxisAlignment.start,
                                                   children: [
                                                     Text(
-                                                      item['title'] ?? 'Article',
+                                                      item['title'] ??
+                                                          'Article',
                                                       maxLines: 2,
                                                       overflow:
                                                           TextOverflow.ellipsis,
@@ -317,10 +366,12 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
                                   borderRadius: BorderRadius.circular(12),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.08),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.08,
+                                      ),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
-                                    )
+                                    ),
                                   ],
                                 ),
                                 child: Column(
@@ -338,15 +389,15 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
                                         fit: BoxFit.cover,
                                         errorBuilder:
                                             (context, error, stackTrace) {
-                                          return Container(
-                                            height: 180,
-                                            color: Colors.grey[300],
-                                            child: const Icon(
-                                              Icons.image_not_supported,
-                                              color: Colors.grey,
-                                            ),
-                                          );
-                                        },
+                                              return Container(
+                                                height: 180,
+                                                color: Colors.grey[300],
+                                                child: const Icon(
+                                                  Icons.image_not_supported,
+                                                  color: Colors.grey,
+                                                ),
+                                              );
+                                            },
                                       ),
                                     ),
 
@@ -384,8 +435,9 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
                                           const SizedBox(height: 6),
 
                                           // DESCRIPTION
-                                          Text(
-                                            item['description'] ?? '',
+                                          NewsLinkText(
+                                            item['description']?.toString() ??
+                                                '',
                                             maxLines: 2,
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
@@ -410,27 +462,15 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
             ),
 
       /// BOTTOM NAV
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 1,
-        selectedItemColor: AppColors.primary,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: "Home",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.info),
-            label: "News",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: "Profile",
-          ),
-        ],
-        onTap: (index) {
-          Navigator.pop(context); // close drawer if open
-          Navigator.popUntil(context, (route) => route.isFirst);
-        },
+      bottomNavigationBar: NavigationVisibility(
+        visible: !_isDrawerOpen,
+        child: PremiumBottomNavigation(
+          currentIndex: 1,
+          onTap: (index) {
+            Navigator.pop(context); // close drawer if open
+            Navigator.popUntil(context, (route) => route.isFirst);
+          },
+        ),
       ),
     );
   }

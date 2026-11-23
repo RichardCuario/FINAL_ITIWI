@@ -1,0 +1,12 @@
+{
+  "headers": [
+    {
+      "source": "/app-release.json",
+      "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
+    },
+    {
+      "source": "/downloads/(.*)",
+      "headers": [{ "key": "Content-Type", "value": "application/vnd.android.package-archive" }]
+    }
+  ]
+}

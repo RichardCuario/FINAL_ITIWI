@@ -341,7 +341,7 @@ class BarangayDetailPage extends StatelessWidget {
       }
       return NetworkImage(imageUrl);
     }
-    return const AssetImage('assets/card.jpg');
+    return const AssetImage('assets/optimized/municipal_hall.jpg');
   }
 
   ImageProvider _getImageProviderFromDataUrl(String dataUrl) {
@@ -351,7 +351,7 @@ class BarangayDetailPage extends StatelessWidget {
       return MemoryImage(bytes);
     } catch (e) {
       if (kDebugMode) print('Error decoding base64 image: $e');
-      return const AssetImage('assets/card.jpg');
+      return const AssetImage('assets/optimized/municipal_hall.jpg');
     }
   }
 
@@ -400,11 +400,11 @@ class BarangayDetailPage extends StatelessWidget {
                     width: double.infinity,
                     height: 310,
                     errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: Colors.grey[300],
-                        child: const Center(
-                          child: Icon(Icons.image_not_supported, size: 48),
-                        ),
+                      return Image.asset(
+                        'assets/optimized/municipal_hall.jpg',
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: 310,
                       );
                     },
                   ),
@@ -432,10 +432,7 @@ class BarangayDetailPage extends StatelessWidget {
                         onPressed: () => Navigator.pop(context),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
-                        icon: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: Colors.white,
-                        ),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
                       ),
                     ),
                   ),
@@ -521,94 +518,108 @@ class BarangayDetailPage extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 30),
-                      _DetailSection(
-                        title: 'Barangay Officials',
-                        titleColor: isDark
-                            ? Colors.white
-                            : const Color(0xFF151515),
-                        child: officialsData.structuredRows.isNotEmpty
-                            ? _OfficialsTable(
-                                rows: officialsData.structuredRows,
-                              )
-                            : officialsData.fallbackLines.isEmpty
-                            ? Text(
-                                'No officials listed yet.',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: isDark
-                                      ? Colors.white70
-                                      : Colors.grey[700],
-                                ),
-                              )
-                            : Column(
-                                children: officialsData.fallbackLines
-                                    .asMap()
-                                    .entries
-                                    .map(
-                                      (entry) => Container(
-                                        margin: EdgeInsets.only(
-                                          bottom:
-                                              entry.key ==
-                                                  officialsData
-                                                          .fallbackLines
-                                                          .length -
-                                                      1
-                                              ? 0
-                                              : 10,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 14,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: isDark
-                                              ? const Color(0xFF1F2937)
-                                              : Colors.white,
-                                          borderRadius: BorderRadius.circular(
-                                            14,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'Barangay Officials',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 21,
+                              fontWeight: FontWeight.w800,
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF151515),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          officialsData.structuredRows.isNotEmpty
+                              ? _OfficialsGallery(
+                                  rows: officialsData.structuredRows,
+                                )
+                              : officialsData.fallbackLines.isEmpty
+                              ? Text(
+                                  'No officials listed yet.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.grey[700],
+                                  ),
+                                )
+                              : Column(
+                                  children: officialsData.fallbackLines
+                                      .asMap()
+                                      .entries
+                                      .map(
+                                        (entry) => Container(
+                                          margin: EdgeInsets.only(
+                                            bottom:
+                                                entry.key ==
+                                                    officialsData
+                                                            .fallbackLines
+                                                            .length -
+                                                        1
+                                                ? 0
+                                                : 10,
                                           ),
-                                          border: Border.all(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 14,
+                                          ),
+                                          decoration: BoxDecoration(
                                             color: isDark
-                                                ? Colors.white12
-                                                : Colors.grey.shade300,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              width: 34,
-                                              height: 34,
-                                              decoration: BoxDecoration(
-                                                color: isDark
-                                                    ? const Color(0xFF243145)
-                                                    : const Color(0xFFEAF4FF),
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: const Icon(
-                                                Icons.person_outline,
-                                                color: AppColors.primary,
-                                                size: 18,
-                                              ),
+                                                ? const Color(0xFF1F2937)
+                                                : Colors.white,
+                                            borderRadius: BorderRadius.circular(
+                                              14,
                                             ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Text(
-                                                entry.value,
-                                                style: TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w600,
+                                            border: Border.all(
+                                              color: isDark
+                                                  ? Colors.white12
+                                                  : Colors.grey.shade300,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                width: 34,
+                                                height: 34,
+                                                decoration: BoxDecoration(
                                                   color: isDark
-                                                      ? Colors.white
-                                                      : const Color(0xFF232323),
+                                                      ? const Color(0xFF243145)
+                                                      : const Color(0xFFEAF4FF),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const Icon(
+                                                  Icons.person_outline,
+                                                  color: AppColors.primary,
+                                                  size: 18,
                                                 ),
                                               ),
-                                            ),
-                                          ],
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Text(
+                                                  entry.value,
+                                                  style: TextStyle(
+                                                    fontSize: 15,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: isDark
+                                                        ? Colors.white
+                                                        : const Color(
+                                                            0xFF232323,
+                                                          ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                      ),
-                                    )
-                                    .toList(),
-                              ),
+                                      )
+                                      .toList(),
+                                ),
+                        ],
                       ),
                     ],
                   ),
@@ -647,7 +658,7 @@ class _BarangayHeroSection extends StatelessWidget {
           width: double.infinity,
           decoration: const BoxDecoration(
             image: DecorationImage(
-              image: AssetImage('assets/municipal_hall.jpg'),
+              image: AssetImage('assets/optimized/municipal_hall.jpg'),
               fit: BoxFit.cover,
             ),
           ),
@@ -678,10 +689,7 @@ class _BarangayHeroSection extends StatelessWidget {
                   onPressed: onBackPressed,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
-                  icon: const Icon(
-                    Icons.arrow_back_rounded,
-                    color: Colors.white,
-                  ),
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
                 ),
                 const SizedBox(height: 26),
                 Row(
@@ -726,7 +734,7 @@ class _BarangayHeroSection extends StatelessWidget {
                       ),
                       child: ClipOval(
                         child: Image.asset(
-                          'assets/logo.png',
+                          'assets/optimized/logo.png',
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) {
                             return Container(
@@ -970,37 +978,11 @@ class _BarangaySeal extends StatelessWidget {
   }
 
   Widget _buildFallbackLogo(double radius, String initials) {
-    return Container(
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [Color(0xFF123E9B), Color(0xFFF6C33B), Color(0xFF2E7D32)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Center(
-        child: Container(
-          width: radius * 1.35,
-          height: radius * 1.35,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white,
-          ),
-          child: Center(
-            child: Text(
-              initials.isEmpty ? 'BR' : initials,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: radius * 0.33,
-                fontWeight: FontWeight.w900,
-                color: AppColors.primary,
-                letterSpacing: 1,
-              ),
-            ),
-          ),
-        ),
-      ),
+    return Image.asset(
+      'assets/optimized/logo.png',
+      fit: BoxFit.cover,
+      cacheWidth: 400,
+      cacheHeight: 400,
     );
   }
 }
@@ -1323,90 +1305,134 @@ class _GeographicMapSectionState extends State<_GeographicMapSection> {
   }
 }
 
-class _OfficialsTable extends StatelessWidget {
+class _OfficialsGallery extends StatelessWidget {
   final List<_OfficialRow> rows;
 
-  const _OfficialsTable({required this.rows});
+  const _OfficialsGallery({required this.rows});
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final leadIndex = rows.indexWhere((row) {
+      final position = row.label.toLowerCase();
+      return position.contains('punong barangay') ||
+          position.contains('barangay captain');
+    });
+    final lead = rows[leadIndex < 0 ? 0 : leadIndex];
+    final others = rows.where((row) => !identical(row, lead)).toList();
+    int roleRank(_OfficialRow row) {
+      final position = row.label.toLowerCase();
+      if (position.contains('sk chairman') ||
+          position.contains('sk chairperson')) {
+        return 0;
+      }
+      if (position.contains('secretary')) {
+        return 1;
+      }
+      if (position.contains('treasurer')) {
+        return 2;
+      }
+      if (position.contains('kagawad')) {
+        return 3;
+      }
+      return 4;
+    }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1F2937) : Colors.white,
-        border: Border.all(
-          color: isDark ? Colors.white24 : const Color(0xFF8E8E8E),
-        ),
-      ),
-      child: Column(
-        children: [
-          for (var index = 0; index < rows.length; index++) ...[
-            _OfficialsTableRow(row: rows[index]),
-            if (index != rows.length - 1)
-              Divider(
-                height: 1,
-                thickness: 1,
-                color: isDark ? Colors.white12 : Colors.grey.shade200,
+    others.sort((a, b) => roleRank(a).compareTo(roleRank(b)));
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 18.0;
+        final columnWidth = (constraints.maxWidth - gap) / 2;
+        final portraitSize = columnWidth.clamp(76.0, 122.0).toDouble();
+        return Column(
+          children: [
+            Center(
+              child: _OfficialPortrait(row: lead, size: portraitSize),
+            ),
+            if (others.isNotEmpty) ...[
+              const SizedBox(height: 22),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: gap,
+                runSpacing: 28,
+                children: [
+                  for (final row in others)
+                    SizedBox(
+                      width: columnWidth,
+                      child: _OfficialPortrait(row: row, size: portraitSize),
+                    ),
+                ],
               ),
+            ],
           ],
-        ],
-      ),
+        );
+      },
     );
   }
 }
 
-class _OfficialsTableRow extends StatelessWidget {
+class _OfficialPortrait extends StatelessWidget {
   final _OfficialRow row;
+  final double size;
 
-  const _OfficialsTableRow({required this.row});
+  const _OfficialPortrait({required this.row, required this.size});
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final placeholderColor = isDark
+        ? const Color(0xFF374151)
+        : const Color(0xFFD9D9D9);
+    final imageUrl = row.imageUrl?.trim() ?? '';
+    final defaultProfile = ColoredBox(
+      color: placeholderColor,
+      child: Center(
+        child: Icon(
+          Icons.person_rounded,
+          size: size * 0.62,
+          color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF9AA0A6),
+        ),
+      ),
+    );
 
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            width: 150,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-            decoration: BoxDecoration(
-              border: Border(
-                right: BorderSide(
-                  color: isDark ? Colors.white24 : const Color(0xFF8E8E8E),
-                ),
-              ),
-            ),
-            alignment: Alignment.centerLeft,
-            child: row.label.isEmpty
-                ? const SizedBox.shrink()
-                : Text(
-                    row.label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? Colors.white : const Color(0xFF2B2B2B),
-                    ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ClipOval(
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: imageUrl.isEmpty
+                ? defaultProfile
+                : Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => defaultProfile,
                   ),
           ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-              child: Text(
-                row.value,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: isDark ? Colors.white70 : const Color(0xFF4B5563),
-                  height: 1.4,
-                ),
-              ),
-            ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          row.label.isEmpty ? 'BARANGAY OFFICIAL' : row.label.toUpperCase(),
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            height: 1.2,
+            color: isDark ? Colors.white : const Color(0xFF111827),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          row.value,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12,
+            height: 1.2,
+            color: isDark ? Colors.white70 : const Color(0xFF303030),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1436,6 +1462,14 @@ class _BarangayOfficialsData {
       );
     }
 
+    if (raw is List) {
+      final rows = _buildOfficialListRows(raw);
+      return _BarangayOfficialsData(
+        structuredRows: rows,
+        fallbackLines: const [],
+      );
+    }
+
     final text = raw.toString().trim();
     if (text.isEmpty) {
       return const _BarangayOfficialsData(
@@ -1443,6 +1477,16 @@ class _BarangayOfficialsData {
         fallbackLines: [],
       );
     }
+
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is List) {
+        return _BarangayOfficialsData(
+          structuredRows: _buildOfficialListRows(decoded),
+          fallbackLines: const [],
+        );
+      }
+    } catch (_) {}
 
     final decodedMap = _decodeOfficialsMap(text);
     if (decodedMap != null) {
@@ -1513,6 +1557,19 @@ class _BarangayOfficialsData {
     return hasStructuredValue ? map : null;
   }
 
+  static List<_OfficialRow> _buildOfficialListRows(List raw) {
+    final rows = <_OfficialRow>[];
+    for (final item in raw) {
+      if (item is! Map) continue;
+      final name = item['name']?.toString().trim() ?? '';
+      final position = item['position']?.toString().trim() ?? '';
+      final imageUrl = item['image_url']?.toString().trim();
+      if (name.isEmpty) continue;
+      rows.add(_OfficialRow(label: position, value: name, imageUrl: imageUrl));
+    }
+    return rows;
+  }
+
   static List<_OfficialRow> _buildStructuredRows(Map raw) {
     String readString(String key) {
       final value = raw[key];
@@ -1543,12 +1600,7 @@ class _BarangayOfficialsData {
 
     final kagawads = readList('kagawad');
     for (var index = 0; index < kagawads.length; index++) {
-      rows.add(
-        _OfficialRow(
-          label: index == 0 ? 'Barangay Kagawad' : '',
-          value: kagawads[index],
-        ),
-      );
+      rows.add(_OfficialRow(label: 'Barangay Kagawad', value: kagawads[index]));
     }
 
     addSingle('SK Chairman', readString('sk_chairman'));
@@ -1573,8 +1625,9 @@ class _BarangayOfficialsData {
 class _OfficialRow {
   final String label;
   final String value;
+  final String? imageUrl;
 
-  const _OfficialRow({required this.label, required this.value});
+  const _OfficialRow({required this.label, required this.value, this.imageUrl});
 }
 
 class _DetailSection extends StatelessWidget {

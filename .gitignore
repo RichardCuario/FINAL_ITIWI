@@ -1,6 +1,9 @@
 # Flutter
 build/
 .dart_tool/
+.dart-tool/
+.flutter_tool_state
+android/app/.gradle/
 .packages
 .pub/
 *.iml

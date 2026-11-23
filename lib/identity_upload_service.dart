@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'upload_image_service.dart';
 
 class IdentityUploadService {
   final _supabase = Supabase.instance.client;
@@ -9,6 +10,28 @@ class IdentityUploadService {
 
   firebase_auth.User? get _currentUser =>
       firebase_auth.FirebaseAuth.instance.currentUser;
+
+  Future<String> _uploadPhoto(File file, String uid, String label) async {
+    UploadImageService.validateInputSize(await file.length());
+    final image = await UploadImageService.prepare(
+      await file.readAsBytes(),
+      identityDocument: true,
+    );
+    final path =
+        '$uid/${label}_${DateTime.now().millisecondsSinceEpoch}.${image.extension}';
+    await _supabase.storage
+        .from(_bucketId)
+        .uploadBinary(
+          path,
+          image.bytes,
+          fileOptions: FileOptions(
+            cacheControl: '3600',
+            contentType: image.contentType,
+            upsert: false,
+          ),
+        );
+    return _supabase.storage.from(_bucketId).getPublicUrl(path);
+  }
 
   /// Upload ID front photo
   Future<String?> uploadIdFrontPhoto({
@@ -19,21 +42,7 @@ class IdentityUploadService {
       final uid = userId ?? _currentUser?.uid;
       if (uid == null) throw Exception('User not authenticated');
 
-      final fileName =
-          '$uid/id_front_${DateTime.now().millisecondsSinceEpoch}.jpg';
-
-      await _supabase.storage
-          .from(_bucketId)
-          .upload(fileName, imageFile, fileOptions: const FileOptions(
-            cacheControl: '3600',
-            upsert: false,
-          ));
-
-      // Get public URL
-      final publicUrl =
-          _supabase.storage.from(_bucketId).getPublicUrl(fileName);
-
-      return publicUrl;
+      return await _uploadPhoto(imageFile, uid, 'id_front');
     } catch (e) {
       debugPrint('Error uploading ID front photo: $e');
       rethrow;
@@ -49,21 +58,7 @@ class IdentityUploadService {
       final uid = userId ?? _currentUser?.uid;
       if (uid == null) throw Exception('User not authenticated');
 
-      final fileName =
-          '$uid/id_back_${DateTime.now().millisecondsSinceEpoch}.jpg';
-
-      await _supabase.storage
-          .from(_bucketId)
-          .upload(fileName, imageFile, fileOptions: const FileOptions(
-            cacheControl: '3600',
-            upsert: false,
-          ));
-
-      // Get public URL
-      final publicUrl =
-          _supabase.storage.from(_bucketId).getPublicUrl(fileName);
-
-      return publicUrl;
+      return await _uploadPhoto(imageFile, uid, 'id_back');
     } catch (e) {
       debugPrint('Error uploading ID back photo: $e');
       rethrow;
@@ -79,21 +74,7 @@ class IdentityUploadService {
       final uid = userId ?? _currentUser?.uid;
       if (uid == null) throw Exception('User not authenticated');
 
-      final fileName =
-          '$uid/selfie_${DateTime.now().millisecondsSinceEpoch}.jpg';
-
-      await _supabase.storage
-          .from(_bucketId)
-          .upload(fileName, imageFile, fileOptions: const FileOptions(
-            cacheControl: '3600',
-            upsert: false,
-          ));
-
-      // Get public URL
-      final publicUrl =
-          _supabase.storage.from(_bucketId).getPublicUrl(fileName);
-
-      return publicUrl;
+      return await _uploadPhoto(imageFile, uid, 'selfie');
     } catch (e) {
       debugPrint('Error uploading selfie photo: $e');
       rethrow;
@@ -101,10 +82,7 @@ class IdentityUploadService {
   }
 
   /// Delete uploaded file
-  Future<void> deleteFile({
-    required String fileUrl,
-    String? userId,
-  }) async {
+  Future<void> deleteFile({required String fileUrl, String? userId}) async {
     try {
       final uid = userId ?? _currentUser?.uid;
       if (uid == null) throw Exception('User not authenticated');

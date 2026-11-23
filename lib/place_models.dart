@@ -7,6 +7,7 @@ class Place {
     required this.shortLocation,
     required this.fullAddress,
     required this.imageUrl,
+    this.imageUrls = const [],
     required this.category,
     required this.phone,
     required this.websiteUrl,
@@ -25,6 +26,7 @@ class Place {
   final String shortLocation;
   final String fullAddress;
   final String imageUrl;
+  final List<String> imageUrls;
   final String category;
   final String phone;
   final String websiteUrl;
@@ -36,6 +38,15 @@ class Place {
   final int reviewCount;
 
   factory Place.fromMap(Map<String, dynamic> map) {
+    final urls = map['image_urls'] is List
+        ? (map['image_urls'] as List)
+            .map((item) => item?.toString().trim() ?? '')
+            .where((item) => item.isNotEmpty)
+            .take(5)
+            .toList()
+        : <String>[];
+    final primaryUrl = (map['image_url'] ?? map['imageUrl'] ?? '').toString();
+    if (urls.isEmpty && primaryUrl.isNotEmpty) urls.add(primaryUrl);
     return Place(
       id: (map['id'] ?? '').toString(),
       name: (map['name'] ?? map['title'] ?? 'Unknown place').toString(),
@@ -49,7 +60,8 @@ class Place {
               .toString(),
       shortLocation: (map['short_location'] ?? '').toString(),
       fullAddress: (map['full_address'] ?? '').toString(),
-      imageUrl: (map['image_url'] ?? map['imageUrl'] ?? '').toString(),
+      imageUrl: primaryUrl.isNotEmpty ? primaryUrl : (urls.isEmpty ? '' : urls.first),
+      imageUrls: urls,
       category: (map['category'] ?? '').toString(),
       phone: (map['phone'] ?? '').toString(),
       websiteUrl: (map['website_url'] ?? map['websiteUrl'] ?? '').toString(),
@@ -72,6 +84,7 @@ class Place {
     String? shortLocation,
     String? fullAddress,
     String? imageUrl,
+    List<String>? imageUrls,
     String? category,
     String? phone,
     String? websiteUrl,
@@ -90,6 +103,7 @@ class Place {
       shortLocation: shortLocation ?? this.shortLocation,
       fullAddress: fullAddress ?? this.fullAddress,
       imageUrl: imageUrl ?? this.imageUrl,
+      imageUrls: imageUrls ?? this.imageUrls,
       category: category ?? this.category,
       phone: phone ?? this.phone,
       websiteUrl: websiteUrl ?? this.websiteUrl,
@@ -111,6 +125,7 @@ class Place {
       'short_location': shortLocation,
       'full_address': fullAddress,
       'image_url': imageUrl,
+      'image_urls': imageUrls,
       'category': category,
       'phone': phone,
       'website_url': websiteUrl,

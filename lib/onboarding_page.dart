@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'auth_page.dart';
+import 'onboarding_progress.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({
@@ -22,14 +23,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   final List<_OnboardingItem> _items = const [
     _OnboardingItem(
-      imagePath: 'assets/onboarding1.png',
+      imagePath: 'assets/optimized/on1.JPG',
       title: 'Get Started Begin Your Journey with Ease!',
       description:
           'Get started now and begin your journey with ease, unlocking new opportunities and seamless experiences!',
       primaryLabel: 'Get started',
     ),
     _OnboardingItem(
-      imagePath: 'assets/onboarding2.png',
+      imagePath: 'assets/optimized/on2.JPG',
       title: 'Discover great places with just a few steps!',
       description:
           'Discover new places with just a few steps! Explore Tiwi like never before.',
@@ -37,7 +38,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       secondaryLabel: 'Skip',
     ),
     _OnboardingItem(
-      imagePath: 'assets/onboarding3.png',
+      imagePath: 'assets/optimized/onboarding3.jpg',
       title: 'Connect with Your Government Anytime, Anywhere',
       description:
           'Make inquiries, submit documents, and access essential services — all in one app. No lines, no hassle — just easy, secure service.',
@@ -66,7 +67,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   void _finishOnboarding() {
-    Navigator.of(context).pushReplacement(
+    OnboardingProgress.markSeen().catchError((Object error) {
+      debugPrint('Could not save onboarding progress: $error');
+    });
+    Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => AuthPage(
           isDarkMode: widget.isDarkMode,
@@ -100,23 +104,25 @@ class _OnboardingPageState extends State<OnboardingPage> {
     final mediaQuery = MediaQuery.of(context);
     final screenHeight = mediaQuery.size.height;
     final bottomInset = mediaQuery.padding.bottom;
-    final panelHeight = (screenHeight * 0.38).clamp(260.0, 360.0);
+    final isTallScreen = screenHeight >= 800;
+    final panelHeight = isTallScreen
+        ? (screenHeight * 0.34).clamp(285.0, 320.0)
+        : (screenHeight * 0.38).clamp(260.0, 360.0);
     final horizontalPadding = screenHeight < 700 ? 22.0 : 28.0;
     final titleFontSize = screenHeight < 700 ? 17.0 : 19.0;
     final descriptionFontSize = screenHeight < 700 ? 12.0 : 13.0;
     final verticalGap = screenHeight < 700 ? 14.0 : 18.0;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final scaffoldBackground =
-        isDark ? const Color(0xFF0F172A) : Colors.white;
-    final panelBackground =
-        isDark ? const Color(0xFF111827) : Colors.white;
+    final scaffoldBackground = isDark ? const Color(0xFF0F172A) : Colors.white;
+    final panelBackground = isDark ? const Color(0xFF111827) : Colors.white;
     final titleColor = isDark ? Colors.white : const Color(0xFF111111);
-    final descriptionColor =
-        isDark ? Colors.white70 : const Color(0xFF9E9E9E);
-    final secondaryButtonBackground =
-        isDark ? const Color(0xFF1F2937) : const Color(0xFFE8E8E8);
-    final secondaryButtonForeground =
-        isDark ? Colors.white : const Color(0xFF222222);
+    final descriptionColor = isDark ? Colors.white70 : const Color(0xFF9E9E9E);
+    final secondaryButtonBackground = isDark
+        ? const Color(0xFF1F2937)
+        : const Color(0xFFE8E8E8);
+    final secondaryButtonForeground = isDark
+        ? Colors.white
+        : const Color(0xFF222222);
 
     return Scaffold(
       backgroundColor: scaffoldBackground,
@@ -141,10 +147,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
             Align(
               alignment: Alignment.bottomCenter,
               child: Container(
-                constraints: BoxConstraints(
-                  minHeight: 260,
-                  maxHeight: panelHeight + bottomInset,
-                ),
+                // Keep the sheet stable while the PageView changes content.
+                // Without an explicit height, the shorter middle page shrinks
+                // compared with the first and last onboarding pages.
+                height: panelHeight + bottomInset,
                 width: double.infinity,
                 padding: EdgeInsets.fromLTRB(
                   horizontalPadding,
@@ -159,38 +165,36 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   ),
                 ),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisSize: isTallScreen
+                      ? MainAxisSize.max
+                      : MainAxisSize.min,
                   children: [
                     _buildIndicators(),
                     SizedBox(height: verticalGap),
-                    Flexible(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          children: [
-                            Text(
-                              item.title,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: titleFontSize,
-                                fontWeight: FontWeight.w700,
-                                color: titleColor,
-                                height: 1.35,
-                              ),
-                            ),
-                            SizedBox(height: verticalGap),
-                            Text(
-                              item.description,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: descriptionFontSize,
-                                color: descriptionColor,
-                                height: 1.5,
-                              ),
-                            ),
-                          ],
+                    if (isTallScreen)
+                      Expanded(
+                        child: Center(
+                          child: _buildPageCopy(
+                            item,
+                            titleFontSize: titleFontSize,
+                            descriptionFontSize: descriptionFontSize,
+                            verticalGap: verticalGap,
+                            titleColor: titleColor,
+                            descriptionColor: descriptionColor,
+                          ),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: _buildPageCopy(
+                          item,
+                          titleFontSize: titleFontSize,
+                          descriptionFontSize: descriptionFontSize,
+                          verticalGap: verticalGap,
+                          titleColor: titleColor,
+                          descriptionColor: descriptionColor,
                         ),
                       ),
-                    ),
                     const SizedBox(height: 16),
                     if (item.secondaryLabel == null)
                       SizedBox(
@@ -260,10 +264,47 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
+  Widget _buildPageCopy(
+    _OnboardingItem item, {
+    required double titleFontSize,
+    required double descriptionFontSize,
+    required double verticalGap,
+    required Color titleColor,
+    required Color descriptionColor,
+  }) {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          Text(
+            item.title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: titleFontSize,
+              fontWeight: FontWeight.w700,
+              color: titleColor,
+              height: 1.35,
+            ),
+          ),
+          SizedBox(height: verticalGap),
+          Text(
+            item.description,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: descriptionFontSize,
+              color: descriptionColor,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildImageSection(String imagePath) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fallbackColor =
-        isDark ? const Color(0xFF0F172A) : const Color(0xFFEAF3FB);
+    final fallbackColor = isDark
+        ? const Color(0xFF0F172A)
+        : const Color(0xFFEAF3FB);
 
     return Stack(
       fit: StackFit.expand,
